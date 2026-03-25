@@ -24,7 +24,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
     private static final int MUSIC_Y = 668;
     private static final int RETRY_W = 300;
     private static final int RETRY_H = 50;
-    private static final int RETRY_Y = 448;
+    private static final int RETRY_Y = 472;
 
     // Y positions
     private static final int PLAY_Y = 300;
@@ -271,6 +271,9 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         handler.spd = 6;
         game.shop.reset();
         GamePalette.reset();
+        Stats.newAttempt(difficulty);
+        Game.currentAttempt = Stats.getCurrentAttempt();
+        Game.attemptFade = 1f;
         Game.gameState = Game.STATE.Game;
         handler.addObject(new Player(Game.WIDTH / 2 - 32, Game.HEIGHT / 2 - 32, ID.Player, handler));
         handler.addObject(firstEnemy);
@@ -838,12 +841,13 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         FontMetrics fm = g.getFontMetrics();
         g.drawString(go, cx - fm.stringWidth(go) / 2, 72);
 
-        // Performance rating
+        // Performance rating + attempt
         String rating = getRating(game.lastScore, game.lastLevel);
         g.setFont(PageRenderer.SUBTITLE_FONT);
         g.setColor(PageRenderer.ACCENT);
         fm = g.getFontMetrics();
-        g.drawString(rating, cx - fm.stringWidth(rating) / 2, 105);
+        String ratingLine = rating + "  -  Attempt #" + Game.currentAttempt;
+        g.drawString(ratingLine, cx - fm.stringWidth(ratingLine) / 2, 105);
 
         // Score panel — centered
         int scoreW = 320;
@@ -855,10 +859,18 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         fm = g.getFontMetrics();
         g.drawString(sl, cx - fm.stringWidth(sl) / 2, 155);
         g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 52));
-        g.setColor(PageRenderer.TEXT);
+        g.setColor(game.lastIsHighScore ? new Color(255, 210, 80) : PageRenderer.TEXT);
         String scoreStr = String.valueOf(game.lastScore);
         fm = g.getFontMetrics();
         g.drawString(scoreStr, cx - fm.stringWidth(scoreStr) / 2, 218);
+
+        if (game.lastIsHighScore) {
+            g.setFont(PageRenderer.LABEL_FONT);
+            g.setColor(new Color(255, 210, 80));
+            String hs = "NEW HIGH SCORE";
+            fm = g.getFontMetrics();
+            g.drawString(hs, cx - fm.stringWidth(hs) / 2, 232);
+        }
 
         // Stats panels — two columns
         int gap = 14;
@@ -868,7 +880,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         int statsY = 252;
 
         // Left — Run Stats
-        PageRenderer.drawPanel(g, leftX, statsY, panelW, 170);
+        PageRenderer.drawPanel(g, leftX, statsY, panelW, 196);
         g.setFont(PageRenderer.HEADING_FONT);
         g.setColor(PageRenderer.ACCENT);
         g.drawString("Run Stats", leftX + 20, statsY + 32);
@@ -879,10 +891,12 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         drawStatRow(g, leftX + 20, sy, panelW - 40, "Difficulty", game.lastDifficulty); sy += 26;
         drawStatRow(g, leftX + 20, sy, panelW - 40, "Level reached", String.valueOf(game.lastLevel)); sy += 26;
         drawStatRow(g, leftX + 20, sy, panelW - 40, "Time survived", game.lastTime); sy += 26;
-        drawStatRow(g, leftX + 20, sy, panelW - 40, "Enemies on screen", String.valueOf(game.lastEnemies));
+        drawStatRow(g, leftX + 20, sy, panelW - 40, "Enemies on screen", String.valueOf(game.lastEnemies)); sy += 26;
+        int bestScore = Stats.getHighScore(game.diff);
+        drawStatRow(g, leftX + 20, sy, panelW - 40, "Best score", String.valueOf(bestScore));
 
         // Right — Upgrades
-        PageRenderer.drawPanel(g, rightX, statsY, panelW, 170);
+        PageRenderer.drawPanel(g, rightX, statsY, panelW, 196);
         g.setFont(PageRenderer.HEADING_FONT);
         g.setColor(PageRenderer.ACCENT);
         g.drawString("Upgrades", rightX + 20, statsY + 32);
@@ -896,7 +910,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         drawStatRow(g, rightX + 20, sy, panelW - 40, "Total purchases", String.valueOf(game.lastUpgrades));
 
         // Buttons
-        int btnY = 448;
+        int btnY = 472;
         PageRenderer.drawPrimaryButton(g, retryX(), btnY, RETRY_W, RETRY_H, "Try Again", retryH);
         PageRenderer.drawBackButton(g, backH);
     }

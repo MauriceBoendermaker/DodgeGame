@@ -31,8 +31,15 @@ public class Game extends Canvas implements Runnable {
 
     private int fps = 0;
 
+    // Attempt display
+    public static int currentAttempt = 0;
+    public static float attemptFade = 0;
+    private static final Font ATTEMPT_FONT = new Font("Arial", Font.BOLD, 20);
+    private static final Font ATTEMPT_NUM_FONT = new Font("Arial", Font.BOLD, 28);
+
     // End-of-run stats
     public int lastScore = 0;
+    public boolean lastIsHighScore = false;
     public int lastLevel = 0;
     public String lastTime = "";
     public int lastEnemies = 0;
@@ -297,6 +304,8 @@ public class Game extends Canvas implements Runnable {
         else flashAlpha = 0;
         if (levelUpFlash > 0.01f) levelUpFlash *= 0.93f;
         else levelUpFlash = 0;
+        if (attemptFade > 0.005f) attemptFade *= 0.985f;
+        else attemptFade = 0;
 
         // Boss intro cinematic
         if (bossIntroActive) {
@@ -399,6 +408,7 @@ public class Game extends Canvas implements Runnable {
                 lastSpeedUps = hud.getSpeedUpgrades();
                 lastRefills = hud.getRefills();
                 lastDifficulty = diff == 0 ? "Normal" : diff == 1 ? "Hard" : "Insane";
+                lastIsHighScore = Stats.submitScore(diff, lastScore);
 
                 lastEnemies = 0;
                 for (int i = 0; i < handler.getObjects().size(); i++) {
@@ -634,6 +644,24 @@ public class Game extends Canvas implements Runnable {
             }
 
             hud.render(g);
+
+            // Attempt counter fade-in at start of run
+            if (attemptFade > 0.05f) {
+                int aAlpha = (int) (attemptFade * 200);
+                float drift = (1f - attemptFade) * 15;
+                g.setFont(ATTEMPT_FONT);
+                g.setColor(new Color(140, 150, 165, Math.min(aAlpha, 255)));
+                String aLabel = "ATTEMPT";
+                java.awt.FontMetrics afm = g.getFontMetrics();
+                int ax = (WIDTH - afm.stringWidth(aLabel)) / 2;
+                g.drawString(aLabel, ax, HEIGHT / 2 + 60 + (int) drift);
+
+                g.setFont(ATTEMPT_NUM_FONT);
+                g.setColor(new Color(230, 234, 240, Math.min(aAlpha, 255)));
+                String aNum = "#" + currentAttempt;
+                afm = g.getFontMetrics();
+                g.drawString(aNum, (WIDTH - afm.stringWidth(aNum)) / 2, HEIGHT / 2 + 90 + (int) drift);
+            }
         } else if (gameState == STATE.Shop) {
             shop.render(g);
         } else if (gameState == STATE.MusicPlayer) {
@@ -943,6 +971,6 @@ public class Game extends Canvas implements Runnable {
 
     public static void main(String[] args) {
         new Game();
-        System.out.println("Game Running...");
+        System.out.println("Game running...");
     }
 }
