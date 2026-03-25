@@ -37,6 +37,7 @@ public class Spawn {
                     if (boss.isDefeated()) {
                         handler.removeObject(boss);
                         bossActive = false;
+                        hud.triggerWaveAnnounce();
                         spawnTelegraph(new BasicEnemy(rx(), ry(), ID.BasicEnemy, handler), C_BASIC);
                         spawnTelegraph(new FastEnemy(rx(), ry(), ID.FastEnemy, handler), C_FAST);
                     } else {
