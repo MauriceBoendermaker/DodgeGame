@@ -57,10 +57,7 @@ public class MusicPlayer extends MouseAdapter {
     private static final Color PLAY_BG_ACTIVE_HOVER = new Color(110, 225, 218);
 
     public void tick() {
-        if (!AudioPlayer.isStopped() && !AudioPlayer.isPaused() && !AudioPlayer.isPlaying()) {
-            AudioPlayer.nextTrack();
-            AudioPlayer.play();
-        }
+        // Music auto-advance is handled globally in Game.tick()
 
         if (Game.gameState != Game.STATE.MusicPlayer) return;
 
