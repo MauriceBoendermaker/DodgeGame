@@ -1,3 +1,4 @@
+import java.awt.Color;
 import java.util.Random;
 
 public class Spawn {
@@ -9,6 +10,12 @@ public class Spawn {
 
     private int scoreKeep = 0;
     private boolean bossActive = false;
+
+    // Enemy colors for telegraphs
+    private static final Color C_BASIC = new Color(235, 87, 87);
+    private static final Color C_FAST = new Color(78, 205, 196);
+    private static final Color C_SMART = new Color(199, 125, 255);
+    private static final Color C_HARD = new Color(245, 195, 68);
 
     public Spawn(Handler handler, HUD hud, Game game) {
         this.handler = handler;
@@ -27,15 +34,14 @@ public class Spawn {
                     if (boss.isDefeated()) {
                         handler.removeObject(boss);
                         bossActive = false;
-                        // Resume with fresh enemies after boss
-                        handler.addObject(new BasicEnemy(r.nextInt(Game.WIDTH - 50), r.nextInt(Game.HEIGHT - 50), ID.BasicEnemy, handler));
-                        handler.addObject(new FastEnemy(r.nextInt(Game.WIDTH - 50), r.nextInt(Game.HEIGHT - 50), ID.FastEnemy, handler));
+                        spawnTelegraph(new BasicEnemy(rx(), ry(), ID.BasicEnemy, handler), C_BASIC);
+                        spawnTelegraph(new FastEnemy(rx(), ry(), ID.FastEnemy, handler), C_FAST);
                     } else {
                         bossStillAlive = true;
                     }
                 }
             }
-            if (bossStillAlive) return; // Pause level progression during boss fight
+            if (bossStillAlive) return;
         }
 
         scoreKeep++;
@@ -58,22 +64,26 @@ public class Spawn {
         }
     }
 
+    private int rx() { return r.nextInt(Game.WIDTH - 80) + 20; }
+    private int ry() { return r.nextInt(Game.HEIGHT - 80) + 20; }
+
+    private void spawnTelegraph(GameObject enemy, Color color) {
+        handler.addObject(new SpawnTelegraph(enemy.getX(), enemy.getY(), handler, enemy, color, 32));
+    }
+
     private void spawnNormalDifficulty() {
         int level = hud.getLevel();
         switch (level) {
             case 2:
             case 3:
-                handler.addObject(new BasicEnemy(r.nextInt(Game.WIDTH - 50), r.nextInt(Game.HEIGHT - 50), ID.BasicEnemy, handler));
-                break;
+                spawnTelegraph(new BasicEnemy(rx(), ry(), ID.BasicEnemy, handler), C_BASIC); break;
             case 4:
             case 6:
             case 8:
-                handler.addObject(new FastEnemy(r.nextInt(Game.WIDTH - 50), r.nextInt(Game.HEIGHT - 50), ID.FastEnemy, handler));
-                break;
+                spawnTelegraph(new FastEnemy(rx(), ry(), ID.FastEnemy, handler), C_FAST); break;
             case 5:
             case 25:
-                handler.addObject(new SmartEnemy(r.nextInt(Game.WIDTH - 50), r.nextInt(Game.HEIGHT - 50), ID.SmartEnemy, handler));
-                break;
+                spawnTelegraph(new SmartEnemy(rx(), ry(), ID.SmartEnemy, handler), C_SMART); break;
             case 10:
                 handler.clearEnemys();
                 handler.addObject(new EnemyBoss((Game.WIDTH / 2) - 48, -120, ID.EnemyBoss, handler));
@@ -81,16 +91,13 @@ public class Spawn {
                 break;
             case 15:
                 handler.clearEnemys();
-                handler.addObject(new FastEnemy(r.nextInt(Game.WIDTH - 50), r.nextInt(Game.HEIGHT - 50), ID.FastEnemy, handler));
-                break;
+                spawnTelegraph(new FastEnemy(rx(), ry(), ID.FastEnemy, handler), C_FAST); break;
             case 17:
-                handler.addObject(new FastEnemy(r.nextInt(Game.WIDTH - 50), r.nextInt(Game.HEIGHT - 50), ID.FastEnemy, handler));
-                break;
+                spawnTelegraph(new FastEnemy(rx(), ry(), ID.FastEnemy, handler), C_FAST); break;
             case 18:
             case 20:
             case 22:
-                handler.addObject(new BasicEnemy(r.nextInt(Game.WIDTH - 50), r.nextInt(Game.HEIGHT - 50), ID.BasicEnemy, handler));
-                break;
+                spawnTelegraph(new BasicEnemy(rx(), ry(), ID.BasicEnemy, handler), C_BASIC); break;
         }
     }
 
@@ -99,15 +106,12 @@ public class Spawn {
         switch (level) {
             case 2:
             case 6:
-                handler.addObject(new HardEnemy(r.nextInt(Game.WIDTH - 50), r.nextInt(Game.HEIGHT - 50), ID.HardEnemy, handler));
-                break;
+                spawnTelegraph(new HardEnemy(rx(), ry(), ID.HardEnemy, handler), C_HARD); break;
             case 3:
-                handler.addObject(new SmartEnemy(r.nextInt(Game.WIDTH - 50), r.nextInt(Game.HEIGHT - 50), ID.SmartEnemy, handler));
-                break;
+                spawnTelegraph(new SmartEnemy(rx(), ry(), ID.SmartEnemy, handler), C_SMART); break;
             case 4:
             case 5:
-                handler.addObject(new BasicEnemy(r.nextInt(Game.WIDTH - 50), r.nextInt(Game.HEIGHT - 50), ID.BasicEnemy, handler));
-                break;
+                spawnTelegraph(new BasicEnemy(rx(), ry(), ID.BasicEnemy, handler), C_BASIC); break;
             case 15:
                 handler.clearEnemys();
                 handler.addObject(new EnemyBoss((Game.WIDTH / 2) - 48, -120, ID.EnemyBoss, handler));
@@ -122,20 +126,16 @@ public class Spawn {
             case 2:
             case 3:
             case 10:
-                handler.addObject(new FastEnemy(r.nextInt(Game.WIDTH - 50), r.nextInt(Game.HEIGHT - 50), ID.FastEnemy, handler));
-                break;
+                spawnTelegraph(new FastEnemy(rx(), ry(), ID.FastEnemy, handler), C_FAST); break;
             case 4:
-                handler.addObject(new SmartEnemy(r.nextInt(Game.WIDTH - 50), r.nextInt(Game.HEIGHT - 50), ID.SmartEnemy, handler));
-                break;
+                spawnTelegraph(new SmartEnemy(rx(), ry(), ID.SmartEnemy, handler), C_SMART); break;
             case 5:
             case 7:
             case 20:
-                handler.addObject(new HardEnemy(r.nextInt(Game.WIDTH - 50), r.nextInt(Game.HEIGHT - 50), ID.HardEnemy, handler));
-                break;
+                spawnTelegraph(new HardEnemy(rx(), ry(), ID.HardEnemy, handler), C_HARD); break;
             case 8:
             case 12:
-                handler.addObject(new BasicEnemy(r.nextInt(Game.WIDTH - 50), r.nextInt(Game.HEIGHT - 50), ID.BasicEnemy, handler));
-                break;
+                spawnTelegraph(new BasicEnemy(rx(), ry(), ID.BasicEnemy, handler), C_BASIC); break;
             case 15:
                 handler.clearEnemys();
                 handler.addObject(new EnemyBoss((Game.WIDTH / 2) - 48, -120, ID.EnemyBoss, handler));
@@ -148,14 +148,11 @@ public class Spawn {
         int level = hud.getLevel();
         switch (level) {
             case 2:
-                handler.addObject(new FastEnemy(r.nextInt(Game.WIDTH - 50), r.nextInt(Game.HEIGHT - 50), ID.FastEnemy, handler));
-                break;
+                spawnTelegraph(new FastEnemy(rx(), ry(), ID.FastEnemy, handler), C_FAST); break;
             case 3:
-                handler.addObject(new HardEnemy(r.nextInt(Game.WIDTH - 50), r.nextInt(Game.HEIGHT - 50), ID.HardEnemy, handler));
-                break;
+                spawnTelegraph(new HardEnemy(rx(), ry(), ID.HardEnemy, handler), C_HARD); break;
             case 4:
-                handler.addObject(new SmartEnemy(r.nextInt(Game.WIDTH - 50), r.nextInt(Game.HEIGHT - 50), ID.SmartEnemy, handler));
-                break;
+                spawnTelegraph(new SmartEnemy(rx(), ry(), ID.SmartEnemy, handler), C_SMART); break;
         }
     }
 }
