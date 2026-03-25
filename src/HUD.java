@@ -23,6 +23,10 @@ public class HUD {
 
     public static final int MAX_TIER = 10;
 
+    // Health bar crack/shatter
+    private int frameTick = 0;
+    private static final java.util.Random crackRng = new java.util.Random(42); // fixed seed for consistent cracks
+
     private static final Font FONT_SCORE = new Font("Arial", Font.BOLD, 32);
     private static final Font FONT_LABEL = new Font("Arial", Font.BOLD, 13);
     private static final Font FONT_STAT = new Font("Arial", Font.PLAIN, 16);
@@ -72,6 +76,7 @@ public class HUD {
         points += mult;
         ticksSurvived++;
 
+        frameTick++;
         if (levelUpBanner > 0.01f) levelUpBanner *= 0.96f;
         else levelUpBanner = 0;
         if (announceTimer > 0) announceTimer--;
@@ -124,24 +129,79 @@ public class HUD {
         int barX = 24;
         int barY = 20;
 
-        g2.setColor(BAR_BG);
-        g2.fillRoundRect(barX, barY, barW, barH, 7, 7);
-
-        Color healthColor = getHealthColor(healthPct);
-        int fillW = (int) (barW * healthPct);
-        if (fillW > 0) {
-            g2.setColor(healthColor);
-            g2.fillRoundRect(barX, barY, fillW, barH, 7, 7);
+        // Border tremble below 25%
+        int bx = barX, by = barY;
+        if (healthPct < 0.25f && healthPct > 0) {
+            float trembleIntensity = (0.25f - healthPct) / 0.25f;
+            bx += (int) ((Math.sin(frameTick * 1.2) * 1.5) * trembleIntensity);
+            by += (int) ((Math.cos(frameTick * 1.7) * 0.8) * trembleIntensity);
         }
 
-        g2.setColor(BAR_BORDER);
-        g2.drawRoundRect(barX, barY, barW, barH, 7, 7);
+        // Background
+        g2.setColor(BAR_BG);
+        g2.fillRoundRect(bx, by, barW, barH, 7, 7);
 
+        // Fill
+        Color healthColor = getHealthColor(healthPct);
+        int fillW = (int) (barW * healthPct);
+
+        if (fillW > 0 && healthPct >= 0.25f) {
+            // Normal or cracked fill
+            g2.setColor(healthColor);
+            g2.fillRoundRect(bx, by, fillW, barH, 7, 7);
+        } else if (fillW > 0) {
+            // Fragmented fill below 25% — draw in segments with gaps
+            float flickerIntensity = (0.25f - healthPct) / 0.25f;
+            int segCount = 5 + (int) (flickerIntensity * 4);
+            int segW = Math.max(fillW / segCount, 2);
+            for (int i = 0; i < segCount; i++) {
+                int sx = bx + i * (fillW / segCount);
+                int sw = segW - 1; // 1px gap between segments
+                if (sx + sw > bx + fillW) sw = bx + fillW - sx;
+                if (sw <= 0) continue;
+
+                // Flicker — some segments randomly dim
+                boolean flicker = flickerIntensity > 0.5f && ((frameTick + i * 7) % 5 == 0);
+                Color segColor = flicker
+                        ? new Color(healthColor.getRed() / 2, healthColor.getGreen() / 2, healthColor.getBlue() / 2)
+                        : healthColor;
+
+                // Vertical offset jitter on fragments
+                int jitter = (int) (Math.sin(frameTick * 0.8 + i * 2.3) * 1.5 * flickerIntensity);
+                g2.setColor(segColor);
+                g2.fillRect(sx, by + jitter, sw, barH);
+            }
+        }
+
+        // Crack lines below 50%
+        if (healthPct < 0.5f && healthPct > 0 && fillW > 4) {
+            float crackIntensity = (0.5f - healthPct) / 0.5f; // 0 at 50%, 1 at 0%
+            int crackCount = 2 + (int) (crackIntensity * 5);
+            crackRng.setSeed(42); // reset seed for consistent positions each frame
+            g2.setColor(new Color(0, 0, 0, 60 + (int) (crackIntensity * 120)));
+            for (int i = 0; i < crackCount; i++) {
+                int cx = bx + 4 + crackRng.nextInt(Math.max(fillW - 8, 1));
+                int cy1 = by + crackRng.nextInt(4);
+                int cy2 = by + barH - crackRng.nextInt(4);
+                int midX = cx + crackRng.nextInt(5) - 2;
+                int midY = by + barH / 2 + crackRng.nextInt(4) - 2;
+                g2.drawLine(cx, cy1, midX, midY);
+                g2.drawLine(midX, midY, cx + crackRng.nextInt(3) - 1, cy2);
+            }
+        }
+
+        // Border
+        g2.setColor(healthPct < 0.25f
+                ? lerpColor(BAR_BORDER, HEALTH_LOW, (0.25f - healthPct) / 0.25f * 0.5f)
+                : BAR_BORDER);
+        g2.drawRoundRect(bx, by, barW, barH, 7, 7);
+
+        // HP text
         g2.setFont(FONT_LABEL);
         g2.setColor(new Color(255, 255, 255, 180));
         String hpText = (int) HEALTH + " / " + (int) maxHealth;
         FontMetrics fm = g2.getFontMetrics();
-        g2.drawString(hpText, barX + (barW - fm.stringWidth(hpText)) / 2, barY + 11);
+        g2.drawString(hpText, bx + (barW - fm.stringWidth(hpText)) / 2, by + 11);
 
         // Stats below health bar
         g2.setFont(FONT_STAT);
