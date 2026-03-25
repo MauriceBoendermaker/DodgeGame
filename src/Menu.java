@@ -13,37 +13,29 @@ public class Menu extends MouseAdapter {
     private Handler handler;
     private HUD hud;
 
-    // Centered button layout
-    private static final int CX = PageRenderer.BTN_X;
+    // Fixed dimensions
     private static final int BW = PageRenderer.BTN_W;
     private static final int BH = PageRenderer.BTN_H;
     private static final int SP = PageRenderer.BTN_SPACING;
+    private static final int LANG_W = 330;
+    private static final int MUSIC_W = 170;
+    private static final int MUSIC_H = 34;
+    private static final int MUSIC_Y = 668;
+    private static final int RETRY_W = 300;
+    private static final int RETRY_H = 50;
+    private static final int RETRY_Y = 440;
 
-    // Main menu buttons (y positions)
+    // Y positions (fixed)
     private static final int PLAY_Y = 300;
     private static final int INFO_Y = PLAY_Y + SP;
     private static final int HELP_Y = INFO_Y + SP;
 
-    // Wide buttons for help languages
-    private static final int LANG_W = 330;
-    private static final int LANG_X = (Game.WIDTH - LANG_W) / 2;
-
-    // Bottom bar
-    private static final int MUSIC_X = 1060;
-    private static final int MUSIC_Y = 668;
-    private static final int MUSIC_W = 170;
-    private static final int MUSIC_H = 34;
-
-    private static final int QUIT_X = 1155;
-    private static final int QUIT_Y = 24;
-    private static final int QUIT_W = 90;
-    private static final int QUIT_H = 34;
-
-    // End screen
-    private static final int RETRY_X = (Game.WIDTH - 300) / 2;
-    private static final int RETRY_Y = 440;
-    private static final int RETRY_W = 300;
-    private static final int RETRY_H = 50;
+    // Dynamic X positions — depend on Game.WIDTH
+    private static int btnX() { return PageRenderer.btnX(); }
+    private static int langX() { return (Game.WIDTH - LANG_W) / 2; }
+    private static int musicX() { return Game.WIDTH - 220; }
+    private static int quitX() { return PageRenderer.backX(); }
+    private static int retryX() { return (Game.WIDTH - RETRY_W) / 2; }
 
     public Menu(Game game, Handler handler, HUD hud) {
         this.game = game;
@@ -58,29 +50,36 @@ public class Menu extends MouseAdapter {
         int my = Game.toGameY(e.getY());
 
         if (Game.gameState == Game.STATE.Menu) {
-            if (hit(mx, my, CX, PLAY_Y, BW, BH)) { Game.gameState = Game.STATE.Select; return; }
-            if (hit(mx, my, CX, INFO_Y, BW, BH)) { Game.gameState = Game.STATE.Info; return; }
-            if (hit(mx, my, CX, HELP_Y, BW, BH)) { Game.gameState = Game.STATE.Help; return; }
-            if (hit(mx, my, MUSIC_X, MUSIC_Y, MUSIC_W, MUSIC_H)) { Game.gameState = Game.STATE.MusicPlayer; return; }
-            // About | Changelog centered links
-            if (hit(mx, my, 555, 662, 55, 24)) { Game.gameState = Game.STATE.About; return; }
-            if (hit(mx, my, 640, 662, 85, 24)) { Game.gameState = Game.STATE.Update_Notes; return; }
-            if (hit(mx, my, QUIT_X, QUIT_Y, QUIT_W, QUIT_H)) { System.exit(0); }
+            int bx = btnX();
+            if (hit(mx, my, bx, PLAY_Y, BW, BH)) { Game.gameState = Game.STATE.Select; return; }
+            if (hit(mx, my, bx, INFO_Y, BW, BH)) { Game.gameState = Game.STATE.Info; return; }
+            if (hit(mx, my, bx, HELP_Y, BW, BH)) { Game.gameState = Game.STATE.Help; return; }
+            if (hit(mx, my, musicX(), MUSIC_Y, MUSIC_W, MUSIC_H)) { Game.gameState = Game.STATE.MusicPlayer; return; }
+            // About | Changelog centered links — wide hit area across both
+            int linkCenterX = Game.WIDTH / 2;
+            if (hit(mx, my, linkCenterX - 85, 662, 170, 24)) {
+                if (mx < linkCenterX) Game.gameState = Game.STATE.About;
+                else Game.gameState = Game.STATE.Update_Notes;
+                return;
+            }
+            if (hit(mx, my, quitX(), PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H)) { System.exit(0); }
             return;
         }
 
         if (Game.gameState == Game.STATE.Select) {
-            if (hit(mx, my, CX, PLAY_Y, BW, BH)) { startGame(0, new BasicEnemy(Game.WIDTH - 50, Game.HEIGHT - 50, ID.BasicEnemy, handler)); return; }
-            if (hit(mx, my, CX, INFO_Y, BW, BH)) { startGame(1, new HardEnemy(Game.WIDTH - 100, Game.HEIGHT - 100, ID.BasicEnemy, handler)); return; }
-            if (hit(mx, my, CX, HELP_Y, BW, BH)) { startGame(2, new HardEnemy(Game.WIDTH - 50, Game.HEIGHT - 50, ID.BasicEnemy, handler)); return; }
+            int bx = btnX();
+            if (hit(mx, my, bx, PLAY_Y, BW, BH)) { startGame(0, new BasicEnemy(Game.WIDTH - 50, Game.HEIGHT - 50, ID.BasicEnemy, handler)); return; }
+            if (hit(mx, my, bx, INFO_Y, BW, BH)) { startGame(1, new HardEnemy(Game.WIDTH - 100, Game.HEIGHT - 100, ID.BasicEnemy, handler)); return; }
+            if (hit(mx, my, bx, HELP_Y, BW, BH)) { startGame(2, new HardEnemy(Game.WIDTH - 50, Game.HEIGHT - 50, ID.BasicEnemy, handler)); return; }
             if (hitBack(mx, my)) { Game.gameState = Game.STATE.Menu; return; }
             return;
         }
 
         if (Game.gameState == Game.STATE.Help) {
-            if (hit(mx, my, LANG_X, PLAY_Y, LANG_W, BH)) { Game.gameState = Game.STATE.HelpENG; return; }
-            if (hit(mx, my, LANG_X, INFO_Y, LANG_W, BH)) { Game.gameState = Game.STATE.HelpNLD; return; }
-            if (hit(mx, my, LANG_X, HELP_Y, LANG_W, BH)) { Game.gameState = Game.STATE.HelpDEU; return; }
+            int lx = langX();
+            if (hit(mx, my, lx, PLAY_Y, LANG_W, BH)) { Game.gameState = Game.STATE.HelpENG; return; }
+            if (hit(mx, my, lx, INFO_Y, LANG_W, BH)) { Game.gameState = Game.STATE.HelpNLD; return; }
+            if (hit(mx, my, lx, HELP_Y, LANG_W, BH)) { Game.gameState = Game.STATE.HelpDEU; return; }
             if (hitBack(mx, my)) { Game.gameState = Game.STATE.Menu; return; }
             return;
         }
@@ -102,7 +101,7 @@ public class Menu extends MouseAdapter {
 
         // End screen
         if (Game.gameState == Game.STATE.End) {
-            if (hit(mx, my, RETRY_X, RETRY_Y, RETRY_W, RETRY_H)) {
+            if (hit(mx, my, retryX(), RETRY_Y, RETRY_W, RETRY_H)) {
                 Game.gameState = Game.STATE.Select;
                 hud.setLevel(1);
                 hud.setScore(0);
@@ -124,7 +123,7 @@ public class Menu extends MouseAdapter {
     }
 
     private boolean hitBack(int mx, int my) {
-        return hit(mx, my, PageRenderer.BACK_X, PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H);
+        return hit(mx, my, PageRenderer.backX(), PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H);
     }
 
     private void startGame(int difficulty, GameObject firstEnemy) {
@@ -172,18 +171,20 @@ public class Menu extends MouseAdapter {
         PageRenderer.drawBackground(g);
         PageRenderer.drawLogo(g, 200);
 
-        PageRenderer.drawPrimaryButton(g, CX, PLAY_Y, BW, BH, "Play");
-        PageRenderer.drawSecondaryButton(g, CX, INFO_Y, BW, BH, "Info");
-        PageRenderer.drawSecondaryButton(g, CX, HELP_Y, BW, BH, "Help");
+        int bx = btnX();
+        PageRenderer.drawPrimaryButton(g, bx, PLAY_Y, BW, BH, "Play");
+        PageRenderer.drawSecondaryButton(g, bx, INFO_Y, BW, BH, "Info");
+        PageRenderer.drawSecondaryButton(g, bx, HELP_Y, BW, BH, "Help");
 
         // Quit (top-right)
+        int qx = quitX();
         g.setColor(PageRenderer.SURFACE);
-        g.fillRoundRect(QUIT_X, QUIT_Y, QUIT_W, QUIT_H, 8, 8);
+        g.fillRoundRect(qx, PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H, 8, 8);
         g.setColor(PageRenderer.BORDER);
-        g.drawRoundRect(QUIT_X, QUIT_Y, QUIT_W, QUIT_H, 8, 8);
+        g.drawRoundRect(qx, PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H, 8, 8);
         g.setFont(PageRenderer.SMALL_FONT);
         g.setColor(PageRenderer.TEXT_SEC);
-        PageRenderer.drawCenteredString(g, "Quit", QUIT_X, QUIT_Y, QUIT_W, QUIT_H);
+        PageRenderer.drawCenteredString(g, "Quit", qx, PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H);
 
         // Bottom bar
         g.setFont(PageRenderer.SMALL_FONT);
@@ -206,11 +207,12 @@ public class Menu extends MouseAdapter {
         g.drawString(updatesTxt, linkStartX + lfm.stringWidth(aboutTxt + divider), 680);
 
         // Music Player button
+        int mx = musicX();
         g.setColor(PageRenderer.ACCENT);
-        g.fillRoundRect(MUSIC_X, MUSIC_Y, MUSIC_W, MUSIC_H, 8, 8);
+        g.fillRoundRect(mx, MUSIC_Y, MUSIC_W, MUSIC_H, 8, 8);
         g.setFont(PageRenderer.SMALL_FONT);
         g.setColor(PageRenderer.BG_DARK);
-        PageRenderer.drawCenteredString(g, "Music Player", MUSIC_X, MUSIC_Y, MUSIC_W, MUSIC_H);
+        PageRenderer.drawCenteredString(g, "Music Player", mx, MUSIC_Y, MUSIC_W, MUSIC_H);
     }
 
     // ---------- Select Difficulty ----------
@@ -227,13 +229,14 @@ public class Menu extends MouseAdapter {
         FontMetrics fm = g.getFontMetrics();
         g.drawString(sub, (Game.WIDTH - fm.stringWidth(sub)) / 2, 130);
 
-        PageRenderer.drawSecondaryButton(g, CX, PLAY_Y, BW, BH, "Normal");
-        PageRenderer.drawWarningButton(g, CX, INFO_Y, BW, BH, "Hard");
-        PageRenderer.drawDangerButton(g, CX, HELP_Y, BW, BH, "Insane");
+        int bx = btnX();
+        PageRenderer.drawSecondaryButton(g, bx, PLAY_Y, BW, BH, "Normal");
+        PageRenderer.drawWarningButton(g, bx, INFO_Y, BW, BH, "Hard");
+        PageRenderer.drawDangerButton(g, bx, HELP_Y, BW, BH, "Insane");
 
         // Difficulty labels
         g.setFont(PageRenderer.SMALL_FONT);
-        int labelX = CX + BW + 20;
+        int labelX = bx + BW + 20;
         g.setColor(PageRenderer.TEXT_MUTED);
         g.drawString("Recommended for beginners", labelX, PLAY_Y + 30);
         g.setColor(new Color(245, 195, 68, 120));
@@ -255,9 +258,10 @@ public class Menu extends MouseAdapter {
         FontMetrics fm = g.getFontMetrics();
         g.drawString(sub, (Game.WIDTH - fm.stringWidth(sub)) / 2, 130);
 
-        PageRenderer.drawSecondaryButton(g, LANG_X, PLAY_Y, LANG_W, BH, "English");
-        PageRenderer.drawSecondaryButton(g, LANG_X, INFO_Y, LANG_W, BH, "Nederlands");
-        PageRenderer.drawSecondaryButton(g, LANG_X, HELP_Y, LANG_W, BH, "Deutsch");
+        int lx = langX();
+        PageRenderer.drawSecondaryButton(g, lx, PLAY_Y, LANG_W, BH, "English");
+        PageRenderer.drawSecondaryButton(g, lx, INFO_Y, LANG_W, BH, "Nederlands");
+        PageRenderer.drawSecondaryButton(g, lx, HELP_Y, LANG_W, BH, "Deutsch");
     }
 
     // ---------- Help Language ----------
@@ -367,12 +371,12 @@ public class Menu extends MouseAdapter {
         PageRenderer.drawTitle(g, "About");
         PageRenderer.drawBackButton(g);
 
-        PageRenderer.drawPanel(g, 60, 140, 1160, 300);
+        PageRenderer.drawPanel(g, 60, 140, Game.WIDTH - 120, 300);
         g.setFont(PageRenderer.HEADING_FONT);
         g.setColor(PageRenderer.ACCENT);
         g.drawString("Game Modes", 85, 178);
         g.setColor(PageRenderer.BORDER);
-        g.fillRect(85, 190, 1110, 1);
+        g.fillRect(85, 190, Game.WIDTH - 170, 1);
 
         g.setFont(PageRenderer.BODY_FONT);
         int y = 222;
@@ -394,7 +398,7 @@ public class Menu extends MouseAdapter {
         g.setColor(PageRenderer.ACCENT);
         g.drawString("Mechanics", 85, y + 20);
         g.setColor(PageRenderer.BORDER);
-        g.fillRect(85, y + 32, 1110, 1);
+        g.fillRect(85, y + 32, Game.WIDTH - 170, 1);
 
         g.setFont(PageRenderer.BODY_FONT);
         g.setColor(PageRenderer.TEXT_SEC);
@@ -414,7 +418,7 @@ public class Menu extends MouseAdapter {
         int y = 130;
 
         // v3.0
-        PageRenderer.drawPanel(g, 60, y, 1160, 130);
+        PageRenderer.drawPanel(g, 60, y, Game.WIDTH - 120, 130);
         g.setFont(PageRenderer.HEADING_FONT);
         g.setColor(PageRenderer.ACCENT);
         g.drawString("v3.0", 85, y + 32);
@@ -422,7 +426,7 @@ public class Menu extends MouseAdapter {
         g.setColor(PageRenderer.TEXT_MUTED);
         g.drawString("25.03.2026", 140, y + 32);
         g.setColor(PageRenderer.BORDER);
-        g.fillRect(85, y + 44, 1110, 1);
+        g.fillRect(85, y + 44, Game.WIDTH - 170, 1);
         g.setFont(PageRenderer.BODY_FONT);
         g.setColor(PageRenderer.TEXT_SEC);
         g.drawString("- Complete visual overhaul with modern dark theme.", 85, y + 68);
@@ -432,7 +436,7 @@ public class Menu extends MouseAdapter {
         y += 148;
 
         // v2.0
-        PageRenderer.drawPanel(g, 60, y, 1160, 130);
+        PageRenderer.drawPanel(g, 60, y, Game.WIDTH - 120, 130);
         g.setFont(PageRenderer.HEADING_FONT);
         g.setColor(PageRenderer.TEXT);
         g.drawString("v2.0", 85, y + 32);
@@ -440,7 +444,7 @@ public class Menu extends MouseAdapter {
         g.setColor(PageRenderer.TEXT_MUTED);
         g.drawString("25.03.2026", 140, y + 32);
         g.setColor(PageRenderer.BORDER);
-        g.fillRect(85, y + 44, 1110, 1);
+        g.fillRect(85, y + 44, Game.WIDTH - 170, 1);
         g.setFont(PageRenderer.BODY_FONT);
         g.setColor(PageRenderer.TEXT_SEC);
         g.drawString("- Complete rewrite and overhaul of legacy codebase.", 85, y + 68);
@@ -450,7 +454,7 @@ public class Menu extends MouseAdapter {
         y += 148;
 
         // v1.0
-        PageRenderer.drawPanel(g, 60, y, 1160, 108);
+        PageRenderer.drawPanel(g, 60, y, Game.WIDTH - 120, 108);
         g.setFont(PageRenderer.HEADING_FONT);
         g.setColor(PageRenderer.TEXT_MUTED);
         g.drawString("v1.0", 85, y + 32);
@@ -458,7 +462,7 @@ public class Menu extends MouseAdapter {
         g.setColor(PageRenderer.TEXT_MUTED);
         g.drawString("10.11.2019", 140, y + 32);
         g.setColor(PageRenderer.BORDER);
-        g.fillRect(85, y + 44, 1110, 1);
+        g.fillRect(85, y + 44, Game.WIDTH - 170, 1);
         g.setFont(PageRenderer.BODY_FONT);
         g.setColor(PageRenderer.TEXT_MUTED);
         g.drawString("- Name changed from \"Dodge Game!\" to \"Dotch\".", 85, y + 68);
@@ -467,7 +471,7 @@ public class Menu extends MouseAdapter {
         y += 126;
 
         // v0.1
-        PageRenderer.drawPanel(g, 60, y, 1160, 130);
+        PageRenderer.drawPanel(g, 60, y, Game.WIDTH - 120, 130);
         g.setFont(PageRenderer.HEADING_FONT);
         g.setColor(PageRenderer.TEXT_MUTED);
         g.drawString("v0.1", 85, y + 32);
@@ -475,7 +479,7 @@ public class Menu extends MouseAdapter {
         g.setColor(PageRenderer.TEXT_MUTED);
         g.drawString("09.08.2016", 138, y + 32);
         g.setColor(PageRenderer.BORDER);
-        g.fillRect(85, y + 44, 1110, 1);
+        g.fillRect(85, y + 44, Game.WIDTH - 170, 1);
         g.setFont(PageRenderer.BODY_FONT);
         g.setColor(PageRenderer.TEXT_MUTED);
         g.drawString("- Initial release with core game mechanics.", 85, y + 68);
@@ -510,7 +514,7 @@ public class Menu extends MouseAdapter {
         g.drawString(score, (Game.WIDTH - fm.stringWidth(score)) / 2, 345);
 
         // Retry button
-        PageRenderer.drawPrimaryButton(g, RETRY_X, RETRY_Y, RETRY_W, RETRY_H, "Try Again");
+        PageRenderer.drawPrimaryButton(g, retryX(), RETRY_Y, RETRY_W, RETRY_H, "Try Again");
 
         // Back to menu
         PageRenderer.drawBackButton(g);

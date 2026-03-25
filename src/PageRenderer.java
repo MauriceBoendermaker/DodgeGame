@@ -40,14 +40,16 @@ public class PageRenderer {
     // -- Button dimensions --
     public static final int BTN_W = 280;
     public static final int BTN_H = 50;
-    public static final int BTN_X = (Game.WIDTH - BTN_W) / 2; // centered
     public static final int BTN_SPACING = 66;
 
-    // Back button
-    public static final int BACK_X = 1155;
+    // Back button (fixed size, dynamic x)
     public static final int BACK_Y = 24;
     public static final int BACK_W = 90;
     public static final int BACK_H = 34;
+
+    // Dynamic positions — depend on Game.WIDTH which adapts to screen
+    public static int btnX() { return (Game.WIDTH - BTN_W) / 2; }
+    public static int backX() { return Game.WIDTH - 125; }
 
     private static BufferedImage bgCache;
 
@@ -69,9 +71,11 @@ public class PageRenderer {
         g.setPaint(new GradientPaint(0, 0, BG_DARK, Game.WIDTH, Game.HEIGHT, BG_MID));
         g.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
 
+        int cx = Game.WIDTH / 2;
+
         // Large subtle teal glow — center
         g.setPaint(new RadialGradientPaint(
-                new Point2D.Float(640, 340), 600,
+                new Point2D.Float(cx, 340), 600,
                 new float[]{0f, 0.5f, 1f},
                 new Color[]{new Color(30, 80, 78, 35), new Color(20, 50, 55, 15), new Color(0, 0, 0, 0)}
         ));
@@ -79,7 +83,7 @@ public class PageRenderer {
 
         // Small accent highlight — upper area
         g.setPaint(new RadialGradientPaint(
-                new Point2D.Float(640, 120), 350,
+                new Point2D.Float(cx, 120), 350,
                 new float[]{0f, 1f},
                 new Color[]{new Color(78, 205, 196, 12), new Color(78, 205, 196, 0)}
         ));
@@ -168,13 +172,14 @@ public class PageRenderer {
     }
 
     public static void drawBackButton(Graphics2D g) {
+        int bx = backX();
         g.setColor(SURFACE);
-        g.fillRoundRect(BACK_X, BACK_Y, BACK_W, BACK_H, 8, 8);
+        g.fillRoundRect(bx, BACK_Y, BACK_W, BACK_H, 8, 8);
         g.setColor(BORDER);
-        g.drawRoundRect(BACK_X, BACK_Y, BACK_W, BACK_H, 8, 8);
+        g.drawRoundRect(bx, BACK_Y, BACK_W, BACK_H, 8, 8);
         g.setFont(SMALL_FONT);
         g.setColor(TEXT_SEC);
-        drawCenteredString(g, "Back", BACK_X, BACK_Y, BACK_W, BACK_H);
+        drawCenteredString(g, "Back", bx, BACK_Y, BACK_W, BACK_H);
     }
 
     // ===== Panel =====

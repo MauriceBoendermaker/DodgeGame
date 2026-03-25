@@ -78,6 +78,7 @@ public class Game extends Canvas implements Runnable {
         this.addMouseListener(menu);
         this.addMouseListener(shop);
         this.addMouseListener(musicPlayer);
+        this.addMouseMotionListener(musicPlayer);
 
         AudioPlayer.load();
         AudioPlayer.play();
@@ -205,19 +206,18 @@ public class Game extends Canvas implements Runnable {
 
         Graphics2D g = (Graphics2D) bs.getDrawGraphics();
 
-        // Clear at native resolution before scaling (letterbox bars stay black)
+        // Clear at native resolution before scaling
         g.setColor(Color.black);
         g.fillRect(0, 0, getWidth(), getHeight());
 
-        // Offset + scale — everything below is in base 1280x720 coordinates
-        g.translate(offsetX, offsetY);
+        // Scale — everything below is in logical coordinates (WIDTHxHEIGHT)
         g.scale(scale, scale);
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 
         // FPS counter
         g.setColor(fps >= 240 ? Color.green : Color.gray);
         g.setFont(FPS_FONT);
-        g.drawString("FPS: " + fps, 1160, 19);
+        g.drawString("FPS: " + fps, WIDTH - 120, 19);
 
         if (paused) {
             g.setFont(PAUSED_FONT);

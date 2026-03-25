@@ -21,11 +21,11 @@ public class Shop extends MouseAdapter {
     private static final int CARD_Y = 180;
     private static final int CARD_GAP = 40;
     private static final int TOTAL_W = CARD_W * 3 + CARD_GAP * 2;
-    private static final int CARD_START_X = (Game.WIDTH - TOTAL_W) / 2;
 
-    private static final int CARD1_X = CARD_START_X;
-    private static final int CARD2_X = CARD_START_X + CARD_W + CARD_GAP;
-    private static final int CARD3_X = CARD_START_X + (CARD_W + CARD_GAP) * 2;
+    private static int cardStartX() { return (Game.WIDTH - TOTAL_W) / 2; }
+    private static int card1X() { return cardStartX(); }
+    private static int card2X() { return cardStartX() + CARD_W + CARD_GAP; }
+    private static int card3X() { return cardStartX() + (CARD_W + CARD_GAP) * 2; }
 
     public Shop(Handler handler, HUD hud) {
         this.handler = handler;
@@ -50,11 +50,11 @@ public class Shop extends MouseAdapter {
         g2.drawString(pts, (Game.WIDTH - fm.stringWidth(pts)) / 2, 130);
 
         // Item cards
-        drawCard(g2, CARD1_X, CARD_Y, "Upgrade Health", "Extends and refills your health bar.",
+        drawCard(g2, card1X(), CARD_Y, "Upgrade Health", "Extends and refills your health bar.",
                 healthUpgradeCost, hud.getPoints() >= healthUpgradeCost, PageRenderer.SUCCESS);
-        drawCard(g2, CARD2_X, CARD_Y, "Upgrade Speed", "Increases your movement speed.",
+        drawCard(g2, card2X(), CARD_Y, "Upgrade Speed", "Increases your movement speed.",
                 speedUpgradeCost, hud.getPoints() >= speedUpgradeCost, PageRenderer.ACCENT);
-        drawCard(g2, CARD3_X, CARD_Y, "Refill Health", "Fully restores your health bar.",
+        drawCard(g2, card3X(), CARD_Y, "Refill Health", "Fully restores your health bar.",
                 refillHealthCost, hud.getPoints() >= refillHealthCost, PageRenderer.WARNING);
 
         // Footer
@@ -106,20 +106,20 @@ public class Shop extends MouseAdapter {
         int mx = Game.toGameX(e.getX());
         int my = Game.toGameY(e.getY());
 
-        if (hitCard(mx, my, CARD1_X) && hud.getPoints() >= healthUpgradeCost) {
+        if (hitCard(mx, my, card1X()) && hud.getPoints() >= healthUpgradeCost) {
             hud.setPoints(hud.getPoints() - healthUpgradeCost);
             healthUpgradeCost += 250;
             hud.bounds += 20;
             HUD.HEALTH = 100 + (hud.bounds / 2);
         }
 
-        if (hitCard(mx, my, CARD2_X) && hud.getPoints() >= speedUpgradeCost) {
+        if (hitCard(mx, my, card2X()) && hud.getPoints() >= speedUpgradeCost) {
             hud.setPoints(hud.getPoints() - speedUpgradeCost);
             speedUpgradeCost += 250;
             handler.spd++;
         }
 
-        if (hitCard(mx, my, CARD3_X) && hud.getPoints() >= refillHealthCost) {
+        if (hitCard(mx, my, card3X()) && hud.getPoints() >= refillHealthCost) {
             hud.setPoints(hud.getPoints() - refillHealthCost);
             refillHealthCost += 250;
             HUD.HEALTH = 100 + (hud.bounds / 2);
