@@ -18,6 +18,7 @@ public class AudioPlayer implements MusicListener {
     private static boolean paused = false;
     private static boolean stopped = true;
     private static boolean trackEnded = false;
+    private static long trackStartTime = 0;
     private static AudioPlayer instance = new AudioPlayer();
 
     public static void load() {
@@ -70,6 +71,7 @@ public class AudioPlayer implements MusicListener {
         } else {
             track.music.play();
             track.music.setVolume(volume);
+            trackStartTime = System.currentTimeMillis();
         }
         stopped = false;
         trackEnded = false;
@@ -95,17 +97,27 @@ public class AudioPlayer implements MusicListener {
     public static void checkAutoAdvance() {
         if (tracks.isEmpty() || stopped || paused) return;
 
-        if (trackEnded) {
+        boolean ended = trackEnded;
+
+        // Timer-based fallback — if elapsed time exceeds track duration
+        if (!ended && trackStartTime > 0) {
+            long elapsed = System.currentTimeMillis() - trackStartTime;
+            float durationMs = getCurrentTrack().duration * 1000f;
+            if (elapsed >= durationMs - 500) {
+                ended = true;
+            }
+        }
+
+        if (ended) {
             trackEnded = false;
-            System.out.println("Track ended, advancing to next...");
+            try { getCurrentTrack().music.stop(); } catch (Exception e) { /* ignore */ }
             currentTrackIndex = (currentTrackIndex + 1) % tracks.size();
-            Track next = getCurrentTrack();
             try {
+                Track next = getCurrentTrack();
                 next.music.play();
                 next.music.setVolume(volume);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+                trackStartTime = System.currentTimeMillis();
+            } catch (Exception e) { e.printStackTrace(); }
             stopped = false;
             paused = false;
         }
@@ -149,6 +161,7 @@ public class AudioPlayer implements MusicListener {
     public static void seekTo(float seconds) {
         if (tracks.isEmpty() || stopped) return;
         getCurrentTrack().music.setPosition(seconds);
+        trackStartTime = System.currentTimeMillis() - (long)(seconds * 1000);
     }
 
     public static float getPosition() {
