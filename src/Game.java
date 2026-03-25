@@ -88,11 +88,14 @@ public class Game extends Canvas implements Runnable {
         enemyExplosions = particles;
     }
 
-    // Speed lines + camera intensity
+    // Speed lines + camera intensity + look-ahead
     private float playerSpeed = 0;
     private float playerVelX = 0, playerVelY = 0;
     private float cameraZoom = 1f;
     private float cameraZoomTarget = 1f;
+    private float camOffsetX = 0, camOffsetY = 0;
+    private static final float CAM_LOOK_AHEAD = 15f;
+    private static final float CAM_LERP = 0.04f;
     private float[][] speedLines = new float[20][5]; // [x, y, angle, length, life]
     private int speedLineTimer = 0;
 
@@ -437,6 +440,16 @@ public class Game extends Canvas implements Runnable {
             cameraZoomTarget = 1f - Math.min(enemyCount, 8) * 0.008f; // max ~6.4% zoom out
             cameraZoom += (cameraZoomTarget - cameraZoom) * 0.03f;
 
+            // Look-ahead camera offset — drifts toward movement direction
+            float targetOffX = 0, targetOffY = 0;
+            if (playerSpeed > 1f) {
+                float norm = Math.min(playerSpeed / 8f, 1f);
+                targetOffX = (playerVelX / playerSpeed) * CAM_LOOK_AHEAD * norm;
+                targetOffY = (playerVelY / playerSpeed) * CAM_LOOK_AHEAD * norm;
+            }
+            camOffsetX += (targetOffX - camOffsetX) * CAM_LERP;
+            camOffsetY += (targetOffY - camOffsetY) * CAM_LERP;
+
             // Spawn speed lines based on player movement
             updateSpeedLines();
             if (HUD.HEALTH <= 0) {
@@ -624,6 +637,9 @@ public class Game extends Canvas implements Runnable {
                 g.scale(cameraZoom, cameraZoom);
             }
 
+            // Look-ahead camera drift
+            g.translate(-camOffsetX, -camOffsetY);
+
             // Screen shake — offset the game world
             float sx = 0, sy = 0;
             if (shakeIntensity > 0) {
@@ -639,7 +655,8 @@ public class Game extends Canvas implements Runnable {
             // Speed lines
             renderSpeedLines(g);
 
-            // Reset camera zoom transform
+            // Reset look-ahead + camera zoom transforms
+            g.translate(camOffsetX, camOffsetY);
             if (cameraZoom != 1f) {
                 g.scale(1.0 / cameraZoom, 1.0 / cameraZoom);
                 float zoomOffX = WIDTH * (1f - cameraZoom) / 2f;
