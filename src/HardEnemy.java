@@ -1,7 +1,6 @@
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.util.Random;
 
@@ -15,12 +14,16 @@ public class HardEnemy extends GameObject {
     private Handler handler;
     private Random r = new Random();
     private int trailTick = 0;
+    private float rotation = 0;
+    private float targetRotation = 0;
 
     public HardEnemy(int x, int y, ID id, Handler handler) {
         super(x, y, id);
         this.handler = handler;
         velX = 5;
         velY = 5;
+        targetRotation = (float) Math.atan2(velY, velX);
+        rotation = targetRotation;
     }
 
     public Rectangle getBounds() {
@@ -30,13 +33,24 @@ public class HardEnemy extends GameObject {
     public void tick() {
         x += velX;
         y += velY;
+
+        // Rotate toward movement direction with snap on bounce
+        targetRotation = (float) Math.atan2(velY, velX);
+        float diff = targetRotation - rotation;
+        // Normalize angle difference
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        rotation += diff * 0.15f;
+
         if (y <= 0 || y >= Game.HEIGHT - SIZE) {
             Game.wallHit(x + SIZE / 2, y <= 0 ? 0 : Game.HEIGHT, y <= 0 ? 0 : 1, 245, 195, 68);
             velY = (y <= 0) ? (r.nextInt(7) + 1) : -(r.nextInt(7) + 1);
+            targetRotation = (float) Math.atan2(velY, velX);
         }
         if (x <= 0 || x >= Game.WIDTH - SIZE) {
             Game.wallHit(x <= 0 ? 0 : Game.WIDTH, y + SIZE / 2, x <= 0 ? 2 : 3, 245, 195, 68);
             velX = (x <= 0) ? (r.nextInt(7) + 1) : -(r.nextInt(7) + 1);
+            targetRotation = (float) Math.atan2(velY, velX);
         }
         if (++trailTick % 3 == 0)
             handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.02f, handler, Trail.SHAPE_TRIANGLE));
@@ -48,17 +62,21 @@ public class HardEnemy extends GameObject {
         int cy = (int) y + SIZE / 2;
         int half = SIZE / 2;
 
-        // Triangle shape — points upward
-        Polygon glowTri = new Polygon(
-                new int[]{cx, cx + half + 4, cx - half - 4},
-                new int[]{cy - half - 4, cy + half + 2, cy + half + 2}, 3);
+        // Triangle pointing in movement direction
         g2.setColor(GLOW);
-        g2.fillPolygon(glowTri);
-
-        Polygon tri = new Polygon(
-                new int[]{cx, cx + half, cx - half},
-                new int[]{cy - half, cy + half, cy + half}, 3);
+        drawRotatedTriangle(g2, cx, cy, half + 4, rotation);
         g2.setColor(FILL);
-        g2.fillPolygon(tri);
+        drawRotatedTriangle(g2, cx, cy, half, rotation);
+    }
+
+    private void drawRotatedTriangle(Graphics2D g, int cx, int cy, int r, float angle) {
+        int[] xp = new int[3];
+        int[] yp = new int[3];
+        for (int i = 0; i < 3; i++) {
+            float a = angle + i * (float) (Math.PI * 2 / 3);
+            xp[i] = cx + (int) (Math.cos(a) * r);
+            yp[i] = cy + (int) (Math.sin(a) * r);
+        }
+        g.fillPolygon(xp, yp, 3);
     }
 }

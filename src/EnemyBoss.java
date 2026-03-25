@@ -251,8 +251,37 @@ public class EnemyBoss extends GameObject {
         g2.setColor(new Color(fill.getRed(), fill.getGreen(), fill.getBlue(), 100 + (int) (80 * pulse)));
         g2.drawRoundRect(ix, iy, SIZE, SIZE, R, R);
 
+        // Rotating inner geometry — two overlapping squares
+        int bcx = ix + SIZE / 2, bcy = iy + SIZE / 2;
+        int innerR = SIZE / 3;
+        g2.setColor(new Color(fill.getRed(), fill.getGreen(), fill.getBlue(), 50 + (int) (30 * pulse)));
+        drawRotatedSquare(g2, bcx, bcy, innerR, pulsePhase * 0.6f);
+        drawRotatedSquare(g2, bcx, bcy, innerR - 6, -pulsePhase * 0.4f);
+
+        // Orbiting dots
+        int dotCount = 4 + getPhase();
+        int orbitR = SIZE / 2 - 8;
+        g2.setColor(new Color(fill.getRed(), fill.getGreen(), fill.getBlue(), 80));
+        for (int i = 0; i < dotCount; i++) {
+            float a = pulsePhase * 0.5f + i * (float) (Math.PI * 2 / dotCount);
+            int dx = bcx + (int) (Math.cos(a) * orbitR);
+            int dy = bcy + (int) (Math.sin(a) * orbitR);
+            g2.fillOval(dx - 2, dy - 2, 4, 4);
+        }
+
         // Boss health bar at top of screen
         renderBossBar(g2);
+    }
+
+    private void drawRotatedSquare(Graphics2D g, int cx, int cy, int r, float angle) {
+        int[] xp = new int[4];
+        int[] yp = new int[4];
+        for (int i = 0; i < 4; i++) {
+            float a = angle + i * (float) (Math.PI / 2);
+            xp[i] = cx + (int) (Math.cos(a) * r);
+            yp[i] = cy + (int) (Math.sin(a) * r);
+        }
+        g.drawPolygon(xp, yp, 4);
     }
 
     private void renderBossBar(Graphics2D g) {
