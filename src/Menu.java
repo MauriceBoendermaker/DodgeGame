@@ -26,12 +26,13 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
     private static final int RETRY_H = 50;
     private static final int RETRY_Y = 530;
 
-    // Y positions — 5 main menu buttons
-    private static final int MENU_SP = 56; // tighter spacing for 5 buttons
-    private static final int PLAY_Y = 280;
+    // Y positions — 6 main menu buttons
+    private static final int MENU_SP = 50;
+    private static final int PLAY_Y = 274;
     private static final int CUSTOM_MENU_Y = PLAY_Y + MENU_SP;
     private static final int STATS_MENU_Y = CUSTOM_MENU_Y + MENU_SP;
-    private static final int SETTINGS_MENU_Y = STATS_MENU_Y + MENU_SP;
+    private static final int ACH_MENU_Y = STATS_MENU_Y + MENU_SP;
+    private static final int SETTINGS_MENU_Y = ACH_MENU_Y + MENU_SP;
     private static final int HELP_MENU_Y = SETTINGS_MENU_Y + MENU_SP;
 
     // Legacy aliases — used by Select/Help sub-screens (3-button layouts)
@@ -53,7 +54,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
     private static int retryX() { return (Game.WIDTH - RETRY_W) / 2; }
 
     // Hover state
-    private float[] btn = new float[5];
+    private float[] btn = new float[6];
     private float backH, musicH, shopH, dailyH, aboutH, changelogH, creditsLinkH, quitH, retryH;
     private static final int SHOP_BTN_W = 170;
     private static final int SHOP_BTN_H = 34;
@@ -112,7 +113,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
 
     private void updateHover() {
         // Determine targets based on current state
-        boolean[] btnTargets = new boolean[5];
+        boolean[] btnTargets = new boolean[6];
         boolean backTarget = false, musicTarget = false, shopTarget = false, dailyTarget = false, aboutTarget = false;
         boolean changelogTarget = false, creditsLinkTarget = false, quitTarget = false, retryTarget = false;
 
@@ -122,8 +123,9 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
                 btnTargets[0] = hit(mouseX, mouseY, bx, PLAY_Y, BW, BH);
                 btnTargets[1] = hit(mouseX, mouseY, bx, CUSTOM_MENU_Y, BW, BH);
                 btnTargets[2] = hit(mouseX, mouseY, bx, STATS_MENU_Y, BW, BH);
-                btnTargets[3] = hit(mouseX, mouseY, bx, SETTINGS_MENU_Y, BW, BH);
-                btnTargets[4] = hit(mouseX, mouseY, bx, HELP_MENU_Y, BW, BH);
+                btnTargets[3] = hit(mouseX, mouseY, bx, ACH_MENU_Y, BW, BH);
+                btnTargets[4] = hit(mouseX, mouseY, bx, SETTINGS_MENU_Y, BW, BH);
+                btnTargets[5] = hit(mouseX, mouseY, bx, HELP_MENU_Y, BW, BH);
                 quitTarget = hit(mouseX, mouseY, quitX(), PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H);
                 musicTarget = hit(mouseX, mouseY, musicX(), MUSIC_Y, MUSIC_W, MUSIC_H);
                 shopTarget = hit(mouseX, mouseY, 30, SHOP_BTN_Y, SHOP_BTN_W, SHOP_BTN_H);
@@ -175,7 +177,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
                 break;
         }
 
-        for (int i = 0; i < 5; i++) btn[i] = approach(btn[i], btnTargets[i]);
+        for (int i = 0; i < 6; i++) btn[i] = approach(btn[i], btnTargets[i]);
         backH = approach(backH, backTarget);
         musicH = approach(musicH, musicTarget);
         shopH = approach(shopH, shopTarget);
@@ -266,6 +268,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
             if (hit(mx, my, bx, PLAY_Y, BW, BH)) { Game.gameState = Game.STATE.Select; resetHover(); return; }
             if (hit(mx, my, bx, CUSTOM_MENU_Y, BW, BH)) { Game.gameState = Game.STATE.Customize; resetHover(); return; }
             if (hit(mx, my, bx, STATS_MENU_Y, BW, BH)) { Game.gameState = Game.STATE.Statistics; resetHover(); return; }
+            if (hit(mx, my, bx, ACH_MENU_Y, BW, BH)) { Game.gameState = Game.STATE.AchievementsPage; resetHover(); return; }
             if (hit(mx, my, bx, SETTINGS_MENU_Y, BW, BH)) { Game.gameState = Game.STATE.Settings; resetHover(); return; }
             if (hit(mx, my, bx, HELP_MENU_Y, BW, BH)) { Game.gameState = Game.STATE.Help; resetHover(); return; }
             if (hit(mx, my, musicX(), MUSIC_Y, MUSIC_W, MUSIC_H)) { Game.gameState = Game.STATE.MusicPlayer; resetHover(); return; }
@@ -550,19 +553,15 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
             g.fillRoundRect(xpBarX, xpBarY, xpFillW, xpBarH, 2, 2);
         }
 
-        // 5 centered buttons
+        // 6 centered buttons
         int bx = btnX();
         PageRenderer.drawPrimaryButton(g, bx, PLAY_Y, BW, BH, "Play", btn[0]);
         PageRenderer.drawSecondaryButton(g, bx, CUSTOM_MENU_Y, BW, BH, "Customize", btn[1]);
         PageRenderer.drawSecondaryButton(g, bx, STATS_MENU_Y, BW, BH, "Statistics", btn[2]);
-        PageRenderer.drawSecondaryButton(g, bx, SETTINGS_MENU_Y, BW, BH, "Settings", btn[3]);
-        PageRenderer.drawSecondaryButton(g, bx, HELP_MENU_Y, BW, BH, "Help", btn[4]);
-
-        // Achievements count — small text right of Statistics button
-        g.setFont(PageRenderer.SMALL_FONT);
-        g.setColor(new Color(255, 210, 80, 160));
-        String achStr = Achievements.getUnlockedCount() + "/" + Achievements.getCount();
-        g.drawString(achStr, bx + BW + 14, STATS_MENU_Y + 30);
+        PageRenderer.drawSecondaryButton(g, bx, ACH_MENU_Y, BW, BH,
+                "Achievements  " + Achievements.getUnlockedCount() + "/" + Achievements.getCount(), btn[3]);
+        PageRenderer.drawSecondaryButton(g, bx, SETTINGS_MENU_Y, BW, BH, "Settings", btn[4]);
+        PageRenderer.drawSecondaryButton(g, bx, HELP_MENU_Y, BW, BH, "Help", btn[5]);
 
         // Quit (top-right)
         int qx = quitX();
