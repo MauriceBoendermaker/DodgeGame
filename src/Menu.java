@@ -270,6 +270,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         HUD.HEALTH = 100;
         handler.spd = 6;
         game.shop.reset();
+        GamePalette.setDifficulty(difficulty);
         GamePalette.reset();
         Stats.newAttempt(difficulty);
         Game.currentAttempt = Stats.getCurrentAttempt();

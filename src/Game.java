@@ -385,8 +385,8 @@ public class Game extends Canvas implements Runnable {
         if (transitionZoom > 0.01f) transitionZoom *= 0.90f;
         else transitionZoom = 0;
 
-        // Geometric layer animation
-        geoPhase += 0.008f;
+        // Geometric layer animation — faster on harder difficulties
+        geoPhase += 0.008f * GamePalette.getGeoSpeed();
 
         // Wall pulse + flare decay
         wallPulsePhase += 0.04f;
@@ -897,30 +897,45 @@ public class Game extends Canvas implements Runnable {
 
     private void renderBeatVisuals(Graphics2D g) {
         float beat = AudioPlayer.getBeatPulse();
+        float density = GamePalette.getParticleDensity();
+        float distortion = GamePalette.getDistortion();
 
-        // Background color tint — subtle wash from palette
-        g.setColor(GamePalette.bgTint(12));
+        // Background color tint — stronger on harder difficulties
+        int tintAlpha = (int) (12 * density);
+        g.setColor(GamePalette.bgTint(tintAlpha));
         g.fillRect(0, 0, WIDTH, HEIGHT);
 
-        // Grid dots — expand on beat
+        // Insane screen distortion — subtle chromatic-like edge tint
+        if (distortion > 0) {
+            float pulse = (float) (Math.sin(geoPhase * 3) * 0.5 + 0.5);
+            int dAlpha = (int) (pulse * 12 * distortion);
+            g.setColor(new Color(255, 0, 0, dAlpha));
+            g.fillRect(0, 0, 3, HEIGHT);
+            g.setColor(new Color(0, 0, 255, dAlpha));
+            g.fillRect(WIDTH - 3, 0, 3, HEIGHT);
+        }
+
+        // Grid dots — expand on beat, denser spacing on harder difficulties
+        int gridSpacing = density > 1.5f ? 30 : density > 1.1f ? 35 : 40;
         int baseDotSize = 2;
-        int beatDotSize = baseDotSize + (int) (beat * 3);
-        int baseAlpha = 22 + (int) (beat * 35);
+        int beatDotSize = baseDotSize + (int) (beat * 3 * density);
+        int baseAlpha = (int) ((22 + beat * 35) * Math.min(density, 1.4f));
         g.setColor(GamePalette.accent(Math.min(baseAlpha, 255)));
-        for (int x = 20; x < WIDTH; x += 40) {
-            for (int y = 20; y < HEIGHT; y += 40) {
+        for (int x = 20; x < WIDTH; x += gridSpacing) {
+            for (int y = 20; y < HEIGHT; y += gridSpacing) {
                 g.fillOval(x - beatDotSize / 2, y - beatDotSize / 2, beatDotSize, beatDotSize);
             }
         }
 
-        // Edge pulse — vignette throbs on beat
+        // Edge pulse — vignette throbs on beat, stronger on harder difficulties
         if (beat > 0.1f) {
-            int vigAlpha = (int) (beat * 25);
-            g.setColor(GamePalette.accent(vigAlpha));
-            g.fillRect(0, 0, WIDTH, 4);
-            g.fillRect(0, HEIGHT - 4, WIDTH, 4);
-            g.fillRect(0, 0, 4, HEIGHT);
-            g.fillRect(WIDTH - 4, 0, 4, HEIGHT);
+            int vigAlpha = (int) (beat * 25 * density);
+            int vigW = (int) (4 * density);
+            g.setColor(GamePalette.accent(Math.min(vigAlpha, 255)));
+            g.fillRect(0, 0, WIDTH, vigW);
+            g.fillRect(0, HEIGHT - vigW, WIDTH, vigW);
+            g.fillRect(0, 0, vigW, HEIGHT);
+            g.fillRect(WIDTH - vigW, 0, vigW, HEIGHT);
         }
     }
 
@@ -962,16 +977,18 @@ public class Game extends Canvas implements Runnable {
             g2.setColor(GamePalette.accent(12));
             drawHexagon(g2, cx, cy, 160, t * 0.15f);
 
-            // Layer 3 — Diagonal grid lines
+            // Layer 3 — Diagonal grid lines (tinted by difficulty)
+            float dens = GamePalette.getParticleDensity();
+            int lineSpacing = dens > 1.5f ? 55 : dens > 1.1f ? 65 : 80;
             g2.setStroke(new java.awt.BasicStroke(1f));
-            g2.setColor(new Color(40, 55, 75, 12));
-            float go1 = (t * 30) % 80;
-            for (float i = -HEIGHT; i < WIDTH + HEIGHT; i += 80) {
+            g2.setColor(GamePalette.accent((int) (10 * dens)));
+            float go1 = (t * 30) % lineSpacing;
+            for (float i = -HEIGHT; i < WIDTH + HEIGHT; i += lineSpacing) {
                 g2.drawLine((int) (i + go1), 0, (int) (i + go1 - HEIGHT * 0.6f), HEIGHT);
             }
-            g2.setColor(new Color(40, 55, 75, 8));
-            float go2 = (t * 18) % 80;
-            for (float i = -HEIGHT; i < WIDTH + HEIGHT; i += 80) {
+            g2.setColor(GamePalette.accent((int) (6 * dens)));
+            float go2 = (t * 18) % lineSpacing;
+            for (float i = -HEIGHT; i < WIDTH + HEIGHT; i += lineSpacing) {
                 g2.drawLine((int) (i + go2), 0, (int) (i + go2 + HEIGHT * 0.6f), HEIGHT);
             }
 
