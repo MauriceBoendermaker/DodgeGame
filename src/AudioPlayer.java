@@ -29,7 +29,7 @@ public class AudioPlayer implements MusicListener {
 
             addTrack("fingerbang", "MDK - Fingerbang", "MDK - Fingerbang.ogg", 228f, 150f);
             addTrack("disconnected", "Pegboard Nerds - Disconnected", "Pegboard Nerds - Disconnected.ogg", 242f, 128f);
-            addTrack("levels", "Avicii - Levels (Skrillex Remix)", "Avicii - Levels (Skrillex remix).mp3", 210f, 128f);
+            addTrack("levels", "Avicii - Levels (Skrillex Remix)", "Avicii - Levels (Skrillex remix).ogg", 210f, 128f);
 
             // Register listener on all tracks
             for (Track t : tracks) {
