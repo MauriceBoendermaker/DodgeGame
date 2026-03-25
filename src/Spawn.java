@@ -101,6 +101,10 @@ public class Spawn {
         handler.clearEnemys();
         Game.triggerBossIntro();
 
+        // Refill 20% health on boss level
+        float maxHealth = 100 + (hud.bounds / 2);
+        HUD.HEALTH = Math.min(HUD.HEALTH + maxHealth * 0.2f, maxHealth);
+
         // Boss enters off-screen — slides in during the intro
         handler.addObject(new EnemyBoss((Game.WIDTH / 2) - 48, -120, ID.EnemyBoss, handler));
         bossActive = true;
