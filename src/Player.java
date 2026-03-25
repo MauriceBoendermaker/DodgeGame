@@ -25,7 +25,6 @@ public class Player extends GameObject {
     // Invincibility frames
     private int iFrames = 0;
     private static final int I_FRAME_DURATION = 45; // ~0.75 seconds
-    private static final float DAMAGE_PER_HIT = 12; // discrete damage per hit
 
     // Streak system
     private int streakTicks = 0;        // ticks without damage
@@ -108,17 +107,28 @@ public class Player extends GameObject {
         collision();
     }
 
+    private float getDamage(ID id) {
+        switch (id) {
+            case FastEnemy:    return 8;   // light — hard to avoid but low damage
+            case BasicEnemy:   return 12;  // standard
+            case HardEnemy:    return 15;  // unpredictable, punishing
+            case SmartEnemy:   return 20;  // tracks you, high threat
+            case EnemyBoss:    return 25;  // boss body slam, heavy
+            default:           return 12;  // boss bullets etc.
+        }
+    }
+
     private void collision() {
         if (iFrames > 0) return; // invincible
 
         for (int i = 0; i < handler.getObjects().size(); i++) {
             GameObject tempObject = handler.getObjects().get(i);
-            if (tempObject.getId() == ID.BasicEnemy || tempObject.getId() == ID.FastEnemy
-                    || tempObject.getId() == ID.SmartEnemy || tempObject.getId() == ID.HardEnemy
-                    || tempObject.getId() == ID.EnemyBoss) {
+            ID id = tempObject.getId();
+            if (id == ID.BasicEnemy || id == ID.FastEnemy
+                    || id == ID.SmartEnemy || id == ID.HardEnemy
+                    || id == ID.EnemyBoss) {
                 if (getBounds().intersects(tempObject.getBounds())) {
-                    // Discrete hit
-                    HUD.HEALTH -= DAMAGE_PER_HIT;
+                    HUD.HEALTH -= getDamage(id);
                     iFrames = I_FRAME_DURATION;
                     Game.triggerHit();
 
