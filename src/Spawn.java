@@ -110,6 +110,37 @@ public class Spawn {
         handler.addObject(new SpawnTelegraph(enemy.getX(), enemy.getY(), handler, enemy, color, 32));
     }
 
+    private void explodeClearEnemys() {
+        // Collect enemy positions and explode them before clearing
+        java.util.List<float[]> particles = new java.util.ArrayList<>();
+        for (int i = 0; i < handler.getObjects().size(); i++) {
+            GameObject obj = handler.getObjects().get(i);
+            ID id = obj.getId();
+            if (id == ID.Player || id == ID.Trail || id == ID.SpawnTelegraph) continue;
+            float ex = obj.getX() + 16;
+            float ey = obj.getY() + 16;
+            Color c = C_BASIC;
+            if (id == ID.FastEnemy) c = C_FAST;
+            else if (id == ID.SmartEnemy) c = C_SMART;
+            else if (id == ID.HardEnemy) c = C_HARD;
+            else if (id == ID.EnemyBoss) c = C_BASIC;
+            for (int j = 0; j < 5; j++) {
+                float angle = (float) (r.nextFloat() * Math.PI * 2);
+                float speed = 2f + r.nextFloat() * 4f;
+                float size = 2 + r.nextFloat() * 5;
+                particles.add(new float[]{
+                        ex, ey,
+                        (float) Math.cos(angle) * speed, (float) Math.sin(angle) * speed,
+                        size, c.getRed(), c.getGreen(), c.getBlue(), 0.8f
+                });
+            }
+        }
+        if (!particles.isEmpty()) {
+            Game.setEnemyExplosions(particles.toArray(new float[0][]));
+        }
+        handler.clearEnemys();
+    }
+
     private void spawnNormalDifficulty() {
         int level = hud.getLevel();
         switch (level) {
@@ -127,7 +158,7 @@ public class Spawn {
                 triggerBossSpawn();
                 break;
             case 15:
-                handler.clearEnemys();
+                explodeClearEnemys();
                 spawnTelegraph(new FastEnemy(rx(), ry(), ID.FastEnemy, handler), C_FAST); break;
             case 17:
                 spawnTelegraph(new FastEnemy(rx(), ry(), ID.FastEnemy, handler), C_FAST); break;

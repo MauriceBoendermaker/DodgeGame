@@ -334,30 +334,33 @@ public class Game extends Canvas implements Runnable {
         if (attemptFade > 0.005f) attemptFade *= 0.985f;
         else attemptFade = 0;
 
+        // Animate enemy explosion particles (works for boss intro AND regular clears)
+        if (enemyExplosions != null) {
+            boolean anyAlive = false;
+            for (float[] p : enemyExplosions) {
+                if (p[8] > 0) {
+                    p[0] += p[2];
+                    p[1] += p[3];
+                    p[3] += 0.12f; // gravity
+                    p[2] *= 0.97f;
+                    p[8] -= 0.02f;
+                    anyAlive = true;
+                }
+            }
+            if (!anyAlive && !bossIntroActive) {
+                enemyExplosions = null;
+            }
+        }
+
         // Boss intro cinematic
         if (bossIntroActive) {
             bossIntroTimer++;
-            // Shake escalates during warning
             if (bossIntroTimer < 100) {
                 shakeIntensity = Math.max(shakeIntensity, 2f + bossIntroTimer * 0.06f);
             }
-            // Big shake on boss crash (frame 100)
             if (bossIntroTimer == 100) {
                 shakeIntensity = 16f;
             }
-            // Animate enemy explosion particles
-            if (enemyExplosions != null) {
-                for (float[] p : enemyExplosions) {
-                    if (p[8] > 0) {
-                        p[0] += p[2];
-                        p[1] += p[3];
-                        p[3] += 0.12f; // gravity
-                        p[2] *= 0.97f;
-                        p[8] -= 0.015f;
-                    }
-                }
-            }
-            // End intro
             if (bossIntroTimer >= 130) {
                 bossIntroActive = false;
                 enemyExplosions = null;
@@ -651,6 +654,17 @@ public class Game extends Canvas implements Runnable {
 
             // Speed lines
             renderSpeedLines(g);
+
+            // Enemy clear explosions (non-boss-intro)
+            if (enemyExplosions != null && !bossIntroActive) {
+                for (float[] p : enemyExplosions) {
+                    if (p[8] <= 0) continue;
+                    int ea = Math.min(255, (int) (p[8] * 255));
+                    g.setColor(new Color((int) p[5], (int) p[6], (int) p[7], ea));
+                    int es = (int) p[4];
+                    g.fillRoundRect((int) p[0] - es / 2, (int) p[1] - es / 2, es, es, 3, 3);
+                }
+            }
 
             // Reset look-ahead + camera zoom transforms
             g.translate(camOffsetX, camOffsetY);
