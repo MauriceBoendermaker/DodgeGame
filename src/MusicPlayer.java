@@ -1,6 +1,8 @@
+import java.awt.Color;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Polygon;
 import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -24,20 +26,74 @@ public class MusicPlayer extends MouseAdapter {
     private static final int VOL_W = 300;
     private static final int VOL_H = 5;
     private static final int VOL_KNOB = 12;
-
-    // Drag hit zone (generous vertical margin around the thin bars)
     private static final int DRAG_MARGIN = 16;
+    private static final int CTRL_SPACING = 80;
+
+    // Button indices
+    private static final int BTN_PREV = 0;
+    private static final int BTN_PLAY = 1;
+    private static final int BTN_NEXT = 2;
+    private static final int BTN_BACK = 3;
+    private static final int BTN_COUNT = 4;
+
+    // Hover animation state
+    private float[] hover = new float[BTN_COUNT];
+    private float progBarHover = 0;
+    private float volBarHover = 0;
+
+    // Mouse tracking
+    private int mouseX, mouseY;
 
     // Drag state
     private enum DragTarget { NONE, PROGRESS, VOLUME }
     private DragTarget dragging = DragTarget.NONE;
+
+    // Hover colors
+    private static final Color CTRL_BG = PageRenderer.SURFACE_LIGHT;
+    private static final Color CTRL_BG_HOVER = new Color(48, 62, 82);
+    private static final Color CTRL_ICON = PageRenderer.TEXT_SEC;
+    private static final Color CTRL_ICON_HOVER = PageRenderer.TEXT;
+    private static final Color PLAY_BG_ACTIVE = PageRenderer.ACCENT;
+    private static final Color PLAY_BG_ACTIVE_HOVER = new Color(110, 225, 218);
 
     public void tick() {
         if (!AudioPlayer.isStopped() && !AudioPlayer.isPaused() && !AudioPlayer.isPlaying()) {
             AudioPlayer.nextTrack();
             AudioPlayer.play();
         }
+
+        if (Game.gameState != Game.STATE.MusicPlayer) return;
+
+        // Update hover animations
+        boolean[] targets = getHoverTargets();
+        for (int i = 0; i < BTN_COUNT; i++) {
+            float target = targets[i] ? 1f : 0f;
+            hover[i] += (target - hover[i]) * 0.14f;
+            if (Math.abs(hover[i] - target) < 0.01f) hover[i] = target;
+        }
+
+        // Bar hover
+        boolean onProg = dragging == DragTarget.PROGRESS
+                || hitBar(mouseX, mouseY, progX(), PROG_Y, PROG_W);
+        boolean onVol = dragging == DragTarget.VOLUME
+                || hitBar(mouseX, mouseY, volX(), VOL_Y, VOL_W);
+        progBarHover += ((onProg ? 1f : 0f) - progBarHover) * 0.14f;
+        volBarHover += ((onVol ? 1f : 0f) - volBarHover) * 0.14f;
     }
+
+    private boolean[] getHoverTargets() {
+        boolean[] t = new boolean[BTN_COUNT];
+        int cxv = cx();
+        int playCy = CTRL_Y + CTRL_SIZE / 2 - (PLAY_SIZE - CTRL_SIZE) / 2 + PLAY_SIZE / 2;
+        t[BTN_PREV] = inCircle(mouseX, mouseY, cxv - CTRL_SPACING, CTRL_Y + CTRL_SIZE / 2, CTRL_SIZE / 2 + 4);
+        t[BTN_PLAY] = inCircle(mouseX, mouseY, cxv, playCy, PLAY_SIZE / 2 + 4);
+        t[BTN_NEXT] = inCircle(mouseX, mouseY, cxv + CTRL_SPACING, CTRL_Y + CTRL_SIZE / 2, CTRL_SIZE / 2 + 4);
+        t[BTN_BACK] = mouseX >= PageRenderer.backX() && mouseX <= PageRenderer.backX() + PageRenderer.BACK_W
+                && mouseY >= PageRenderer.BACK_Y && mouseY <= PageRenderer.BACK_Y + PageRenderer.BACK_H;
+        return t;
+    }
+
+    // ==================== Rendering ====================
 
     public void render(Graphics g) {
         Graphics2D g2 = (Graphics2D) g;
@@ -46,19 +102,26 @@ public class MusicPlayer extends MouseAdapter {
 
         PageRenderer.drawBackground(g2);
         PageRenderer.drawTitle(g2, "Music Player");
-        PageRenderer.drawBackButton(g2);
 
-        // Album art placeholder
+        // Back button with hover
+        int bx = PageRenderer.backX();
+        g2.setColor(lerp(PageRenderer.SURFACE, CTRL_BG_HOVER, hover[BTN_BACK]));
+        g2.fillRoundRect(bx, PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H, 8, 8);
+        g2.setColor(lerp(PageRenderer.BORDER, PageRenderer.ACCENT, hover[BTN_BACK] * 0.4f));
+        g2.drawRoundRect(bx, PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H, 8, 8);
+        g2.setFont(PageRenderer.SMALL_FONT);
+        g2.setColor(lerp(PageRenderer.TEXT_SEC, PageRenderer.TEXT, hover[BTN_BACK]));
+        PageRenderer.drawCenteredString(g2, "Back", bx, PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H);
+
+        // Album art
         int artSize = 180;
         int artX = cx() - artSize / 2;
         int artY = 130;
         PageRenderer.drawPanel(g2, artX, artY, artSize, artSize);
-
         g2.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 60));
         g2.setColor(PageRenderer.ACCENT);
         FontMetrics fm = g2.getFontMetrics();
-        String note = "\u266B";
-        g2.drawString(note, cx() - fm.stringWidth(note) / 2, artY + artSize / 2 + 20);
+        g2.drawString("\u266B", cx() - fm.stringWidth("\u266B") / 2, artY + artSize / 2 + 20);
 
         if (AudioPlayer.getTrackCount() > 0) {
             AudioPlayer.Track track = AudioPlayer.getCurrentTrack();
@@ -77,100 +140,159 @@ public class MusicPlayer extends MouseAdapter {
             g2.drawString(info, cx() - fm.stringWidth(info) / 2, 390);
 
             // Progress bar
-            float pos = AudioPlayer.getPosition();
-            float dur = track.duration;
-            float progress = (dur > 0) ? Math.min(pos / dur, 1f) : 0;
-
-            g2.setColor(PageRenderer.BORDER);
-            g2.fillRoundRect(progX(), PROG_Y, PROG_W, PROG_H, 3, 3);
-            int filledW = (int) (PROG_W * progress);
-            if (filledW > 0) {
-                g2.setColor(PageRenderer.ACCENT);
-                g2.fillRoundRect(progX(), PROG_Y, filledW, PROG_H, 3, 3);
-            }
-            g2.setColor(dragging == DragTarget.PROGRESS ? PageRenderer.ACCENT : PageRenderer.TEXT);
-            g2.fillOval(progX() + filledW - PROG_KNOB / 2, PROG_Y - (PROG_KNOB - PROG_H) / 2, PROG_KNOB, PROG_KNOB);
-
-            // Time labels
-            g2.setFont(PageRenderer.SMALL_FONT);
-            g2.setColor(PageRenderer.TEXT_MUTED);
-            g2.drawString(formatTime(pos), progX(), PROG_Y + 25);
-            String durStr = formatTime(dur);
-            fm = g2.getFontMetrics();
-            g2.drawString(durStr, progX() + PROG_W - fm.stringWidth(durStr), PROG_Y + 25);
+            renderProgressBar(g2, track);
         } else {
             g2.setFont(PageRenderer.HEADING_FONT);
             g2.setColor(PageRenderer.TEXT_MUTED);
-            String msg = "No tracks loaded";
             fm = g2.getFontMetrics();
+            String msg = "No tracks loaded";
             g2.drawString(msg, cx() - fm.stringWidth(msg) / 2, 375);
         }
 
-        // Controls
         renderControls(g2);
+        renderVolumeBar(g2);
+    }
 
-        // Volume
-        renderVolume(g2);
+    private void renderProgressBar(Graphics2D g, AudioPlayer.Track track) {
+        float pos = AudioPlayer.getPosition();
+        float dur = track.duration;
+        float progress = (dur > 0) ? Math.min(pos / dur, 1f) : 0;
+        int px = progX();
+
+        // Bar background
+        g.setColor(lerp(PageRenderer.BORDER, new Color(55, 70, 90), progBarHover));
+        g.fillRoundRect(px, PROG_Y, PROG_W, PROG_H, 3, 3);
+
+        // Filled
+        int filledW = (int) (PROG_W * progress);
+        if (filledW > 0) {
+            g.setColor(PageRenderer.ACCENT);
+            g.fillRoundRect(px, PROG_Y, filledW, PROG_H, 3, 3);
+        }
+
+        // Knob — grows slightly on hover
+        int knobSize = PROG_KNOB + (int) (4 * progBarHover);
+        g.setColor(lerp(PageRenderer.TEXT, PageRenderer.ACCENT, progBarHover));
+        g.fillOval(px + filledW - knobSize / 2, PROG_Y + PROG_H / 2 - knobSize / 2, knobSize, knobSize);
+
+        // Time labels
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        g.drawString(formatTime(pos), px, PROG_Y + 25);
+        String durStr = formatTime(dur);
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(durStr, px + PROG_W - fm.stringWidth(durStr), PROG_Y + 25);
     }
 
     private void renderControls(Graphics2D g) {
-        int spacing = 80;
-        int prevX = cx() - spacing * 2;
-        int nextX = cx() + spacing;
-        int stopX = cx() + spacing * 2;
+        int cxv = cx();
+        int prevX = cxv - CTRL_SPACING;
+        int nextX = cxv + CTRL_SPACING;
+        int cy = CTRL_Y + CTRL_SIZE / 2;
 
-        drawCtrlBtn(g, prevX, CTRL_Y, CTRL_SIZE, "<<");
+        // Previous
+        drawCtrlCircle(g, prevX, CTRL_Y, CTRL_SIZE, hover[BTN_PREV], false);
+        drawPrevIcon(g, prevX, cy, hover[BTN_PREV]);
 
+        // Play/Pause
         boolean playing = AudioPlayer.isPlaying();
-        g.setColor(playing ? PageRenderer.ACCENT : PageRenderer.SURFACE_LIGHT);
         int py = CTRL_Y - (PLAY_SIZE - CTRL_SIZE) / 2;
-        g.fillOval(cx() - PLAY_SIZE / 2, py, PLAY_SIZE, PLAY_SIZE);
-        if (!playing) {
-            g.setColor(PageRenderer.BORDER);
-            g.drawOval(cx() - PLAY_SIZE / 2, py, PLAY_SIZE, PLAY_SIZE);
+        int playCy = py + PLAY_SIZE / 2;
+        if (playing) {
+            g.setColor(lerp(PLAY_BG_ACTIVE, PLAY_BG_ACTIVE_HOVER, hover[BTN_PLAY]));
+        } else {
+            g.setColor(lerp(CTRL_BG, CTRL_BG_HOVER, hover[BTN_PLAY]));
         }
-        g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 28));
-        g.setColor(playing ? PageRenderer.BG_DARK : PageRenderer.TEXT);
-        String sym = playing ? "||" : ">";
-        FontMetrics fm = g.getFontMetrics();
-        g.drawString(sym, cx() - fm.stringWidth(sym) / 2, py + PLAY_SIZE / 2 + fm.getAscent() / 3);
+        g.fillOval(cxv - PLAY_SIZE / 2, py, PLAY_SIZE, PLAY_SIZE);
+        if (!playing) {
+            g.setColor(lerp(PageRenderer.BORDER, PageRenderer.ACCENT, hover[BTN_PLAY] * 0.5f));
+            g.drawOval(cxv - PLAY_SIZE / 2, py, PLAY_SIZE, PLAY_SIZE);
+        }
+        Color iconCol = playing
+                ? PageRenderer.BG_DARK
+                : lerp(CTRL_ICON, PageRenderer.ACCENT, hover[BTN_PLAY]);
+        if (playing) {
+            drawPauseIcon(g, cxv, playCy, iconCol);
+        } else {
+            drawPlayIcon(g, cxv, playCy, iconCol);
+        }
 
-        drawCtrlBtn(g, nextX, CTRL_Y, CTRL_SIZE, ">>");
-        drawCtrlBtn(g, stopX, CTRL_Y, CTRL_SIZE, "\u25A0");
+        // Next
+        drawCtrlCircle(g, nextX, CTRL_Y, CTRL_SIZE, hover[BTN_NEXT], false);
+        drawNextIcon(g, nextX, cy, hover[BTN_NEXT]);
     }
 
-    private void drawCtrlBtn(Graphics2D g, int cx, int cy, int size, String label) {
-        g.setColor(PageRenderer.SURFACE_LIGHT);
+    private void drawCtrlCircle(Graphics2D g, int cx, int cy, int size, float h, boolean active) {
+        g.setColor(lerp(CTRL_BG, CTRL_BG_HOVER, h));
         g.fillOval(cx - size / 2, cy, size, size);
-        g.setColor(PageRenderer.BORDER);
+        g.setColor(lerp(PageRenderer.BORDER, PageRenderer.ACCENT, h * 0.4f));
         g.drawOval(cx - size / 2, cy, size, size);
-        g.setColor(PageRenderer.TEXT_SEC);
-        g.setFont(PageRenderer.BUTTON_FONT);
-        FontMetrics fm = g.getFontMetrics();
-        g.drawString(label, cx - fm.stringWidth(label) / 2, cy + size / 2 + fm.getAscent() / 3);
     }
 
-    private void renderVolume(Graphics2D g) {
+    private void drawPlayIcon(Graphics2D g, int cx, int cy, Color c) {
+        g.setColor(c);
+        Polygon tri = new Polygon(
+                new int[]{cx - 7, cx - 7, cx + 10},
+                new int[]{cy - 12, cy + 12, cy}, 3);
+        g.fillPolygon(tri);
+    }
+
+    private void drawPauseIcon(Graphics2D g, int cx, int cy, Color c) {
+        g.setColor(c);
+        g.fillRoundRect(cx - 9, cy - 10, 6, 20, 2, 2);
+        g.fillRoundRect(cx + 3, cy - 10, 6, 20, 2, 2);
+    }
+
+    private void drawPrevIcon(Graphics2D g, int cx, int cy, float h) {
+        g.setColor(lerp(CTRL_ICON, CTRL_ICON_HOVER, h));
+        // Bar
+        g.fillRect(cx - 9, cy - 7, 3, 14);
+        // Triangle
+        Polygon tri = new Polygon(
+                new int[]{cx + 8, cx - 4, cx + 8},
+                new int[]{cy - 7, cy, cy + 7}, 3);
+        g.fillPolygon(tri);
+    }
+
+    private void drawNextIcon(Graphics2D g, int cx, int cy, float h) {
+        g.setColor(lerp(CTRL_ICON, CTRL_ICON_HOVER, h));
+        // Triangle
+        Polygon tri = new Polygon(
+                new int[]{cx - 8, cx + 4, cx - 8},
+                new int[]{cy - 7, cy, cy + 7}, 3);
+        g.fillPolygon(tri);
+        // Bar
+        g.fillRect(cx + 6, cy - 7, 3, 14);
+    }
+
+    private void renderVolumeBar(Graphics2D g) {
         float vol = AudioPlayer.getVolume();
+        int vx = volX();
 
         g.setFont(PageRenderer.SMALL_FONT);
         g.setColor(PageRenderer.TEXT_MUTED);
-        g.drawString("\u266A", volX() - 22, VOL_Y + 5);
-        g.drawString("\u266B", volX() + VOL_W + 10, VOL_Y + 5);
+        g.drawString("\u266A", vx - 22, VOL_Y + 5);
+        g.drawString("\u266B", vx + VOL_W + 10, VOL_Y + 5);
 
         String pct = Math.round(vol * 100) + "%";
         FontMetrics fm = g.getFontMetrics();
         g.drawString(pct, cx() - fm.stringWidth(pct) / 2, VOL_Y + 28);
 
-        g.setColor(PageRenderer.BORDER);
-        g.fillRoundRect(volX(), VOL_Y, VOL_W, VOL_H, 3, 3);
+        // Bar background
+        g.setColor(lerp(PageRenderer.BORDER, new Color(55, 70, 90), volBarHover));
+        g.fillRoundRect(vx, VOL_Y, VOL_W, VOL_H, 3, 3);
+
+        // Filled
         int filledW = (int) (VOL_W * vol);
         if (filledW > 0) {
             g.setColor(PageRenderer.ACCENT);
-            g.fillRoundRect(volX(), VOL_Y, filledW, VOL_H, 3, 3);
+            g.fillRoundRect(vx, VOL_Y, filledW, VOL_H, 3, 3);
         }
-        g.setColor(dragging == DragTarget.VOLUME ? PageRenderer.ACCENT : PageRenderer.TEXT);
-        g.fillOval(volX() + filledW - VOL_KNOB / 2, VOL_Y - (VOL_KNOB - VOL_H) / 2, VOL_KNOB, VOL_KNOB);
+
+        // Knob
+        int knobSize = VOL_KNOB + (int) (3 * volBarHover);
+        g.setColor(lerp(PageRenderer.TEXT, PageRenderer.ACCENT, volBarHover));
+        g.fillOval(vx + filledW - knobSize / 2, VOL_Y + VOL_H / 2 - knobSize / 2, knobSize, knobSize);
     }
 
     // ==================== Input ====================
@@ -188,46 +310,42 @@ public class MusicPlayer extends MouseAdapter {
             return;
         }
 
-        // Start dragging progress bar
         if (hitBar(mx, my, progX(), PROG_Y, PROG_W)) {
             dragging = DragTarget.PROGRESS;
             applyProgress(mx);
             return;
         }
 
-        // Start dragging volume bar
         if (hitBar(mx, my, volX(), VOL_Y, VOL_W)) {
             dragging = DragTarget.VOLUME;
             applyVolume(mx);
             return;
         }
 
-        // Controls
-        int spacing = 80;
-        if (inCircle(mx, my, cx(), CTRL_Y + PLAY_SIZE / 2 - (PLAY_SIZE - CTRL_SIZE) / 2, PLAY_SIZE / 2)) {
+        int cxv = cx();
+        int playCy = CTRL_Y + CTRL_SIZE / 2 - (PLAY_SIZE - CTRL_SIZE) / 2 + PLAY_SIZE / 2;
+        if (inCircle(mx, my, cxv, playCy, PLAY_SIZE / 2)) {
             AudioPlayer.togglePlayPause(); return;
         }
-        if (inCircle(mx, my, cx() - spacing * 2, CTRL_Y + CTRL_SIZE / 2, CTRL_SIZE / 2)) {
+        if (inCircle(mx, my, cxv - CTRL_SPACING, CTRL_Y + CTRL_SIZE / 2, CTRL_SIZE / 2)) {
             AudioPlayer.previousTrack(); return;
         }
-        if (inCircle(mx, my, cx() + spacing, CTRL_Y + CTRL_SIZE / 2, CTRL_SIZE / 2)) {
+        if (inCircle(mx, my, cxv + CTRL_SPACING, CTRL_Y + CTRL_SIZE / 2, CTRL_SIZE / 2)) {
             AudioPlayer.nextTrack(); return;
-        }
-        if (inCircle(mx, my, cx() + spacing * 2, CTRL_Y + CTRL_SIZE / 2, CTRL_SIZE / 2)) {
-            AudioPlayer.stop(); return;
         }
     }
 
     public void mouseDragged(MouseEvent e) {
-        if (Game.gameState != Game.STATE.MusicPlayer || dragging == DragTarget.NONE) return;
+        if (Game.gameState != Game.STATE.MusicPlayer) return;
+        mouseX = Game.toGameX(e.getX());
+        mouseY = Game.toGameY(e.getY());
+        if (dragging == DragTarget.PROGRESS) applyProgress(mouseX);
+        else if (dragging == DragTarget.VOLUME) applyVolume(mouseX);
+    }
 
-        int mx = Game.toGameX(e.getX());
-
-        if (dragging == DragTarget.PROGRESS) {
-            applyProgress(mx);
-        } else if (dragging == DragTarget.VOLUME) {
-            applyVolume(mx);
-        }
+    public void mouseMoved(MouseEvent e) {
+        mouseX = Game.toGameX(e.getX());
+        mouseY = Game.toGameY(e.getY());
     }
 
     public void mouseReleased(MouseEvent e) {
@@ -238,14 +356,12 @@ public class MusicPlayer extends MouseAdapter {
 
     private void applyProgress(int mx) {
         if (AudioPlayer.getTrackCount() > 0 && !AudioPlayer.isStopped()) {
-            float ratio = clampRatio(mx, progX(), PROG_W);
-            AudioPlayer.seekTo(ratio * AudioPlayer.getCurrentTrack().duration);
+            AudioPlayer.seekTo(clampRatio(mx, progX(), PROG_W) * AudioPlayer.getCurrentTrack().duration);
         }
     }
 
     private void applyVolume(int mx) {
-        float ratio = clampRatio(mx, volX(), VOL_W);
-        AudioPlayer.setVolume(ratio);
+        AudioPlayer.setVolume(clampRatio(mx, volX(), VOL_W));
     }
 
     private float clampRatio(int mx, int barX, int barW) {
@@ -259,6 +375,15 @@ public class MusicPlayer extends MouseAdapter {
 
     private boolean inCircle(int mx, int my, int cx, int cy, int r) {
         return (mx - cx) * (mx - cx) + (my - cy) * (my - cy) <= r * r;
+    }
+
+    private Color lerp(Color a, Color b, float t) {
+        t = Math.max(0f, Math.min(1f, t));
+        return new Color(
+                (int) (a.getRed() + (b.getRed() - a.getRed()) * t),
+                (int) (a.getGreen() + (b.getGreen() - a.getGreen()) * t),
+                (int) (a.getBlue() + (b.getBlue() - a.getBlue()) * t),
+                (int) (a.getAlpha() + (b.getAlpha() - a.getAlpha()) * t));
     }
 
     private String formatTime(float seconds) {
