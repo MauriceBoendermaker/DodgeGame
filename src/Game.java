@@ -60,6 +60,18 @@ public class Game extends Canvas implements Runnable {
     // Level-up pulse
     private static float levelUpFlash = 0;
 
+    // Neon walls — impact flares [x, y, intensity, side(0=top,1=bottom,2=left,3=right)]
+    private static float[][] wallFlares = new float[32][4];
+    private static int wallFlareCount = 0;
+    private static float wallPulsePhase = 0;
+
+    public static void wallHit(float hitX, float hitY, int side) {
+        if (wallFlareCount < wallFlares.length) {
+            wallFlares[wallFlareCount] = new float[]{hitX, hitY, 1f, side};
+            wallFlareCount++;
+        }
+    }
+
     // Death animation
     private int deathTimer = 0;
     private float deathFlash = 0;
@@ -221,6 +233,18 @@ public class Game extends Canvas implements Runnable {
         if (levelUpFlash > 0.01f) levelUpFlash *= 0.93f;
         else levelUpFlash = 0;
 
+        // Wall pulse + flare decay
+        wallPulsePhase += 0.04f;
+        int alive = 0;
+        for (int i = 0; i < wallFlareCount; i++) {
+            wallFlares[i][2] *= 0.88f;
+            if (wallFlares[i][2] > 0.02f) {
+                wallFlares[alive] = wallFlares[i];
+                alive++;
+            }
+        }
+        wallFlareCount = alive;
+
         if (gameState == STATE.Game) {
             hud.tick();
             spawner.tick();
@@ -337,6 +361,7 @@ public class Game extends Canvas implements Runnable {
 
         if (gameState == STATE.Game || gameState == STATE.Shop || gameState == STATE.Paused || gameState == STATE.Dying) {
             PageRenderer.drawGameBackground(g);
+            renderNeonWalls(g);
         }
 
         if (gameState == STATE.Paused) {
@@ -456,6 +481,73 @@ public class Game extends Canvas implements Runnable {
 
         g.dispose();
         bs.show();
+    }
+
+    private void renderNeonWalls(Graphics2D g) {
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        float basePulse = (float) (Math.sin(wallPulsePhase) * 0.3 + 0.7);
+        int baseAlpha = (int) (basePulse * 40);
+        int lineW = 2;
+        int glowW = 12;
+        Color baseCol = new Color(78, 205, 196, baseAlpha);
+        Color glowCol = new Color(78, 205, 196, baseAlpha / 3);
+
+        // Base glow (gradient from edge inward)
+        // Top
+        g.setPaint(new java.awt.GradientPaint(0, 0, glowCol, 0, glowW, new Color(78, 205, 196, 0)));
+        g.fillRect(0, 0, WIDTH, glowW);
+        // Bottom
+        g.setPaint(new java.awt.GradientPaint(0, HEIGHT - glowW, new Color(78, 205, 196, 0), 0, HEIGHT, glowCol));
+        g.fillRect(0, HEIGHT - glowW, WIDTH, glowW);
+        // Left
+        g.setPaint(new java.awt.GradientPaint(0, 0, glowCol, glowW, 0, new Color(78, 205, 196, 0)));
+        g.fillRect(0, 0, glowW, HEIGHT);
+        // Right
+        g.setPaint(new java.awt.GradientPaint(WIDTH - glowW, 0, new Color(78, 205, 196, 0), WIDTH, 0, glowCol));
+        g.fillRect(WIDTH - glowW, 0, glowW, HEIGHT);
+
+        // Thin border lines
+        g.setColor(baseCol);
+        g.fillRect(0, 0, WIDTH, lineW);           // top
+        g.fillRect(0, HEIGHT - lineW, WIDTH, lineW); // bottom
+        g.fillRect(0, 0, lineW, HEIGHT);           // left
+        g.fillRect(WIDTH - lineW, 0, lineW, HEIGHT); // right
+
+        // Impact flares
+        for (int i = 0; i < wallFlareCount; i++) {
+            float fx = wallFlares[i][0];
+            float fy = wallFlares[i][1];
+            float intensity = wallFlares[i][2];
+            int side = (int) wallFlares[i][3];
+
+            int flareAlpha = (int) (intensity * 180);
+            int flareGlowAlpha = (int) (intensity * 60);
+            int spread = 60;
+            int depth = 25;
+
+            if (side == 0) { // top
+                g.setPaint(new java.awt.GradientPaint(0, 0, new Color(78, 205, 196, flareAlpha), 0, depth, new Color(78, 205, 196, 0)));
+                g.fillRect((int) fx - spread, 0, spread * 2, depth);
+                g.setColor(new Color(255, 255, 255, flareGlowAlpha));
+                g.fillRect((int) fx - spread / 3, 0, spread * 2 / 3, 3);
+            } else if (side == 1) { // bottom
+                g.setPaint(new java.awt.GradientPaint(0, HEIGHT - depth, new Color(78, 205, 196, 0), 0, HEIGHT, new Color(78, 205, 196, flareAlpha)));
+                g.fillRect((int) fx - spread, HEIGHT - depth, spread * 2, depth);
+                g.setColor(new Color(255, 255, 255, flareGlowAlpha));
+                g.fillRect((int) fx - spread / 3, HEIGHT - 3, spread * 2 / 3, 3);
+            } else if (side == 2) { // left
+                g.setPaint(new java.awt.GradientPaint(0, 0, new Color(78, 205, 196, flareAlpha), depth, 0, new Color(78, 205, 196, 0)));
+                g.fillRect(0, (int) fy - spread, depth, spread * 2);
+                g.setColor(new Color(255, 255, 255, flareGlowAlpha));
+                g.fillRect(0, (int) fy - spread / 3, 3, spread * 2 / 3);
+            } else { // right
+                g.setPaint(new java.awt.GradientPaint(WIDTH - depth, 0, new Color(78, 205, 196, 0), WIDTH, 0, new Color(78, 205, 196, flareAlpha)));
+                g.fillRect(WIDTH - depth, (int) fy - spread, depth, spread * 2);
+                g.setColor(new Color(255, 255, 255, flareGlowAlpha));
+                g.fillRect(WIDTH - 3, (int) fy - spread / 3, 3, spread * 2 / 3);
+            }
+        }
     }
 
     public static float clamp(float var, float min, float max) {

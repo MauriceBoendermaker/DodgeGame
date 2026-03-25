@@ -27,8 +27,14 @@ public class FastEnemy extends GameObject {
     public void tick() {
         x += velX;
         y += velY;
-        if (y <= 0 || y >= Game.HEIGHT - SIZE) velY *= -1;
-        if (x <= 0 || x >= Game.WIDTH - SIZE) velX *= -1;
+        if (y <= 0 || y >= Game.HEIGHT - SIZE) {
+            Game.wallHit(x + SIZE / 2, y <= 0 ? 0 : Game.HEIGHT, y <= 0 ? 0 : 1);
+            velY *= -1;
+        }
+        if (x <= 0 || x >= Game.WIDTH - SIZE) {
+            Game.wallHit(x <= 0 ? 0 : Game.WIDTH, y + SIZE / 2, x <= 0 ? 2 : 3);
+            velX *= -1;
+        }
         handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.02f, handler));
     }
 

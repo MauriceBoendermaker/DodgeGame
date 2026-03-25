@@ -119,7 +119,10 @@ public class EnemyBoss extends GameObject {
         else if (velX < 0) velX -= 0.005f * speedMult;
         velX = Game.clamp(velX, -10 * speedMult, 10 * speedMult);
 
-        if (x <= 0 || x >= Game.WIDTH - SIZE) velX *= -1;
+        if (x <= 0 || x >= Game.WIDTH - SIZE) {
+            Game.wallHit(x <= 0 ? 0 : Game.WIDTH, y + SIZE / 2, x <= 0 ? 2 : 3);
+            velX *= -1;
+        }
 
         // Attack patterns
         attackCooldown--;
