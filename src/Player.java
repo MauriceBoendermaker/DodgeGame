@@ -34,16 +34,25 @@ public class Player extends GameObject {
         collision();
     }
 
+    private boolean wasColliding = false;
+
     private void collision() {
+        boolean colliding = false;
         for (int i = 0; i < handler.getObjects().size(); i++) {
             GameObject tempObject = handler.getObjects().get(i);
             if (tempObject.getId() == ID.BasicEnemy || tempObject.getId() == ID.FastEnemy
                     || tempObject.getId() == ID.SmartEnemy || tempObject.getId() == ID.EnemyBoss) {
                 if (getBounds().intersects(tempObject.getBounds())) {
                     HUD.HEALTH -= 2;
+                    colliding = true;
                 }
             }
         }
+        // Trigger hit effect on first frame of contact
+        if (colliding && !wasColliding) {
+            Game.triggerHit();
+        }
+        wasColliding = colliding;
     }
 
     public void render(Graphics g) {

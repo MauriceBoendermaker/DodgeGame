@@ -40,8 +40,17 @@ public class Game extends Canvas implements Runnable {
     private Shop shop;
     private MusicPlayer musicPlayer;
 
-    private static final Font FPS_FONT = new Font("Arial", Font.PLAIN, 20);
     private static final Font PAUSED_FONT = new Font("Arial", Font.BOLD, 125);
+
+    // Screen shake + damage flash
+    private static float shakeIntensity = 0;
+    private static float flashAlpha = 0;
+    private static Random shakeRng = new Random();
+
+    public static void triggerHit() {
+        shakeIntensity = 8f;
+        flashAlpha = 0.6f;
+    }
 
     public enum STATE {
         Menu,
@@ -180,6 +189,12 @@ public class Game extends Canvas implements Runnable {
             menu.tick(); // for hover animations
             return;
         }
+        // Decay screen effects
+        if (shakeIntensity > 0.1f) shakeIntensity *= 0.85f;
+        else shakeIntensity = 0;
+        if (flashAlpha > 0.01f) flashAlpha *= 0.88f;
+        else flashAlpha = 0;
+
         if (gameState == STATE.Game) {
             hud.tick();
             spawner.tick();
@@ -222,11 +237,6 @@ public class Game extends Canvas implements Runnable {
         g.scale(scale, scale);
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 
-        // FPS counter
-        g.setColor(fps >= 240 ? Color.green : Color.gray);
-        g.setFont(FPS_FONT);
-        g.drawString("FPS: " + fps, WIDTH - 120, 19);
-
         if (gameState == STATE.Game || gameState == STATE.Shop || gameState == STATE.Paused) {
             PageRenderer.drawGameBackground(g);
         }
@@ -241,7 +251,36 @@ public class Game extends Canvas implements Runnable {
             // Pause menu rendered by Menu
             menu.render(g);
         } else if (gameState == STATE.Game) {
+            // Screen shake — offset the game world
+            float sx = 0, sy = 0;
+            if (shakeIntensity > 0) {
+                sx = (shakeRng.nextFloat() - 0.5f) * 2 * shakeIntensity;
+                sy = (shakeRng.nextFloat() - 0.5f) * 2 * shakeIntensity;
+                g.translate(sx, sy);
+            }
             handler.render(g);
+            if (shakeIntensity > 0) {
+                g.translate(-sx, -sy);
+            }
+
+            // Damage flash — red border vignette
+            if (flashAlpha > 0) {
+                int border = 60;
+                int alpha = (int) (flashAlpha * 255);
+                // Top
+                g.setPaint(new java.awt.GradientPaint(0, 0, new Color(235, 50, 50, alpha), 0, border, new Color(235, 50, 50, 0)));
+                g.fillRect(0, 0, WIDTH, border);
+                // Bottom
+                g.setPaint(new java.awt.GradientPaint(0, HEIGHT - border, new Color(235, 50, 50, 0), 0, HEIGHT, new Color(235, 50, 50, alpha)));
+                g.fillRect(0, HEIGHT - border, WIDTH, border);
+                // Left
+                g.setPaint(new java.awt.GradientPaint(0, 0, new Color(235, 50, 50, alpha), border, 0, new Color(235, 50, 50, 0)));
+                g.fillRect(0, 0, border, HEIGHT);
+                // Right
+                g.setPaint(new java.awt.GradientPaint(WIDTH - border, 0, new Color(235, 50, 50, 0), WIDTH, 0, new Color(235, 50, 50, alpha)));
+                g.fillRect(WIDTH - border, 0, border, HEIGHT);
+            }
+
             hud.render(g);
         } else if (gameState == STATE.Shop) {
             shop.render(g);
@@ -253,6 +292,13 @@ public class Game extends Canvas implements Runnable {
         } else {
             menu.render(g);
             handler.render(g);
+        }
+
+        // FPS counter — in-game only, bottom-left
+        if (gameState == STATE.Game || gameState == STATE.Paused) {
+            g.setFont(PageRenderer.SMALL_FONT);
+            g.setColor(PageRenderer.TEXT_MUTED);
+            g.drawString("FPS: " + fps, 24, HEIGHT - 12);
         }
 
         g.dispose();
