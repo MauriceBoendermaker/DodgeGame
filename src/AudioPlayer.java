@@ -13,7 +13,7 @@ public class AudioPlayer {
     private static Map<String, Sound> sounds = new HashMap<>();
     private static List<Track> tracks = new ArrayList<>();
     private static int currentTrackIndex = 0;
-    private static float volume = 0.15f;
+    private static float volume = 0.10f;
     private static boolean paused = false;
     private static boolean stopped = true;
 
