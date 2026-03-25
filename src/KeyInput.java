@@ -41,6 +41,10 @@ public class KeyInput extends KeyAdapter {
                 case MusicPlayer:
                     Game.gameState = Game.STATE.Menu;
                     break;
+                case Settings:
+                    Game.gameState = (Menu.settingsReturnTo != null) ? Menu.settingsReturnTo : Game.STATE.Menu;
+                    Menu.settingsReturnTo = null;
+                    break;
                 case Help:
                     Game.gameState = Game.STATE.Menu;
                     break;

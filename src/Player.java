@@ -94,13 +94,15 @@ public class Player extends GameObject {
         else hitPop = 0;
 
         // Trail — more frequent and brighter at high streak
-        int trailRate = streakLevel > 0.5f ? 2 : 3;
-        float trailLife = 0.045f - streakLevel * 0.02f; // slower fade at high streak
-        Color trailCol = lerpColor(new Color(200, 210, 220),
-                GamePalette.accent(), streakLevel * 0.6f);
+        if (Settings.getPlayerTrail()) {
+            int trailRate = streakLevel > 0.5f ? 2 : 3;
+            float trailLife = 0.045f - streakLevel * 0.02f; // slower fade at high streak
+            Color trailCol = lerpColor(new Color(200, 210, 220),
+                    GamePalette.accent(), streakLevel * 0.6f);
 
-        if (++trailTick % trailRate == 0) {
-            handler.addObject(new Trail(x, y, ID.Trail, trailCol, SIZE, SIZE, Math.max(trailLife, 0.015f), handler));
+            if (++trailTick % trailRate == 0) {
+                handler.addObject(new Trail(x, y, ID.Trail, trailCol, SIZE, SIZE, Math.max(trailLife, 0.015f), handler));
+            }
         }
 
         if (iFrames > 0) iFrames--;

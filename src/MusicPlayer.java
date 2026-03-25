@@ -358,7 +358,8 @@ public class MusicPlayer extends MouseAdapter {
     }
 
     private void applyVolume(int mx) {
-        AudioPlayer.setVolume(clampRatio(mx, volX(), VOL_W));
+        float vol = clampRatio(mx, volX(), VOL_W);
+        Settings.setMusicVolume(vol);
     }
 
     private float clampRatio(int mx, int barX, int barW) {

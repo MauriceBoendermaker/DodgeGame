@@ -46,6 +46,18 @@ public class Stats {
         return false;
     }
 
+    public static void resetHighScores() {
+        highScores = new int[3];
+        save();
+    }
+
+    public static void resetAll() {
+        attempts = new int[3];
+        highScores = new int[3];
+        currentAttempt = 0;
+        save();
+    }
+
     private static void save() {
         try (DataOutputStream out = new DataOutputStream(new FileOutputStream(FILE))) {
             for (int i = 0; i < 3; i++) out.writeInt(attempts[i]);

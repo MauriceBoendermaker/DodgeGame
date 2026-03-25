@@ -95,11 +95,33 @@ public class GamePalette {
     }
 
     public static Color accent() {
-        return new Color(clamp(currentR), clamp(currentG), clamp(currentB));
+        Color c = new Color(clamp(currentR), clamp(currentG), clamp(currentB));
+        return Settings.getColorblindMode() ? toColorblind(c) : c;
     }
 
     public static Color accent(int alpha) {
-        return new Color(clamp(currentR), clamp(currentG), clamp(currentB), Math.max(0, Math.min(255, alpha)));
+        Color c = new Color(clamp(currentR), clamp(currentG), clamp(currentB), Math.max(0, Math.min(255, alpha)));
+        if (!Settings.getColorblindMode()) return c;
+        Color cb = toColorblind(c);
+        return new Color(cb.getRed(), cb.getGreen(), cb.getBlue(), c.getAlpha());
+    }
+
+    /** Remap a color toward a deuteranopia-friendly palette (blue/orange/yellow) */
+    private static Color toColorblind(Color c) {
+        float[] hsb = Color.RGBtoHSB(c.getRed(), c.getGreen(), c.getBlue(), null);
+        float hue = hsb[0];
+        // Shift greens/reds to blue/orange range
+        // Red (0.0/1.0) → orange (0.08), green (0.33) → blue (0.58), teal (0.5) → blue (0.6)
+        if (hue < 0.15f || hue > 0.9f) {
+            hue = 0.08f; // reds → orange
+        } else if (hue < 0.45f) {
+            hue = 0.58f; // greens/yellows → blue
+        } else if (hue < 0.7f) {
+            hue = 0.62f; // teals/cyans → deeper blue
+        } else {
+            hue = 0.75f; // purples stay in blue-violet range
+        }
+        return Color.getHSBColor(hue, Math.min(hsb[1] * 1.1f, 1f), hsb[2]);
     }
 
     public static Color bgTint() {

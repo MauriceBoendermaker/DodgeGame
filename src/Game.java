@@ -223,6 +223,7 @@ public class Game extends Canvas implements Runnable {
     public enum STATE {
         Menu,
         MusicPlayer,
+        Settings,
         Info,
         About,
         Update_Notes,
@@ -266,6 +267,7 @@ public class Game extends Canvas implements Runnable {
         this.addMouseMotionListener(musicPlayer);
 
         AudioPlayer.load();
+        Settings.getMusicVolume(); // Force settings load & volume sync
         AudioPlayer.play();
 
         new Window(windowWidth, windowHeight, "Dotch. - v3.0", this);
@@ -624,6 +626,8 @@ public class Game extends Canvas implements Runnable {
             // shop handles its own input via mouse listener
         } else if (gameState == STATE.MusicPlayer) {
             musicPlayer.tick();
+        } else if (gameState == STATE.Settings) {
+            menu.tick();
         } else {
             menu.tick();
             handler.tick();
@@ -674,16 +678,17 @@ public class Game extends Canvas implements Runnable {
         } else if (gameState == STATE.Dying) {
             // Screen shake applies to frozen world
             float dsx = 0, dsy = 0;
-            if (shakeIntensity > 0) {
-                dsx = (shakeRng.nextFloat() - 0.5f) * 2 * shakeIntensity;
-                dsy = (shakeRng.nextFloat() - 0.5f) * 2 * shakeIntensity;
+            float shakeAmount = shakeIntensity * Settings.getShakeMultiplier();
+            if (shakeAmount > 0) {
+                dsx = (shakeRng.nextFloat() - 0.5f) * 2 * shakeAmount;
+                dsy = (shakeRng.nextFloat() - 0.5f) * 2 * shakeAmount;
                 g.translate(dsx, dsy);
             }
 
             // Render frozen game world (enemies still visible, player removed)
             handler.render(g);
 
-            if (shakeIntensity > 0) g.translate(-dsx, -dsy);
+            if (shakeAmount > 0) g.translate(-dsx, -dsy);
 
             // Death particles
             if (deathParticles != null) {
@@ -726,13 +731,14 @@ public class Game extends Canvas implements Runnable {
 
             // Screen shake — offset the game world
             float sx = 0, sy = 0;
-            if (shakeIntensity > 0) {
-                sx = (shakeRng.nextFloat() - 0.5f) * 2 * shakeIntensity;
-                sy = (shakeRng.nextFloat() - 0.5f) * 2 * shakeIntensity;
+            float shakeAmount = shakeIntensity * Settings.getShakeMultiplier();
+            if (shakeAmount > 0) {
+                sx = (shakeRng.nextFloat() - 0.5f) * 2 * shakeAmount;
+                sy = (shakeRng.nextFloat() - 0.5f) * 2 * shakeAmount;
                 g.translate(sx, sy);
             }
             handler.render(g);
-            if (shakeIntensity > 0) {
+            if (shakeAmount > 0) {
                 g.translate(-sx, -sy);
             }
 
@@ -860,7 +866,8 @@ public class Game extends Canvas implements Runnable {
         } else if (gameState == STATE.MusicPlayer) {
             musicPlayer.render(g);
         } else if (gameState == STATE.Menu || gameState == STATE.End
-                || gameState == STATE.Select || gameState == STATE.Credits) {
+                || gameState == STATE.Select || gameState == STATE.Credits
+                || gameState == STATE.Settings) {
             menu.render(g);
         } else {
             menu.render(g);
@@ -880,8 +887,8 @@ public class Game extends Canvas implements Runnable {
             g.fillRect(0, 0, WIDTH, HEIGHT);
         }
 
-        // FPS counter — in-game only, bottom-left
-        if (gameState == STATE.Game || gameState == STATE.Paused) {
+        // FPS counter — in-game only, bottom-left (togglable in settings)
+        if (Settings.getShowFps() && (gameState == STATE.Game || gameState == STATE.Paused)) {
             g.setFont(PageRenderer.SMALL_FONT);
             g.setColor(PageRenderer.TEXT_MUTED);
             g.drawString("FPS: " + fps, 24, HEIGHT - 12);
@@ -1007,7 +1014,7 @@ public class Game extends Canvas implements Runnable {
 
     private void renderBeatVisuals(Graphics2D g) {
         float beat = AudioPlayer.getBeatPulse();
-        float density = GamePalette.getParticleDensity();
+        float density = GamePalette.getParticleDensity() * Settings.getParticleDensityMultiplier();
         float distortion = GamePalette.getDistortion();
 
         // Background color tint — stronger on harder difficulties
@@ -1026,14 +1033,16 @@ public class Game extends Canvas implements Runnable {
         }
 
         // Grid dots — expand on beat, denser spacing on harder difficulties
-        int gridSpacing = density > 1.5f ? 30 : density > 1.1f ? 35 : 40;
-        int baseDotSize = 2;
-        int beatDotSize = baseDotSize + (int) (beat * 3 * density);
-        int baseAlpha = (int) ((22 + beat * 35) * Math.min(density, 1.4f));
-        g.setColor(GamePalette.accent(Math.min(baseAlpha, 255)));
-        for (int x = 20; x < WIDTH; x += gridSpacing) {
-            for (int y = 20; y < HEIGHT; y += gridSpacing) {
-                g.fillOval(x - beatDotSize / 2, y - beatDotSize / 2, beatDotSize, beatDotSize);
+        if (Settings.getGridDots()) {
+            int gridSpacing = density > 1.5f ? 30 : density > 1.1f ? 35 : 40;
+            int baseDotSize = 2;
+            int beatDotSize = baseDotSize + (int) (beat * 3 * density);
+            int baseAlpha = (int) ((22 + beat * 35) * Math.min(density, 1.4f));
+            g.setColor(GamePalette.accent(Math.min(baseAlpha, 255)));
+            for (int x = 20; x < WIDTH; x += gridSpacing) {
+                for (int y = 20; y < HEIGHT; y += gridSpacing) {
+                    g.fillOval(x - beatDotSize / 2, y - beatDotSize / 2, beatDotSize, beatDotSize);
+                }
             }
         }
 
@@ -1088,7 +1097,7 @@ public class Game extends Canvas implements Runnable {
             drawHexagon(g2, cx, cy, 160, t * 0.15f);
 
             // Layer 3 — Diagonal grid lines (tinted by difficulty)
-            float dens = GamePalette.getParticleDensity();
+            float dens = GamePalette.getParticleDensity() * Settings.getParticleDensityMultiplier();
             int lineSpacing = dens > 1.5f ? 55 : dens > 1.1f ? 65 : 80;
             g2.setStroke(new java.awt.BasicStroke(1f));
             g2.setColor(GamePalette.accent((int) (10 * dens)));

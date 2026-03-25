@@ -47,14 +47,41 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
 
     // Hover state
     private float[] btn = new float[3];
-    private float backH, musicH, aboutH, changelogH, creditsLinkH, quitH, retryH;
-    private float[] pauseBtn = new float[3];
+    private float backH, musicH, settingsH, aboutH, changelogH, creditsLinkH, quitH, retryH;
+    private float[] pauseBtn = new float[4];
     private int mouseX, mouseY;
     private static final float LERP = 0.14f;
 
     // Help page scroll
     private float helpScroll = 0;
     private float helpScrollTarget = 0;
+
+    // Settings page state
+    private static final int SETTINGS_W = 170;
+    private static final int SETTINGS_H = 34;
+    private static final int SETTINGS_Y = 668;
+    private static int settingsX() { return 30; }
+
+    private float settingsScroll = 0;
+    private float settingsScrollTarget = 0;
+
+    // Settings hover states: 0=musicVol, 1=sfxVol, 2=shakeOff, 3=shakeLow, 4=shakeHigh,
+    // 5=partLow, 6=partMed, 7=partHigh, 8=fpsToggle, 9=trailToggle, 10=gridToggle,
+    // 11=colorblindToggle, 12-17=lang buttons, 18=resetScores, 19=resetAll
+    private static final int SET_HOVER_COUNT = 20;
+    private float[] setH = new float[SET_HOVER_COUNT];
+    private float setMusicBarH, setSfxBarH;
+
+    // Settings drag
+    private enum SettingsDrag { NONE, MUSIC_VOL, SFX_VOL }
+    private SettingsDrag settingsDrag = SettingsDrag.NONE;
+
+    // Confirmation dialog
+    private String confirmAction = null; // "scores" or "progress" or null
+    private float confirmYesH, confirmNoH;
+
+    // Track where Settings was opened from (null = main menu)
+    public static Game.STATE settingsReturnTo = null;
 
     public Menu(Game game, Handler handler, HUD hud) {
         this.game = game;
@@ -69,12 +96,14 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         // Smooth scroll
         helpScroll += (helpScrollTarget - helpScroll) * 0.18f;
         if (Math.abs(helpScroll - helpScrollTarget) < 0.5f) helpScroll = helpScrollTarget;
+        settingsScroll += (settingsScrollTarget - settingsScroll) * 0.18f;
+        if (Math.abs(settingsScroll - settingsScrollTarget) < 0.5f) settingsScroll = settingsScrollTarget;
     }
 
     private void updateHover() {
         // Determine targets based on current state
         boolean[] btnTargets = new boolean[3];
-        boolean backTarget = false, musicTarget = false, aboutTarget = false;
+        boolean backTarget = false, musicTarget = false, settingsTarget = false, aboutTarget = false;
         boolean changelogTarget = false, creditsLinkTarget = false, quitTarget = false, retryTarget = false;
 
         switch (Game.gameState) {
@@ -85,6 +114,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
                 btnTargets[2] = hit(mouseX, mouseY, bx, HELP_Y, BW, BH);
                 quitTarget = hit(mouseX, mouseY, quitX(), PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H);
                 musicTarget = hit(mouseX, mouseY, musicX(), MUSIC_Y, MUSIC_W, MUSIC_H);
+                settingsTarget = hit(mouseX, mouseY, settingsX(), SETTINGS_Y, SETTINGS_W, SETTINGS_H);
                 int[] linkXs = getBottomLinkXs();
                 aboutTarget = hit(mouseX, mouseY, linkXs[0], 666, linkXs[1] - linkXs[0], 20);
                 changelogTarget = hit(mouseX, mouseY, linkXs[1], 666, linkXs[2] - linkXs[1], 20);
@@ -113,6 +143,11 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
                 btnTargets[0] = hit(mouseX, mouseY, px, PAUSE_Y0, PAUSE_W, PAUSE_H);
                 btnTargets[1] = hit(mouseX, mouseY, px, PAUSE_Y0 + PAUSE_SP, PAUSE_W, PAUSE_H);
                 btnTargets[2] = hit(mouseX, mouseY, px, PAUSE_Y0 + PAUSE_SP * 2, PAUSE_W, PAUSE_H);
+                pauseBtn[3] = approach(pauseBtn[3], hit(mouseX, mouseY, px, PAUSE_Y0 + PAUSE_SP * 3, PAUSE_W, PAUSE_H));
+                break;
+            case Settings:
+                backTarget = hitBack();
+                updateSettingsHover();
                 break;
             default:
                 backTarget = hitBack();
@@ -122,6 +157,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         for (int i = 0; i < 3; i++) btn[i] = approach(btn[i], btnTargets[i]);
         backH = approach(backH, backTarget);
         musicH = approach(musicH, musicTarget);
+        settingsH = approach(settingsH, settingsTarget);
         aboutH = approach(aboutH, aboutTarget);
         changelogH = approach(changelogH, changelogTarget);
         creditsLinkH = approach(creditsLinkH, creditsLinkTarget);
@@ -149,11 +185,26 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
             helpScrollTarget += e.getWheelRotation() * 40;
             helpScrollTarget = Math.max(0, helpScrollTarget);
         }
+        if (Game.gameState == Game.STATE.Settings) {
+            settingsScrollTarget += e.getWheelRotation() * 40;
+            settingsScrollTarget = Math.max(0, settingsScrollTarget);
+        }
     }
 
     public void mouseDragged(MouseEvent e) {
         mouseX = Game.toGameX(e.getX());
         mouseY = Game.toGameY(e.getY());
+        if (Game.gameState == Game.STATE.Settings) {
+            if (settingsDrag == SettingsDrag.MUSIC_VOL) {
+                Settings.setMusicVolume(settingsSliderRatio(mouseX));
+            } else if (settingsDrag == SettingsDrag.SFX_VOL) {
+                Settings.setSfxVolume(settingsSliderRatio(mouseX));
+            }
+        }
+    }
+
+    public void mouseReleased(MouseEvent e) {
+        settingsDrag = SettingsDrag.NONE;
     }
 
     public void mousePressed(MouseEvent e) {
@@ -173,8 +224,14 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
                 Game.gameState = Game.STATE.Menu;
                 return;
             }
-            // Quit
+            // Settings
             if (hit(mx, my, px, PAUSE_Y0 + PAUSE_SP * 2, PAUSE_W, PAUSE_H)) {
+                settingsReturnTo = Game.STATE.Paused;
+                Game.gameState = Game.STATE.Settings;
+                resetHover(); return;
+            }
+            // Quit
+            if (hit(mx, my, px, PAUSE_Y0 + PAUSE_SP * 3, PAUSE_W, PAUSE_H)) {
                 System.exit(0);
             }
             return;
@@ -186,6 +243,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
             if (hit(mx, my, bx, INFO_Y, BW, BH)) { Game.gameState = Game.STATE.Info; resetHover(); return; }
             if (hit(mx, my, bx, HELP_Y, BW, BH)) { Game.gameState = Game.STATE.Help; resetHover(); return; }
             if (hit(mx, my, musicX(), MUSIC_Y, MUSIC_W, MUSIC_H)) { Game.gameState = Game.STATE.MusicPlayer; resetHover(); return; }
+            if (hit(mx, my, settingsX(), SETTINGS_Y, SETTINGS_W, SETTINGS_H)) { Game.gameState = Game.STATE.Settings; resetHover(); return; }
             int[] linkXs = getBottomLinkXs();
             if (hit(mx, my, linkXs[0], 666, linkXs[1] - linkXs[0], 20)) {
                 Game.gameState = Game.STATE.About; resetHover(); return;
@@ -225,6 +283,11 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
             return;
         }
 
+        if (Game.gameState == Game.STATE.Settings) {
+            handleSettingsClick(mx, my);
+            return;
+        }
+
         if (Game.gameState == Game.STATE.Info || Game.gameState == Game.STATE.About
                 || Game.gameState == Game.STATE.Update_Notes || Game.gameState == Game.STATE.Credits) {
             if (hitBack()) { Game.gameState = Game.STATE.Menu; resetHover(); return; }
@@ -255,9 +318,15 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
 
     private void resetHover() {
         for (int i = 0; i < 3; i++) btn[i] = 0;
-        for (int i = 0; i < 3; i++) pauseBtn[i] = 0;
-        backH = musicH = aboutH = changelogH = creditsLinkH = quitH = retryH = 0;
+        for (int i = 0; i < 4; i++) pauseBtn[i] = 0;
+        backH = musicH = settingsH = aboutH = changelogH = creditsLinkH = quitH = retryH = 0;
         helpScroll = helpScrollTarget = 0;
+        settingsScroll = settingsScrollTarget = 0;
+        for (int i = 0; i < SET_HOVER_COUNT; i++) setH[i] = 0;
+        setMusicBarH = setSfxBarH = 0;
+        settingsDrag = SettingsDrag.NONE;
+        confirmAction = null;
+        confirmYesH = confirmNoH = 0;
     }
 
     private void startGame(int difficulty, GameObject firstEnemy) {
@@ -321,6 +390,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
                     {"Gegnertypen", "Rote Quadrate prallen in geraden Linien ab. T\u00FCrkise Rauten bewegen sich mit hoher Geschwindigkeit. Lila Kreise verfolgen den Spieler. Gelbe Dreiecke \u00E4ndern zuf\u00E4llig die Richtung. Rote Bosse sind gro\u00DF und schie\u00DFen Kugeln."},
                     {"Tipps", "Bleib in Bewegung \u2014 Stillstehen kostet am schnellsten Gesundheit. Upgrade Geschwindigkeit fr\u00FCh f\u00FCr besseres \u00DCberleben. Spare Punkte f\u00FCr h\u00F6here Level. Jeder Feindtyp hat eine eigene Form und Verhaltensweise. Lerne ihre Muster."}
                 }); break;
+            case Settings:      renderSettings(g2); break;
             case Info:          renderInfo(g2); break;
             case About:         renderAbout(g2); break;
             case Update_Notes:  renderUpdates(g2); break;
@@ -369,13 +439,23 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         // About | Changelog | Credits links — centered
         drawBottomLinks(g);
 
-        // Music Player button
+        // Music Player button (bottom right)
         int mx = musicX();
         g.setColor(PageRenderer.lerp(PageRenderer.ACCENT, new Color(110, 225, 218), musicH));
         g.fillRoundRect(mx, MUSIC_Y, MUSIC_W, MUSIC_H, 8, 8);
         g.setFont(PageRenderer.SMALL_FONT);
         g.setColor(PageRenderer.BG_DARK);
         PageRenderer.drawCenteredString(g, "Music Player", mx, MUSIC_Y, MUSIC_W, MUSIC_H);
+
+        // Settings button (bottom left)
+        int sx = settingsX();
+        g.setColor(PageRenderer.lerp(PageRenderer.SURFACE, new Color(38, 50, 68), settingsH));
+        g.fillRoundRect(sx, SETTINGS_Y, SETTINGS_W, SETTINGS_H, 8, 8);
+        g.setColor(PageRenderer.lerp(PageRenderer.BORDER, PageRenderer.ACCENT, settingsH * 0.4f));
+        g.drawRoundRect(sx, SETTINGS_Y, SETTINGS_W, SETTINGS_H, 8, 8);
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(PageRenderer.lerp(PageRenderer.TEXT_SEC, PageRenderer.TEXT, settingsH));
+        PageRenderer.drawCenteredString(g, "Settings", sx, SETTINGS_Y, SETTINGS_W, SETTINGS_H);
     }
 
     // ---------- Select Difficulty ----------
@@ -564,6 +644,629 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
                 cy += lineH;
             }
         }
+    }
+
+    // ---------- Settings ----------
+
+    // Layout constants for settings page
+    private static final int SET_MARGIN = 60;
+    private static final int SET_PAD = 20;
+    private static final int SET_ROW_H = 42;
+    private static final int SET_SLIDER_W = 200;
+    private static final int SET_SLIDER_H = 5;
+    private static final int SET_SLIDER_KNOB = 12;
+    private static final int SET_DRAG_MARGIN = 16;
+    private static final int SET_OPT_W = 80;
+    private static final int SET_OPT_H = 32;
+    private static final int SET_OPT_GAP = 8;
+    private static final int SET_TOGGLE_W = 50;
+    private static final int SET_TOGGLE_H = 26;
+    private static final int SET_LANG_W = 120;
+    private static final int SET_LANG_H = 34;
+    private static final int SET_LANG_GAP = 10;
+    private static final int SET_DANGER_W = 260;
+    private static final int SET_DANGER_H = 40;
+
+    private static int setPanelW() { return Game.WIDTH - SET_MARGIN * 2; }
+    private static int setLabelX() { return SET_MARGIN + SET_PAD; }
+    private static int setControlX() { return SET_MARGIN + setPanelW() / 2 + 20; }
+
+    private float settingsSliderRatio(int mx) {
+        return Math.max(0f, Math.min(1f, (float)(mx - setControlX()) / SET_SLIDER_W));
+    }
+
+    private boolean hitSlider(int mx, int my, int sliderY) {
+        return mx >= setControlX() - SET_DRAG_MARGIN && mx <= setControlX() + SET_SLIDER_W + SET_DRAG_MARGIN
+                && my >= sliderY - SET_DRAG_MARGIN && my <= sliderY + SET_SLIDER_H + SET_DRAG_MARGIN;
+    }
+
+    private void updateSettingsHover() {
+        // Slider bar hovers
+        boolean onMusic = settingsDrag == SettingsDrag.MUSIC_VOL
+                || hitSlider(mouseX, mouseY, getSettingsRowY(0));
+        boolean onSfx = settingsDrag == SettingsDrag.SFX_VOL
+                || hitSlider(mouseX, mouseY, getSettingsRowY(1));
+        setMusicBarH += ((onMusic ? 1f : 0f) - setMusicBarH) * LERP;
+        setSfxBarH += ((onSfx ? 1f : 0f) - setSfxBarH) * LERP;
+
+        // Option button hovers
+        boolean[] targets = getSettingsHoverTargets();
+        for (int i = 0; i < SET_HOVER_COUNT; i++) {
+            setH[i] = approach(setH[i], targets[i]);
+        }
+
+        // Confirm dialog hovers
+        if (confirmAction != null) {
+            int cx = Game.WIDTH / 2;
+            int dy = Game.HEIGHT / 2;
+            confirmYesH = approach(confirmYesH, hit(mouseX, mouseY, cx - 130, dy + 30, 120, 38));
+            confirmNoH = approach(confirmNoH, hit(mouseX, mouseY, cx + 10, dy + 30, 120, 38));
+        }
+    }
+
+    private int getSettingsRowY(int row) {
+        // Returns approximate Y for a settings row, adjusted by scroll
+        // Row 0-1: Audio (panel starts at y=130)
+        // Row 2: Screen shake (panel starts ~260)
+        // etc. — computed dynamically during render, so for hover we compute it here too
+        int contentTop = 130;
+        int y = contentTop - (int) settingsScroll;
+        int gap = 12;
+
+        // Audio panel: rows 0,1
+        if (row <= 1) return y + 52 + row * SET_ROW_H + SET_ROW_H / 2;
+
+        // Visual panel: starts after audio
+        int audioH = 52 + 2 * SET_ROW_H + SET_PAD;
+        y += audioH + gap;
+        // rows 2-7 are visual (shake=0-2, particle=3-5 within visual, but mapped as global indices 2-7)
+        if (row <= 7) return y + 52 + (row - 2) * SET_ROW_H + SET_ROW_H / 2;
+
+        // General panel
+        int visualH = 52 + 6 * SET_ROW_H + SET_PAD;
+        y += visualH + gap;
+        if (row <= 9) return y + 52 + (row - 8) * SET_ROW_H + SET_ROW_H / 2;
+
+        // Controls panel
+        int generalH = 52 + 2 * SET_ROW_H + SET_PAD;
+        y += generalH + gap;
+        if (row <= 10) return y + 52 + (row - 10) * SET_ROW_H + SET_ROW_H / 2;
+
+        // Danger panel
+        int controlsH = 52 + 5 * 28 + SET_PAD;
+        y += controlsH + gap;
+        return y + 52 + (row - 11) * SET_ROW_H + SET_ROW_H / 2;
+    }
+
+    private boolean[] getSettingsHoverTargets() {
+        boolean[] t = new boolean[SET_HOVER_COUNT];
+        if (confirmAction != null) return t; // Don't hover underneath dialog
+
+        int contentTop = 130;
+        int contentBottom = Game.HEIGHT - 30;
+        int gap = 12;
+        int cx = setControlX();
+        int y = contentTop - (int) settingsScroll;
+
+        // --- Audio panel ---
+        int audioH = 52 + 2 * SET_ROW_H + SET_PAD;
+        // Sliders handled separately via bar hover
+        y += audioH + gap;
+
+        // --- Visual panel ---
+        int rowY;
+        // Screen shake (row 0 in visual)
+        rowY = y + 52 + SET_ROW_H / 2 - SET_OPT_H / 2;
+        for (int i = 0; i < 3; i++) {
+            int ox = cx + i * (SET_OPT_W + SET_OPT_GAP);
+            t[2 + i] = hit(mouseX, mouseY, ox, rowY, SET_OPT_W, SET_OPT_H)
+                    && mouseY > contentTop && mouseY < contentBottom;
+        }
+
+        // Particle density (row 1 in visual)
+        rowY = y + 52 + SET_ROW_H + SET_ROW_H / 2 - SET_OPT_H / 2;
+        for (int i = 0; i < 3; i++) {
+            int ox = cx + i * (SET_OPT_W + SET_OPT_GAP);
+            t[5 + i] = hit(mouseX, mouseY, ox, rowY, SET_OPT_W, SET_OPT_H)
+                    && mouseY > contentTop && mouseY < contentBottom;
+        }
+
+        // FPS toggle (row 2)
+        rowY = y + 52 + 2 * SET_ROW_H + SET_ROW_H / 2 - SET_TOGGLE_H / 2;
+        t[8] = hit(mouseX, mouseY, cx, rowY, SET_TOGGLE_W, SET_TOGGLE_H)
+                && mouseY > contentTop && mouseY < contentBottom;
+
+        // Trail toggle (row 3)
+        rowY = y + 52 + 3 * SET_ROW_H + SET_ROW_H / 2 - SET_TOGGLE_H / 2;
+        t[9] = hit(mouseX, mouseY, cx, rowY, SET_TOGGLE_W, SET_TOGGLE_H)
+                && mouseY > contentTop && mouseY < contentBottom;
+
+        // Grid toggle (row 4)
+        rowY = y + 52 + 4 * SET_ROW_H + SET_ROW_H / 2 - SET_TOGGLE_H / 2;
+        t[10] = hit(mouseX, mouseY, cx, rowY, SET_TOGGLE_W, SET_TOGGLE_H)
+                && mouseY > contentTop && mouseY < contentBottom;
+
+        // Colorblind toggle (row 5)
+        rowY = y + 52 + 5 * SET_ROW_H + SET_ROW_H / 2 - SET_TOGGLE_H / 2;
+        t[11] = hit(mouseX, mouseY, cx, rowY, SET_TOGGLE_W, SET_TOGGLE_H)
+                && mouseY > contentTop && mouseY < contentBottom;
+
+        int visualH = 52 + 6 * SET_ROW_H + SET_PAD;
+        y += visualH + gap;
+
+        // --- General panel ---
+        // Language buttons (row 0)
+        rowY = y + 52 + SET_ROW_H / 2 - SET_LANG_H / 2;
+        for (int i = 0; i < 3; i++) {
+            int lx = cx + i * (SET_LANG_W / 2 + SET_LANG_GAP);
+            int lw = SET_LANG_W / 2;
+            t[12 + i] = hit(mouseX, mouseY, lx, rowY, lw, SET_LANG_H)
+                    && mouseY > contentTop && mouseY < contentBottom;
+        }
+
+        int generalH = 52 + 2 * SET_ROW_H + SET_PAD;
+        y += generalH + gap;
+
+        // --- Controls panel (read-only) ---
+        int controlsH = 52 + 5 * 28 + SET_PAD;
+        y += controlsH + gap;
+
+        // --- Danger zone ---
+        rowY = y + 52 + SET_ROW_H / 2 - SET_DANGER_H / 2;
+        int dangerCx = (Game.WIDTH - (SET_DANGER_W * 2 + 20)) / 2;
+        t[18] = hit(mouseX, mouseY, dangerCx, rowY, SET_DANGER_W, SET_DANGER_H)
+                && mouseY > contentTop && mouseY < contentBottom;
+        t[19] = hit(mouseX, mouseY, dangerCx + SET_DANGER_W + 20, rowY, SET_DANGER_W, SET_DANGER_H)
+                && mouseY > contentTop && mouseY < contentBottom;
+
+        return t;
+    }
+
+    private void handleSettingsClick(int mx, int my) {
+        // Confirmation dialog takes priority
+        if (confirmAction != null) {
+            int cx = Game.WIDTH / 2;
+            int dy = Game.HEIGHT / 2;
+            if (hit(mx, my, cx - 130, dy + 30, 120, 38)) {
+                // Confirm yes
+                if ("scores".equals(confirmAction)) Stats.resetHighScores();
+                else if ("progress".equals(confirmAction)) { Stats.resetAll(); Settings.resetToDefaults(); }
+                confirmAction = null;
+            } else if (hit(mx, my, cx + 10, dy + 30, 120, 38)) {
+                confirmAction = null; // Cancel
+            }
+            return;
+        }
+
+        // Back
+        if (hitBack()) {
+            Game.gameState = (settingsReturnTo != null) ? settingsReturnTo : Game.STATE.Menu;
+            settingsReturnTo = null;
+            resetHover(); return;
+        }
+
+        int contentTop = 130;
+        int contentBottom = Game.HEIGHT - 30;
+        if (my < contentTop || my > contentBottom) return;
+
+        int gap = 12;
+        int cx2 = setControlX();
+        int y = contentTop - (int) settingsScroll;
+
+        // --- Audio: sliders ---
+        int audioH = 52 + 2 * SET_ROW_H + SET_PAD;
+        int sliderY0 = y + 52 + SET_ROW_H / 2 - SET_SLIDER_H / 2;
+        int sliderY1 = y + 52 + SET_ROW_H + SET_ROW_H / 2 - SET_SLIDER_H / 2;
+
+        if (hitSlider(mx, my, sliderY0)) {
+            settingsDrag = SettingsDrag.MUSIC_VOL;
+            Settings.setMusicVolume(settingsSliderRatio(mx));
+            return;
+        }
+        if (hitSlider(mx, my, sliderY1)) {
+            settingsDrag = SettingsDrag.SFX_VOL;
+            Settings.setSfxVolume(settingsSliderRatio(mx));
+            return;
+        }
+
+        y += audioH + gap;
+
+        // --- Visual: options & toggles ---
+        int rowY;
+
+        // Screen shake
+        rowY = y + 52 + SET_ROW_H / 2 - SET_OPT_H / 2;
+        for (int i = 0; i < 3; i++) {
+            int ox = cx2 + i * (SET_OPT_W + SET_OPT_GAP);
+            if (hit(mx, my, ox, rowY, SET_OPT_W, SET_OPT_H)) {
+                Settings.setScreenShake(i); return;
+            }
+        }
+
+        // Particle density
+        rowY = y + 52 + SET_ROW_H + SET_ROW_H / 2 - SET_OPT_H / 2;
+        for (int i = 0; i < 3; i++) {
+            int ox = cx2 + i * (SET_OPT_W + SET_OPT_GAP);
+            if (hit(mx, my, ox, rowY, SET_OPT_W, SET_OPT_H)) {
+                Settings.setParticleDensity(i); return;
+            }
+        }
+
+        // FPS toggle
+        rowY = y + 52 + 2 * SET_ROW_H + SET_ROW_H / 2 - SET_TOGGLE_H / 2;
+        if (hit(mx, my, cx2, rowY, SET_TOGGLE_W, SET_TOGGLE_H)) {
+            Settings.setShowFps(!Settings.getShowFps()); return;
+        }
+
+        // Trail toggle
+        rowY = y + 52 + 3 * SET_ROW_H + SET_ROW_H / 2 - SET_TOGGLE_H / 2;
+        if (hit(mx, my, cx2, rowY, SET_TOGGLE_W, SET_TOGGLE_H)) {
+            Settings.setPlayerTrail(!Settings.getPlayerTrail()); return;
+        }
+
+        // Grid toggle
+        rowY = y + 52 + 4 * SET_ROW_H + SET_ROW_H / 2 - SET_TOGGLE_H / 2;
+        if (hit(mx, my, cx2, rowY, SET_TOGGLE_W, SET_TOGGLE_H)) {
+            Settings.setGridDots(!Settings.getGridDots()); return;
+        }
+
+        // Colorblind toggle
+        rowY = y + 52 + 5 * SET_ROW_H + SET_ROW_H / 2 - SET_TOGGLE_H / 2;
+        if (hit(mx, my, cx2, rowY, SET_TOGGLE_W, SET_TOGGLE_H)) {
+            Settings.setColorblindMode(!Settings.getColorblindMode()); return;
+        }
+
+        int visualH = 52 + 6 * SET_ROW_H + SET_PAD;
+        y += visualH + gap;
+
+        // --- General: language ---
+        rowY = y + 52 + SET_ROW_H / 2 - SET_LANG_H / 2;
+        for (int i = 0; i < 3; i++) {
+            int lx = cx2 + i * (SET_LANG_W / 2 + SET_LANG_GAP);
+            int lw = SET_LANG_W / 2;
+            if (hit(mx, my, lx, rowY, lw, SET_LANG_H)) {
+                Settings.setLanguage(i); return;
+            }
+        }
+
+        int generalH = 52 + 2 * SET_ROW_H + SET_PAD;
+        y += generalH + gap;
+
+        // --- Controls (read-only) ---
+        int controlsH = 52 + 5 * 28 + SET_PAD;
+        y += controlsH + gap;
+
+        // --- Danger zone ---
+        rowY = y + 52 + SET_ROW_H / 2 - SET_DANGER_H / 2;
+        int dangerCx = (Game.WIDTH - (SET_DANGER_W * 2 + 20)) / 2;
+        if (hit(mx, my, dangerCx, rowY, SET_DANGER_W, SET_DANGER_H)) {
+            confirmAction = "scores"; return;
+        }
+        if (hit(mx, my, dangerCx + SET_DANGER_W + 20, rowY, SET_DANGER_W, SET_DANGER_H)) {
+            confirmAction = "progress"; return;
+        }
+    }
+
+    private void renderSettings(Graphics2D g) {
+        PageRenderer.drawBackground(g);
+        PageRenderer.drawTitle(g, "Settings");
+        PageRenderer.drawBackButton(g, backH);
+
+        int contentTop = 130;
+        int contentBottom = Game.HEIGHT - 30;
+        int pw = setPanelW();
+        int gap = 12;
+        int cx = setControlX();
+        int lx = setLabelX();
+
+        // Clip to content area
+        java.awt.Shape oldClip = g.getClip();
+        g.clipRect(0, contentTop, Game.WIDTH, contentBottom - contentTop);
+
+        int y = contentTop - (int) settingsScroll;
+
+        // ===== AUDIO PANEL =====
+        int audioH = 52 + 2 * SET_ROW_H + SET_PAD;
+        if (y + audioH > contentTop - 20 && y < contentBottom + 20) {
+            PageRenderer.drawPanel(g, SET_MARGIN, y, pw, audioH);
+            g.setFont(PageRenderer.HEADING_FONT);
+            g.setColor(PageRenderer.ACCENT);
+            g.drawString("Audio", lx, y + 34);
+            g.setColor(PageRenderer.BORDER);
+            g.fillRect(lx, y + 46, pw - SET_PAD * 2, 1);
+
+            // Music volume
+            int rowY = y + 52 + SET_ROW_H / 2;
+            g.setFont(PageRenderer.BODY_FONT);
+            g.setColor(PageRenderer.TEXT_SEC);
+            g.drawString("Music Volume", lx, rowY + 5);
+            renderSlider(g, cx, rowY - SET_SLIDER_H / 2, Settings.getMusicVolume(), setMusicBarH);
+
+            // SFX volume
+            rowY = y + 52 + SET_ROW_H + SET_ROW_H / 2;
+            g.setColor(PageRenderer.TEXT_SEC);
+            g.drawString("SFX Volume", lx, rowY + 5);
+            renderSlider(g, cx, rowY - SET_SLIDER_H / 2, Settings.getSfxVolume(), setSfxBarH);
+        }
+        y += audioH + gap;
+
+        // ===== VISUAL PANEL =====
+        int visualH = 52 + 6 * SET_ROW_H + SET_PAD;
+        if (y + visualH > contentTop - 20 && y < contentBottom + 20) {
+            PageRenderer.drawPanel(g, SET_MARGIN, y, pw, visualH);
+            g.setFont(PageRenderer.HEADING_FONT);
+            g.setColor(PageRenderer.ACCENT);
+            g.drawString("Visual", lx, y + 34);
+            g.setColor(PageRenderer.BORDER);
+            g.fillRect(lx, y + 46, pw - SET_PAD * 2, 1);
+
+            // Screen shake
+            int rowY = y + 52 + SET_ROW_H / 2;
+            g.setFont(PageRenderer.BODY_FONT);
+            g.setColor(PageRenderer.TEXT_SEC);
+            g.drawString("Screen Shake", lx, rowY + 5);
+            String[] shakeLabels = {"Off", "Low", "High"};
+            renderOptionGroup(g, cx, rowY - SET_OPT_H / 2, shakeLabels, Settings.getScreenShake(), 2);
+
+            // Particle density
+            rowY = y + 52 + SET_ROW_H + SET_ROW_H / 2;
+            g.setColor(PageRenderer.TEXT_SEC);
+            g.drawString("Particle Density", lx, rowY + 5);
+            String[] partLabels = {"Low", "Medium", "High"};
+            renderOptionGroup(g, cx, rowY - SET_OPT_H / 2, partLabels, Settings.getParticleDensity(), 5);
+
+            // Show FPS
+            rowY = y + 52 + 2 * SET_ROW_H + SET_ROW_H / 2;
+            g.setColor(PageRenderer.TEXT_SEC);
+            g.drawString("Show FPS", lx, rowY + 5);
+            renderToggle(g, cx, rowY - SET_TOGGLE_H / 2, Settings.getShowFps(), setH[8]);
+
+            // Player trail
+            rowY = y + 52 + 3 * SET_ROW_H + SET_ROW_H / 2;
+            g.setColor(PageRenderer.TEXT_SEC);
+            g.drawString("Player Trail", lx, rowY + 5);
+            renderToggle(g, cx, rowY - SET_TOGGLE_H / 2, Settings.getPlayerTrail(), setH[9]);
+
+            // Grid dots
+            rowY = y + 52 + 4 * SET_ROW_H + SET_ROW_H / 2;
+            g.setColor(PageRenderer.TEXT_SEC);
+            g.drawString("Grid Dots", lx, rowY + 5);
+            renderToggle(g, cx, rowY - SET_TOGGLE_H / 2, Settings.getGridDots(), setH[10]);
+
+            // Colorblind mode
+            rowY = y + 52 + 5 * SET_ROW_H + SET_ROW_H / 2;
+            g.setColor(PageRenderer.TEXT_SEC);
+            g.drawString("Colorblind Mode", lx, rowY + 5);
+            renderToggle(g, cx, rowY - SET_TOGGLE_H / 2, Settings.getColorblindMode(), setH[11]);
+        }
+        y += visualH + gap;
+
+        // ===== GENERAL PANEL =====
+        int generalH = 52 + 2 * SET_ROW_H + SET_PAD;
+        if (y + generalH > contentTop - 20 && y < contentBottom + 20) {
+            PageRenderer.drawPanel(g, SET_MARGIN, y, pw, generalH);
+            g.setFont(PageRenderer.HEADING_FONT);
+            g.setColor(PageRenderer.ACCENT);
+            g.drawString("General", lx, y + 34);
+            g.setColor(PageRenderer.BORDER);
+            g.fillRect(lx, y + 46, pw - SET_PAD * 2, 1);
+
+            // Language
+            int rowY = y + 52 + SET_ROW_H / 2;
+            g.setFont(PageRenderer.BODY_FONT);
+            g.setColor(PageRenderer.TEXT_SEC);
+            g.drawString("Language", lx, rowY + 5);
+            String[] langLabels = {"ENG", "NLD", "DEU"};
+            int curLang = Settings.getLanguage();
+            for (int i = 0; i < 3; i++) {
+                int lbx = cx + i * (SET_LANG_W / 2 + SET_LANG_GAP);
+                int lbw = SET_LANG_W / 2;
+                int lby = rowY - SET_LANG_H / 2;
+                boolean active = (i == curLang);
+                if (active) {
+                    g.setColor(PageRenderer.ACCENT);
+                    g.fillRoundRect(lbx, lby, lbw, SET_LANG_H, 6, 6);
+                    g.setFont(PageRenderer.LABEL_FONT);
+                    g.setColor(PageRenderer.BG_DARK);
+                } else {
+                    g.setColor(PageRenderer.lerp(PageRenderer.SURFACE, new Color(38, 50, 68), setH[12 + i]));
+                    g.fillRoundRect(lbx, lby, lbw, SET_LANG_H, 6, 6);
+                    g.setColor(PageRenderer.lerp(PageRenderer.BORDER, PageRenderer.ACCENT, setH[12 + i] * 0.4f));
+                    g.drawRoundRect(lbx, lby, lbw, SET_LANG_H, 6, 6);
+                    g.setFont(PageRenderer.LABEL_FONT);
+                    g.setColor(PageRenderer.lerp(PageRenderer.TEXT_SEC, PageRenderer.TEXT, setH[12 + i]));
+                }
+                PageRenderer.drawCenteredString(g, langLabels[i], lbx, lby, lbw, SET_LANG_H);
+            }
+
+            // Help redirect note
+            rowY = y + 52 + SET_ROW_H + SET_ROW_H / 2;
+            g.setFont(PageRenderer.SMALL_FONT);
+            g.setColor(PageRenderer.TEXT_MUTED);
+            g.drawString("Help pages will open in the selected language", lx, rowY + 5);
+        }
+        y += generalH + gap;
+
+        // ===== CONTROLS PANEL =====
+        int controlLineH = 28;
+        int controlsH = 52 + 5 * controlLineH + SET_PAD;
+        if (y + controlsH > contentTop - 20 && y < contentBottom + 20) {
+            PageRenderer.drawPanel(g, SET_MARGIN, y, pw, controlsH);
+            g.setFont(PageRenderer.HEADING_FONT);
+            g.setColor(PageRenderer.ACCENT);
+            g.drawString("Controls", lx, y + 34);
+            g.setColor(PageRenderer.BORDER);
+            g.fillRect(lx, y + 46, pw - SET_PAD * 2, 1);
+
+            int ky = y + 68;
+            g.setFont(PageRenderer.BODY_FONT);
+            String[][] controls = {
+                {"W / \u2191  A / \u2190  S / \u2193  D / \u2192", "Move"},
+                {"Space", "Open Shop"},
+                {"P / Esc", "Pause"},
+                {"Esc", "Back (menus)"},
+                {"Mouse Wheel", "Scroll"}
+            };
+            for (String[] c : controls) {
+                g.setColor(PageRenderer.TEXT);
+                g.drawString(c[0], lx, ky);
+                g.setColor(PageRenderer.TEXT_MUTED);
+                g.drawString(c[1], cx, ky);
+                ky += controlLineH;
+            }
+        }
+        y += controlsH + gap;
+
+        // ===== DANGER ZONE PANEL =====
+        int dangerH = 52 + SET_ROW_H + SET_PAD;
+        if (y + dangerH > contentTop - 20 && y < contentBottom + 20) {
+            // Danger panel with red border
+            g.setColor(PageRenderer.SURFACE);
+            g.fillRoundRect(SET_MARGIN, y, pw, dangerH, PageRenderer.R, PageRenderer.R);
+            g.setColor(new Color(235, 87, 87, 60));
+            g.drawRoundRect(SET_MARGIN, y, pw, dangerH, PageRenderer.R, PageRenderer.R);
+            g.setFont(PageRenderer.HEADING_FONT);
+            g.setColor(PageRenderer.DANGER);
+            g.drawString("Danger Zone", lx, y + 34);
+            g.setColor(new Color(235, 87, 87, 60));
+            g.fillRect(lx, y + 46, pw - SET_PAD * 2, 1);
+
+            int rowY = y + 52 + SET_ROW_H / 2 - SET_DANGER_H / 2;
+            int dangerCx = (Game.WIDTH - (SET_DANGER_W * 2 + 20)) / 2;
+            PageRenderer.drawDangerButton(g, dangerCx, rowY, SET_DANGER_W, SET_DANGER_H, "Reset High Scores", setH[18]);
+            PageRenderer.drawDangerButton(g, dangerCx + SET_DANGER_W + 20, rowY, SET_DANGER_W, SET_DANGER_H, "Reset All Progress", setH[19]);
+        }
+        y += dangerH + gap;
+
+        int totalHeight = y + (int) settingsScroll - contentTop;
+        int maxScroll = Math.max(0, totalHeight - (contentBottom - contentTop) + 20);
+        settingsScrollTarget = Math.min(settingsScrollTarget, maxScroll);
+
+        g.setClip(oldClip);
+
+        // Scroll indicator
+        if (maxScroll > 0) {
+            float scrollPct = (settingsScrollTarget > 0) ? settingsScroll / maxScroll : 0;
+            int trackH = contentBottom - contentTop - 20;
+            int thumbH = Math.max(30, (int) ((float) (contentBottom - contentTop) / totalHeight * trackH));
+            int thumbY = contentTop + 10 + (int) ((trackH - thumbH) * scrollPct);
+            g.setColor(new Color(40, 52, 70, 80));
+            g.fillRoundRect(Game.WIDTH - 22, contentTop + 10, 6, trackH, 3, 3);
+            g.setColor(new Color(78, 205, 196, 120));
+            g.fillRoundRect(Game.WIDTH - 22, thumbY, 6, thumbH, 3, 3);
+        }
+
+        // Confirmation dialog overlay
+        if (confirmAction != null) {
+            renderConfirmDialog(g);
+        }
+    }
+
+    private void renderSlider(Graphics2D g, int x, int y, float value, float barH) {
+        // Background bar
+        g.setColor(PageRenderer.lerp(PageRenderer.BORDER, new Color(55, 70, 90), barH));
+        g.fillRoundRect(x, y, SET_SLIDER_W, SET_SLIDER_H, 3, 3);
+
+        // Filled portion
+        int filledW = (int) (SET_SLIDER_W * value);
+        if (filledW > 0) {
+            g.setColor(PageRenderer.ACCENT);
+            g.fillRoundRect(x, y, filledW, SET_SLIDER_H, 3, 3);
+        }
+
+        // Knob
+        int knobSize = SET_SLIDER_KNOB + (int) (3 * barH);
+        g.setColor(PageRenderer.lerp(PageRenderer.TEXT, PageRenderer.ACCENT, barH));
+        g.fillOval(x + filledW - knobSize / 2, y + SET_SLIDER_H / 2 - knobSize / 2, knobSize, knobSize);
+
+        // Percentage label
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        String pct = Math.round(value * 100) + "%";
+        g.drawString(pct, x + SET_SLIDER_W + 14, y + SET_SLIDER_H / 2 + 5);
+    }
+
+    private void renderOptionGroup(Graphics2D g, int x, int y, String[] labels, int selected, int hoverOffset) {
+        for (int i = 0; i < labels.length; i++) {
+            int ox = x + i * (SET_OPT_W + SET_OPT_GAP);
+            boolean active = (i == selected);
+            float h = setH[hoverOffset + i];
+            if (active) {
+                g.setColor(PageRenderer.ACCENT);
+                g.fillRoundRect(ox, y, SET_OPT_W, SET_OPT_H, 6, 6);
+                g.setFont(PageRenderer.LABEL_FONT);
+                g.setColor(PageRenderer.BG_DARK);
+            } else {
+                g.setColor(PageRenderer.lerp(PageRenderer.SURFACE, new Color(38, 50, 68), h));
+                g.fillRoundRect(ox, y, SET_OPT_W, SET_OPT_H, 6, 6);
+                g.setColor(PageRenderer.lerp(PageRenderer.BORDER, PageRenderer.ACCENT, h * 0.4f));
+                g.drawRoundRect(ox, y, SET_OPT_W, SET_OPT_H, 6, 6);
+                g.setFont(PageRenderer.LABEL_FONT);
+                g.setColor(PageRenderer.lerp(PageRenderer.TEXT_SEC, PageRenderer.TEXT, h));
+            }
+            PageRenderer.drawCenteredString(g, labels[i], ox, y, SET_OPT_W, SET_OPT_H);
+        }
+    }
+
+    private void renderToggle(Graphics2D g, int x, int y, boolean on, float hover) {
+        Color bg = on
+                ? PageRenderer.lerp(PageRenderer.ACCENT, new Color(110, 225, 218), hover)
+                : PageRenderer.lerp(PageRenderer.SURFACE_LIGHT, new Color(48, 62, 82), hover);
+        Color border = on
+                ? PageRenderer.lerp(PageRenderer.ACCENT, new Color(110, 225, 218), hover)
+                : PageRenderer.lerp(PageRenderer.BORDER, PageRenderer.ACCENT, hover * 0.3f);
+
+        g.setColor(bg);
+        g.fillRoundRect(x, y, SET_TOGGLE_W, SET_TOGGLE_H, SET_TOGGLE_H, SET_TOGGLE_H);
+        if (!on) {
+            g.setColor(border);
+            g.drawRoundRect(x, y, SET_TOGGLE_W, SET_TOGGLE_H, SET_TOGGLE_H, SET_TOGGLE_H);
+        }
+
+        // Knob
+        int knobSize = SET_TOGGLE_H - 6;
+        int knobX = on ? x + SET_TOGGLE_W - knobSize - 3 : x + 3;
+        g.setColor(on ? PageRenderer.BG_DARK : PageRenderer.lerp(PageRenderer.TEXT_SEC, PageRenderer.TEXT, hover));
+        g.fillOval(knobX, y + 3, knobSize, knobSize);
+    }
+
+    private void renderConfirmDialog(Graphics2D g) {
+        // Dim overlay
+        g.setColor(new Color(0, 0, 0, 160));
+        g.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
+
+        int dw = 400;
+        int dh = 160;
+        int dx = (Game.WIDTH - dw) / 2;
+        int dy = (Game.HEIGHT - dh) / 2;
+
+        // Dialog panel
+        g.setColor(PageRenderer.SURFACE);
+        g.fillRoundRect(dx, dy, dw, dh, PageRenderer.R, PageRenderer.R);
+        g.setColor(PageRenderer.DANGER);
+        g.drawRoundRect(dx, dy, dw, dh, PageRenderer.R, PageRenderer.R);
+
+        // Title
+        g.setFont(PageRenderer.HEADING_FONT);
+        g.setColor(PageRenderer.DANGER);
+        String title = "scores".equals(confirmAction) ? "Reset High Scores?" : "Reset All Progress?";
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(title, (Game.WIDTH - fm.stringWidth(title)) / 2, dy + 40);
+
+        // Description
+        g.setFont(PageRenderer.BODY_FONT);
+        g.setColor(PageRenderer.TEXT_SEC);
+        String desc = "scores".equals(confirmAction)
+                ? "All high scores will be permanently erased."
+                : "All scores, attempts, and settings will be reset.";
+        fm = g.getFontMetrics();
+        g.drawString(desc, (Game.WIDTH - fm.stringWidth(desc)) / 2, dy + 72);
+
+        // Buttons
+        int btnY = dy + dh / 2 + 30;
+        int cxd = Game.WIDTH / 2;
+        PageRenderer.drawDangerButton(g, cxd - 130, btnY, 120, 38, "Confirm", confirmYesH);
+        PageRenderer.drawSecondaryButton(g, cxd + 10, btnY, 120, 38, "Cancel", confirmNoH);
     }
 
     // ---------- Info ----------
@@ -952,13 +1655,14 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         int px = pauseX();
         PageRenderer.drawPrimaryButton(g, px, PAUSE_Y0, PAUSE_W, PAUSE_H, "Resume", btn[0]);
         PageRenderer.drawSecondaryButton(g, px, PAUSE_Y0 + PAUSE_SP, PAUSE_W, PAUSE_H, "Main Menu", btn[1]);
-        PageRenderer.drawDangerButton(g, px, PAUSE_Y0 + PAUSE_SP * 2, PAUSE_W, PAUSE_H, "Quit Game", btn[2]);
+        PageRenderer.drawSecondaryButton(g, px, PAUSE_Y0 + PAUSE_SP * 2, PAUSE_W, PAUSE_H, "Settings", pauseBtn[3]);
+        PageRenderer.drawDangerButton(g, px, PAUSE_Y0 + PAUSE_SP * 3, PAUSE_W, PAUSE_H, "Quit Game", btn[2]);
 
         // Hint
         g.setFont(PageRenderer.SMALL_FONT);
         g.setColor(PageRenderer.TEXT_MUTED);
         String hint = "Press ESC to resume";
         fm = g.getFontMetrics();
-        g.drawString(hint, (Game.WIDTH - fm.stringWidth(hint)) / 2, PAUSE_Y0 + PAUSE_SP * 2 + PAUSE_H + 30);
+        g.drawString(hint, (Game.WIDTH - fm.stringWidth(hint)) / 2, PAUSE_Y0 + PAUSE_SP * 3 + PAUSE_H + 30);
     }
 }
