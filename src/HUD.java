@@ -47,6 +47,13 @@ public class HUD {
     // Level-up banner
     private float levelUpBanner = 0;
 
+    // Score milestone pulse
+    private static final int MILESTONE_INTERVAL = 2500;
+    private float scorePulse = 0;
+    private int lastMilestone = 0;
+    private static final Font FONT_SCORE_BIG = new Font("Arial", Font.BOLD, 42);
+    private static final Color GOLD = new Color(255, 210, 80);
+
     public void tick() {
         float maxHealth = 100 + (bounds / 2);
         HEALTH = Game.clamp(HEALTH, 0, maxHealth);
@@ -59,6 +66,15 @@ public class HUD {
 
         if (levelUpBanner > 0.01f) levelUpBanner *= 0.96f;
         else levelUpBanner = 0;
+
+        // Score milestone check
+        int currentMilestone = score / MILESTONE_INTERVAL;
+        if (currentMilestone > lastMilestone && lastMilestone >= 0) {
+            scorePulse = 1f;
+        }
+        lastMilestone = currentMilestone;
+        if (scorePulse > 0.01f) scorePulse *= 0.92f;
+        else scorePulse = 0;
     }
 
     public void triggerLevelUpBanner() {
@@ -114,14 +130,40 @@ public class HUD {
         drawTierBar(g2, tierX, tierY + 18, "SPD", speedUpgrades, TIER_SPEED);
         drawTierBar(g2, tierX, tierY + 36, "REF", refills, TIER_REFILL);
 
-        // Score — top center
-        g2.setFont(FONT_SCORE);
-        g2.setColor(TEXT);
+        // Score — top center with milestone pulse
+        int scoreCX = Game.WIDTH / 2;
+        int scoreY = 42;
+
+        // Radial pulse ring on milestone
+        if (scorePulse > 0.05f) {
+            int ringRadius = (int) ((1f - scorePulse) * 120);
+            int ringAlpha = (int) (scorePulse * 120);
+            g2.setColor(new Color(GOLD.getRed(), GOLD.getGreen(), GOLD.getBlue(), Math.min(ringAlpha, 255)));
+            g2.drawOval(scoreCX - ringRadius, scoreY - 15 - ringRadius, ringRadius * 2, ringRadius * 2);
+            // Second ring, slightly delayed
+            int ring2 = (int) ((1f - scorePulse * 0.8f) * 80);
+            int ring2Alpha = (int) (scorePulse * 60);
+            g2.setColor(new Color(GOLD.getRed(), GOLD.getGreen(), GOLD.getBlue(), Math.min(ring2Alpha, 255)));
+            g2.drawOval(scoreCX - ring2, scoreY - 15 - ring2, ring2 * 2, ring2 * 2);
+        }
+
+        // Score number — bumps size and flashes gold on milestone
+        Font scoreFont = scorePulse > 0.1f ? FONT_SCORE_BIG : FONT_SCORE;
+        Color scoreColor = scorePulse > 0.1f
+                ? lerpColor(TEXT, GOLD, scorePulse)
+                : TEXT;
+        g2.setFont(scoreFont);
+        g2.setColor(scoreColor);
         String scoreStr = String.valueOf(score);
         fm = g2.getFontMetrics();
-        g2.drawString(scoreStr, (Game.WIDTH - fm.stringWidth(scoreStr)) / 2, 42);
+        g2.drawString(scoreStr, (Game.WIDTH - fm.stringWidth(scoreStr)) / 2, scoreY);
+
+        // Score label
         g2.setFont(FONT_LABEL);
-        g2.setColor(TEXT_DIM);
+        Color labelColor = scorePulse > 0.1f
+                ? lerpColor(TEXT_DIM, GOLD, scorePulse * 0.5f)
+                : TEXT_DIM;
+        g2.setColor(labelColor);
         String scoreLabel = "SCORE";
         fm = g2.getFontMetrics();
         g2.drawString(scoreLabel, (Game.WIDTH - fm.stringWidth(scoreLabel)) / 2, 18);
@@ -227,5 +269,7 @@ public class HUD {
         speedUpgrades = 0;
         refills = 0;
         levelUpBanner = 0;
+        scorePulse = 0;
+        lastMilestone = 0;
     }
 }
