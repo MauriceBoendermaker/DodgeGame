@@ -1,9 +1,11 @@
 import java.awt.Color;
 import java.awt.Font;
+import java.awt.FontMetrics;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.image.BufferedImage;
 
 public class Menu extends MouseAdapter {
 
@@ -11,159 +13,118 @@ public class Menu extends MouseAdapter {
     private Handler handler;
     private HUD hud;
 
-    private BufferedImage play_image;
-    private BufferedImage info_image;
-    private BufferedImage help_image;
-    private BufferedImage english_image;
-    private BufferedImage nederlands_image;
-    private BufferedImage deutsch_image;
+    // Centered button layout
+    private static final int CX = PageRenderer.BTN_X;
+    private static final int BW = PageRenderer.BTN_W;
+    private static final int BH = PageRenderer.BTN_H;
+    private static final int SP = PageRenderer.BTN_SPACING;
 
-    private static final Font FONT_SMALL = new Font("Arial", Font.BOLD, 20);
-    private static final Font FONT_MEDIUM = new Font("Arial", Font.BOLD, 30);
-    private static final Font FONT_LARGE = new Font("Arial", Font.BOLD, 50);
-    private static final Font FONT_MUSIC_BTN = new Font("Arial", Font.BOLD, 16);
+    // Main menu buttons (y positions)
+    private static final int PLAY_Y = 300;
+    private static final int INFO_Y = PLAY_Y + SP;
+    private static final int HELP_Y = INFO_Y + SP;
 
-    // Music Player button on main menu
-    private static final int MUSIC_BTN_X = 1050;
-    private static final int MUSIC_BTN_Y = 665;
-    private static final int MUSIC_BTN_W = 200;
-    private static final int MUSIC_BTN_H = 40;
+    // Wide buttons for help languages
+    private static final int LANG_W = 330;
+    private static final int LANG_X = (Game.WIDTH - LANG_W) / 2;
+
+    // Bottom bar
+    private static final int MUSIC_X = 1060;
+    private static final int MUSIC_Y = 668;
+    private static final int MUSIC_W = 170;
+    private static final int MUSIC_H = 34;
+
+    private static final int QUIT_X = 1155;
+    private static final int QUIT_Y = 24;
+    private static final int QUIT_W = 90;
+    private static final int QUIT_H = 34;
+
+    // End screen
+    private static final int RETRY_X = (Game.WIDTH - 300) / 2;
+    private static final int RETRY_Y = 440;
+    private static final int RETRY_W = 300;
+    private static final int RETRY_H = 50;
 
     public Menu(Game game, Handler handler, HUD hud) {
         this.game = game;
         this.hud = hud;
         this.handler = handler;
-
-        play_image = new SpriteSheet(Game.sprite_sheet2).grabImage(1, 1, 720, 1280);
-        info_image = new SpriteSheet(Game.sprite_sheet3).grabImage(1, 1, 720, 1280);
-        help_image = new SpriteSheet(Game.sprite_sheet4).grabImage(1, 1, 720, 1280);
-        english_image = new SpriteSheet(Game.sprite_sheet7).grabImage(1, 1, 720, 1280);
-        nederlands_image = new SpriteSheet(Game.sprite_sheet8).grabImage(1, 1, 720, 1280);
-        deutsch_image = new SpriteSheet(Game.sprite_sheet9).grabImage(1, 1, 720, 1280);
     }
+
+    // ==================== Input ====================
 
     public void mousePressed(MouseEvent e) {
         int mx = Game.toGameX(e.getX());
         int my = Game.toGameY(e.getY());
 
         if (Game.gameState == Game.STATE.Menu) {
-            if (mouseOver(mx, my, 47, 344, 232, 66)) {
-                Game.gameState = Game.STATE.Select;
-                return;
-            }
-            if (mouseOver(mx, my, 46, 444, 232, 66)) {
-                Game.gameState = Game.STATE.Info;
-                return;
-            }
-            if (mouseOver(mx, my, 46, 542, 232, 66)) {
-                Game.gameState = Game.STATE.Help;
-                return;
-            }
-            if (mouseOver(mx, my, 10, 590, 280, 64)) {
-                Game.gameState = Game.STATE.About;
-                return;
-            }
-            if (mouseOver(mx, my, 10, 665, 280, 64)) {
-                Game.gameState = Game.STATE.Update_Notes;
-                return;
-            }
-            if (mouseOver(mx, my, MUSIC_BTN_X, MUSIC_BTN_Y, MUSIC_BTN_W, MUSIC_BTN_H)) {
-                Game.gameState = Game.STATE.MusicPlayer;
-                return;
-            }
-            if (mouseOver(mx, my, 1145, 52, 100, 33)) {
-                System.exit(0);
-            }
+            if (hit(mx, my, CX, PLAY_Y, BW, BH)) { Game.gameState = Game.STATE.Select; return; }
+            if (hit(mx, my, CX, INFO_Y, BW, BH)) { Game.gameState = Game.STATE.Info; return; }
+            if (hit(mx, my, CX, HELP_Y, BW, BH)) { Game.gameState = Game.STATE.Help; return; }
+            if (hit(mx, my, MUSIC_X, MUSIC_Y, MUSIC_W, MUSIC_H)) { Game.gameState = Game.STATE.MusicPlayer; return; }
+            // About | Changelog centered links
+            if (hit(mx, my, 555, 662, 55, 24)) { Game.gameState = Game.STATE.About; return; }
+            if (hit(mx, my, 640, 662, 85, 24)) { Game.gameState = Game.STATE.Update_Notes; return; }
+            if (hit(mx, my, QUIT_X, QUIT_Y, QUIT_W, QUIT_H)) { System.exit(0); }
             return;
         }
 
         if (Game.gameState == Game.STATE.Select) {
-            // Normal
-            if (mouseOver(mx, my, 47, 335, 232, 66)) {
-                startGame(0, new BasicEnemy(Game.WIDTH - 50, Game.HEIGHT - 50, ID.BasicEnemy, handler));
-                return;
-            }
-            // Hard
-            if (mouseOver(mx, my, 46, 435, 232, 66)) {
-                startGame(1, new HardEnemy(Game.WIDTH - 100, Game.HEIGHT - 100, ID.BasicEnemy, handler));
-                return;
-            }
-            // Insane
-            if (mouseOver(mx, my, 46, 533, 232, 66)) {
-                startGame(2, new HardEnemy(Game.WIDTH - 50, Game.HEIGHT - 50, ID.BasicEnemy, handler));
-                return;
-            }
-            // Back
-            if (mouseOver(mx, my, 1145, 52, 100, 33)) {
-                Game.gameState = Game.STATE.Menu;
-                return;
-            }
+            if (hit(mx, my, CX, PLAY_Y, BW, BH)) { startGame(0, new BasicEnemy(Game.WIDTH - 50, Game.HEIGHT - 50, ID.BasicEnemy, handler)); return; }
+            if (hit(mx, my, CX, INFO_Y, BW, BH)) { startGame(1, new HardEnemy(Game.WIDTH - 100, Game.HEIGHT - 100, ID.BasicEnemy, handler)); return; }
+            if (hit(mx, my, CX, HELP_Y, BW, BH)) { startGame(2, new HardEnemy(Game.WIDTH - 50, Game.HEIGHT - 50, ID.BasicEnemy, handler)); return; }
+            if (hitBack(mx, my)) { Game.gameState = Game.STATE.Menu; return; }
             return;
         }
 
         if (Game.gameState == Game.STATE.Help) {
-            if (mouseOver(mx, my, 47, 335, 330, 66)) {
-                Game.gameState = Game.STATE.HelpENG;
-                return;
-            }
-            if (mouseOver(mx, my, 46, 435, 330, 66)) {
-                Game.gameState = Game.STATE.HelpNLD;
-                return;
-            }
-            if (mouseOver(mx, my, 46, 533, 330, 66)) {
-                Game.gameState = Game.STATE.HelpDEU;
-                return;
-            }
-            if (mouseOver(mx, my, 10, 250, 330, 66)) {
-                Game.gameState = Game.STATE.HelpFRA;
-                return;
-            }
-            if (mouseOver(mx, my, 424, 175, 330, 66)) {
-                Game.gameState = Game.STATE.HelpRUS;
-                return;
-            }
-            if (mouseOver(mx, my, 424, 250, 330, 66)) {
-                Game.gameState = Game.STATE.HelpSPA;
-                return;
-            }
-            if (mouseOver(mx, my, 1145, 52, 100, 33)) {
-                Game.gameState = Game.STATE.Menu;
-                return;
-            }
+            if (hit(mx, my, LANG_X, PLAY_Y, LANG_W, BH)) { Game.gameState = Game.STATE.HelpENG; return; }
+            if (hit(mx, my, LANG_X, INFO_Y, LANG_W, BH)) { Game.gameState = Game.STATE.HelpNLD; return; }
+            if (hit(mx, my, LANG_X, HELP_Y, LANG_W, BH)) { Game.gameState = Game.STATE.HelpDEU; return; }
+            if (hitBack(mx, my)) { Game.gameState = Game.STATE.Menu; return; }
             return;
         }
 
-        // Back buttons for help language pages → go back to Help
-        if (Game.gameState == Game.STATE.HelpNLD || Game.gameState == Game.STATE.HelpENG
-                || Game.gameState == Game.STATE.HelpFRA || Game.gameState == Game.STATE.HelpDEU
+        // Help language pages -> back to Help
+        if (Game.gameState == Game.STATE.HelpENG || Game.gameState == Game.STATE.HelpNLD
+                || Game.gameState == Game.STATE.HelpDEU || Game.gameState == Game.STATE.HelpFRA
                 || Game.gameState == Game.STATE.HelpRUS || Game.gameState == Game.STATE.HelpSPA) {
-            if (mouseOver(mx, my, 1145, 52, 100, 33)) {
-                Game.gameState = Game.STATE.Help;
-                return;
-            }
+            if (hitBack(mx, my)) { Game.gameState = Game.STATE.Help; return; }
             return;
         }
 
-        // Back buttons for Info, About, Update_Notes → go back to Menu
+        // Info, About, Updates -> back to Menu
         if (Game.gameState == Game.STATE.Info || Game.gameState == Game.STATE.About
                 || Game.gameState == Game.STATE.Update_Notes) {
-            if (mouseOver(mx, my, 1145, 52, 100, 33)) {
-                Game.gameState = Game.STATE.Menu;
-                return;
-            }
+            if (hitBack(mx, my)) { Game.gameState = Game.STATE.Menu; return; }
             return;
         }
 
-        // Back button for End → go back to Select
+        // End screen
         if (Game.gameState == Game.STATE.End) {
-            if (mouseOver(mx, my, 1145, 52, 100, 33)) {
+            if (hit(mx, my, RETRY_X, RETRY_Y, RETRY_W, RETRY_H)) {
                 Game.gameState = Game.STATE.Select;
                 hud.setLevel(1);
                 hud.setScore(0);
                 hud.bounds = 0;
                 return;
             }
+            if (hitBack(mx, my)) {
+                Game.gameState = Game.STATE.Menu;
+                hud.setLevel(1);
+                hud.setScore(0);
+                hud.bounds = 0;
+                return;
+            }
         }
+    }
+
+    private boolean hit(int mx, int my, int x, int y, int w, int h) {
+        return mx >= x && mx <= x + w && my >= y && my <= y + h;
+    }
+
+    private boolean hitBack(int mx, int my) {
+        return hit(mx, my, PageRenderer.BACK_X, PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H);
     }
 
     private void startGame(int difficulty, GameObject firstEnemy) {
@@ -174,56 +135,384 @@ public class Menu extends MouseAdapter {
         game.diff = difficulty;
     }
 
-    private boolean mouseOver(int mx, int my, int x, int y, int width, int height) {
-        return mx > x && mx < x + width && my > y && my < y + height;
-    }
-
     public void tick() {
     }
 
+    // ==================== Rendering ====================
+
     public void render(Graphics g) {
-        if (Game.gameState == Game.STATE.Menu) {
-            g.setColor(Color.white);
-            g.setFont(FONT_SMALL);
-            g.drawString("Current state of build: 25 Levels", 960, 650);
+        Graphics2D g2 = (Graphics2D) g;
+        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            // Music Player button
-            g.setColor(new Color(29, 185, 84));
-            g.fillRoundRect(MUSIC_BTN_X, MUSIC_BTN_Y, MUSIC_BTN_W, MUSIC_BTN_H, 10, 10);
-            g.setColor(Color.white);
-            g.setFont(FONT_MUSIC_BTN);
-            String musicLabel = "\u266B  Music Player";
-            int labelW = g.getFontMetrics().stringWidth(musicLabel);
-            g.drawString(musicLabel, MUSIC_BTN_X + (MUSIC_BTN_W - labelW) / 2, MUSIC_BTN_Y + 26);
-
-        } else if (Game.gameState == Game.STATE.Select) {
-            g.drawImage(play_image, 0, 0, null);
-
-        } else if (Game.gameState == Game.STATE.Help) {
-            g.drawImage(help_image, 0, 0, null);
-
-        } else if (Game.gameState == Game.STATE.HelpENG) {
-            g.drawImage(english_image, 0, 0, null);
-
-        } else if (Game.gameState == Game.STATE.HelpNLD) {
-            g.drawImage(nederlands_image, 0, 0, null);
-
-        } else if (Game.gameState == Game.STATE.HelpDEU) {
-            g.drawImage(deutsch_image, 0, 0, null);
-
-        } else if (Game.gameState == Game.STATE.Info) {
-            g.drawImage(info_image, 0, 0, null);
-
-        } else if (Game.gameState == Game.STATE.End) {
-            g.setFont(FONT_LARGE);
-            g.setColor(Color.white);
-            g.drawString("Game Over!", 175, 70);
-
-            g.setFont(FONT_MEDIUM);
-            g.drawString("You lost with a score of: " + hud.getScore(), 175, 180);
-
-            g.drawRect(210, 350, 200, 64);
-            g.drawString("Try Again >>", 222, 385);
+        switch (Game.gameState) {
+            case Menu:          renderMainMenu(g2); break;
+            case Select:        renderSelect(g2); break;
+            case Help:          renderHelp(g2); break;
+            case HelpENG:       renderHelpLang(g2, "English", "General", "Controls",
+                                    new String[]{"Use W, A, S, D to move the player,", "dodge enemies, and score points.", "", "Arrow keys also work."},
+                                    new String[]{"P  -  Pause", "Esc  -  Quit", "Space  -  Shop", "", "W / Up  -  Move up", "A / Left  -  Move left", "S / Down  -  Move down", "D / Right  -  Move right"}); break;
+            case HelpNLD:       renderHelpLang(g2, "Nederlands", "Algemeen", "Besturing",
+                                    new String[]{"Gebruik W, A, S, D om te bewegen,", "ontwijk vijanden en scoor punten.", "", "Pijltjestoetsen werken ook."},
+                                    new String[]{"P  -  Pauze", "Esc  -  Afsluiten", "Spatie  -  Winkel", "", "W / Op  -  Omhoog", "A / Links  -  Links", "S / Neer  -  Omlaag", "D / Rechts  -  Rechts"}); break;
+            case HelpDEU:       renderHelpLang(g2, "Deutsch", "Allgemeines", "Steuerung",
+                                    new String[]{"Verwende W, A, S, D um zu bewegen,", "weiche Feinden aus und sammle Punkte.", "", "Pfeiltasten funktionieren auch."},
+                                    new String[]{"P  -  Pause", "Esc  -  Verlassen", "Leertaste  -  Shop", "", "W / Hoch  -  Nach oben", "A / Links  -  Links", "S / Runter  -  Nach unten", "D / Rechts  -  Rechts"}); break;
+            case Info:          renderInfo(g2); break;
+            case About:         renderAbout(g2); break;
+            case Update_Notes:  renderUpdates(g2); break;
+            case End:           renderEnd(g2); break;
+            default: break;
         }
+    }
+
+    // ---------- Main Menu ----------
+
+    private void renderMainMenu(Graphics2D g) {
+        PageRenderer.drawBackground(g);
+        PageRenderer.drawLogo(g, 200);
+
+        PageRenderer.drawPrimaryButton(g, CX, PLAY_Y, BW, BH, "Play");
+        PageRenderer.drawSecondaryButton(g, CX, INFO_Y, BW, BH, "Info");
+        PageRenderer.drawSecondaryButton(g, CX, HELP_Y, BW, BH, "Help");
+
+        // Quit (top-right)
+        g.setColor(PageRenderer.SURFACE);
+        g.fillRoundRect(QUIT_X, QUIT_Y, QUIT_W, QUIT_H, 8, 8);
+        g.setColor(PageRenderer.BORDER);
+        g.drawRoundRect(QUIT_X, QUIT_Y, QUIT_W, QUIT_H, 8, 8);
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(PageRenderer.TEXT_SEC);
+        PageRenderer.drawCenteredString(g, "Quit", QUIT_X, QUIT_Y, QUIT_W, QUIT_H);
+
+        // Bottom bar
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        g.drawString("v3.0", 30, 700);
+
+        // About | Updates links — centered
+        g.setFont(PageRenderer.SMALL_FONT);
+        java.awt.FontMetrics lfm = g.getFontMetrics();
+        String aboutTxt = "About";
+        String divider = "  |  ";
+        String updatesTxt = "Changelog";
+        int totalLinkW = lfm.stringWidth(aboutTxt + divider + updatesTxt);
+        int linkStartX = (Game.WIDTH - totalLinkW) / 2;
+        g.setColor(PageRenderer.TEXT_SEC);
+        g.drawString(aboutTxt, linkStartX, 680);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        g.drawString(divider, linkStartX + lfm.stringWidth(aboutTxt), 680);
+        g.setColor(PageRenderer.TEXT_SEC);
+        g.drawString(updatesTxt, linkStartX + lfm.stringWidth(aboutTxt + divider), 680);
+
+        // Music Player button
+        g.setColor(PageRenderer.ACCENT);
+        g.fillRoundRect(MUSIC_X, MUSIC_Y, MUSIC_W, MUSIC_H, 8, 8);
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(PageRenderer.BG_DARK);
+        PageRenderer.drawCenteredString(g, "Music Player", MUSIC_X, MUSIC_Y, MUSIC_W, MUSIC_H);
+    }
+
+    // ---------- Select Difficulty ----------
+
+    private void renderSelect(Graphics2D g) {
+        PageRenderer.drawBackground(g);
+        PageRenderer.drawTitle(g, "Select Difficulty");
+        PageRenderer.drawBackButton(g);
+
+        // Subtitle
+        g.setFont(PageRenderer.SUBTITLE_FONT);
+        g.setColor(PageRenderer.TEXT_SEC);
+        String sub = "Choose your challenge";
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(sub, (Game.WIDTH - fm.stringWidth(sub)) / 2, 130);
+
+        PageRenderer.drawSecondaryButton(g, CX, PLAY_Y, BW, BH, "Normal");
+        PageRenderer.drawWarningButton(g, CX, INFO_Y, BW, BH, "Hard");
+        PageRenderer.drawDangerButton(g, CX, HELP_Y, BW, BH, "Insane");
+
+        // Difficulty labels
+        g.setFont(PageRenderer.SMALL_FONT);
+        int labelX = CX + BW + 20;
+        g.setColor(PageRenderer.TEXT_MUTED);
+        g.drawString("Recommended for beginners", labelX, PLAY_Y + 30);
+        g.setColor(new Color(245, 195, 68, 120));
+        g.drawString("Unpredictable enemies", labelX, INFO_Y + 30);
+        g.setColor(new Color(235, 87, 87, 120));
+        g.drawString("Only for the brave", labelX, HELP_Y + 30);
+    }
+
+    // ---------- Help ----------
+
+    private void renderHelp(Graphics2D g) {
+        PageRenderer.drawBackground(g);
+        PageRenderer.drawTitle(g, "Help");
+        PageRenderer.drawBackButton(g);
+
+        g.setFont(PageRenderer.SUBTITLE_FONT);
+        g.setColor(PageRenderer.TEXT_SEC);
+        String sub = "Select your language";
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(sub, (Game.WIDTH - fm.stringWidth(sub)) / 2, 130);
+
+        PageRenderer.drawSecondaryButton(g, LANG_X, PLAY_Y, LANG_W, BH, "English");
+        PageRenderer.drawSecondaryButton(g, LANG_X, INFO_Y, LANG_W, BH, "Nederlands");
+        PageRenderer.drawSecondaryButton(g, LANG_X, HELP_Y, LANG_W, BH, "Deutsch");
+    }
+
+    // ---------- Help Language ----------
+
+    private void renderHelpLang(Graphics2D g, String language,
+                                String leftTitle, String rightTitle,
+                                String[] leftLines, String[] rightLines) {
+        PageRenderer.drawBackground(g);
+        PageRenderer.drawTitle(g, "Help");
+        PageRenderer.drawBackButton(g);
+
+        // Language badge
+        g.setFont(PageRenderer.LABEL_FONT);
+        g.setColor(PageRenderer.ACCENT);
+        FontMetrics fm = g.getFontMetrics();
+        String badge = language.toUpperCase();
+        int bw = fm.stringWidth(badge) + 20;
+        int bx = (Game.WIDTH - bw) / 2;
+        g.drawRoundRect(bx, 105, bw, 24, 6, 6);
+        g.drawString(badge, bx + 10, 122);
+
+        // Left panel
+        int panelY = 160;
+        int panelH = 310;
+        PageRenderer.drawPanel(g, 60, panelY, 540, panelH);
+        g.setFont(PageRenderer.HEADING_FONT);
+        g.setColor(PageRenderer.ACCENT);
+        g.drawString(leftTitle, 85, panelY + 38);
+
+        // Separator line
+        g.setColor(PageRenderer.BORDER);
+        g.fillRect(85, panelY + 50, 490, 1);
+
+        g.setFont(PageRenderer.BODY_FONT);
+        g.setColor(PageRenderer.TEXT_SEC);
+        int y = panelY + 78;
+        for (String line : leftLines) {
+            if (!line.isEmpty()) g.drawString(line, 85, y);
+            y += 24;
+        }
+
+        // Right panel
+        PageRenderer.drawPanel(g, 630, panelY, 590, panelH);
+        g.setFont(PageRenderer.HEADING_FONT);
+        g.setColor(PageRenderer.ACCENT);
+        g.drawString(rightTitle, 655, panelY + 38);
+
+        g.setColor(PageRenderer.BORDER);
+        g.fillRect(655, panelY + 50, 540, 1);
+
+        g.setFont(PageRenderer.BODY_FONT);
+        g.setColor(PageRenderer.TEXT_SEC);
+        y = panelY + 78;
+        for (String line : rightLines) {
+            if (!line.isEmpty()) g.drawString(line, 655, y);
+            y += 24;
+        }
+    }
+
+    // ---------- Info ----------
+
+    private void renderInfo(Graphics2D g) {
+        PageRenderer.drawBackground(g);
+        PageRenderer.drawTitle(g, "Info");
+        PageRenderer.drawBackButton(g);
+
+        // Contact panel
+        PageRenderer.drawPanel(g, 60, 140, 600, 260);
+        g.setFont(PageRenderer.HEADING_FONT);
+        g.setColor(PageRenderer.ACCENT);
+        g.drawString("Contact", 85, 178);
+        g.setColor(PageRenderer.BORDER);
+        g.fillRect(85, 190, 550, 1);
+
+        g.setFont(PageRenderer.BODY_FONT);
+        g.setColor(PageRenderer.TEXT_SEC);
+        g.drawString("Instagram:  @MauriceBoendermaker", 85, 220);
+        g.drawString("Email:  mauriceboendermaker@gmail.com", 85, 248);
+
+        g.setColor(PageRenderer.TEXT_MUTED);
+        g.drawString("Feedback:", 85, 290);
+        g.setColor(PageRenderer.TEXT_SEC);
+        g.drawString("dodgegamefeedback@gmail.com", 85, 316);
+
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        g.drawString("Original design by Jeffrey", 85, 380);
+
+        // Quick links panel
+        PageRenderer.drawPanel(g, 690, 140, 530, 120);
+        g.setFont(PageRenderer.HEADING_FONT);
+        g.setColor(PageRenderer.ACCENT);
+        g.drawString("Quick Links", 715, 178);
+        g.setColor(PageRenderer.BORDER);
+        g.fillRect(715, 190, 480, 1);
+
+        g.setFont(PageRenderer.BODY_FONT);
+        g.setColor(PageRenderer.TEXT_SEC);
+        g.drawString("This game was originally created in 2016.", 715, 220);
+        g.drawString("Built with Java AWT/Swing.", 715, 244);
+    }
+
+    // ---------- About ----------
+
+    private void renderAbout(Graphics2D g) {
+        PageRenderer.drawBackground(g);
+        PageRenderer.drawTitle(g, "About");
+        PageRenderer.drawBackButton(g);
+
+        PageRenderer.drawPanel(g, 60, 140, 1160, 300);
+        g.setFont(PageRenderer.HEADING_FONT);
+        g.setColor(PageRenderer.ACCENT);
+        g.drawString("Game Modes", 85, 178);
+        g.setColor(PageRenderer.BORDER);
+        g.fillRect(85, 190, 1110, 1);
+
+        g.setFont(PageRenderer.BODY_FONT);
+        int y = 222;
+        String[][] modes = {
+                {"Normal", "Standard enemies with predictable movement patterns."},
+                {"Hard", "Enemies change direction randomly on each bounce."},
+                {"Insane", "Fast enemies, smart trackers, and random movement combined."}
+        };
+        for (String[] mode : modes) {
+            g.setColor(PageRenderer.TEXT);
+            g.drawString(mode[0], 85, y);
+            g.setColor(PageRenderer.TEXT_SEC);
+            g.drawString(mode[1], 200, y);
+            y += 32;
+        }
+
+        // Mechanics
+        g.setFont(PageRenderer.HEADING_FONT);
+        g.setColor(PageRenderer.ACCENT);
+        g.drawString("Mechanics", 85, y + 20);
+        g.setColor(PageRenderer.BORDER);
+        g.fillRect(85, y + 32, 1110, 1);
+
+        g.setFont(PageRenderer.BODY_FONT);
+        g.setColor(PageRenderer.TEXT_SEC);
+        y += 58;
+        g.drawString("Dodge enemies to survive. Earn points over time to spend in the shop.", 85, y);
+        g.drawString("Upgrade your health bar, movement speed, or refill health.", 85, y + 26);
+        g.drawString("Every few levels, new enemies spawn. Boss fights occur at levels 10 and 15.", 85, y + 52);
+    }
+
+    // ---------- Changelog ----------
+
+    private void renderUpdates(Graphics2D g) {
+        PageRenderer.drawBackground(g);
+        PageRenderer.drawTitle(g, "Changelog");
+        PageRenderer.drawBackButton(g);
+
+        int y = 130;
+
+        // v3.0
+        PageRenderer.drawPanel(g, 60, y, 1160, 130);
+        g.setFont(PageRenderer.HEADING_FONT);
+        g.setColor(PageRenderer.ACCENT);
+        g.drawString("v3.0", 85, y + 32);
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        g.drawString("25.03.2026", 140, y + 32);
+        g.setColor(PageRenderer.BORDER);
+        g.fillRect(85, y + 44, 1110, 1);
+        g.setFont(PageRenderer.BODY_FONT);
+        g.setColor(PageRenderer.TEXT_SEC);
+        g.drawString("- Complete visual overhaul with modern dark theme.", 85, y + 68);
+        g.drawString("- Fullscreen mode with automatic resolution scaling.", 85, y + 92);
+        g.drawString("- Built-in music player with playback controls.", 85, y + 116);
+
+        y += 148;
+
+        // v2.0
+        PageRenderer.drawPanel(g, 60, y, 1160, 130);
+        g.setFont(PageRenderer.HEADING_FONT);
+        g.setColor(PageRenderer.TEXT);
+        g.drawString("v2.0", 85, y + 32);
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        g.drawString("25.03.2026", 140, y + 32);
+        g.setColor(PageRenderer.BORDER);
+        g.fillRect(85, y + 44, 1110, 1);
+        g.setFont(PageRenderer.BODY_FONT);
+        g.setColor(PageRenderer.TEXT_SEC);
+        g.drawString("- Complete rewrite and overhaul of legacy codebase.", 85, y + 68);
+        g.drawString("- Fixed resolution bugs, removed duplicate classes, cleaned up all dead code.", 85, y + 92);
+        g.drawString("- No new features introduced — focused on code quality and stability.", 85, y + 116);
+
+        y += 148;
+
+        // v1.0
+        PageRenderer.drawPanel(g, 60, y, 1160, 108);
+        g.setFont(PageRenderer.HEADING_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        g.drawString("v1.0", 85, y + 32);
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        g.drawString("10.11.2019", 140, y + 32);
+        g.setColor(PageRenderer.BORDER);
+        g.fillRect(85, y + 44, 1110, 1);
+        g.setFont(PageRenderer.BODY_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        g.drawString("- Name changed from \"Dodge Game!\" to \"Dotch\".", 85, y + 68);
+        g.drawString("- Game layout updated. Added contact page and language support.", 85, y + 92);
+
+        y += 126;
+
+        // v0.1
+        PageRenderer.drawPanel(g, 60, y, 1160, 130);
+        g.setFont(PageRenderer.HEADING_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        g.drawString("v0.1", 85, y + 32);
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        g.drawString("09.08.2016", 138, y + 32);
+        g.setColor(PageRenderer.BORDER);
+        g.fillRect(85, y + 44, 1110, 1);
+        g.setFont(PageRenderer.BODY_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        g.drawString("- Initial release with core game mechanics.", 85, y + 68);
+        g.drawString("- Player movement, enemy spawning, collision detection, and scoring system.", 85, y + 92);
+        g.drawString("- Three difficulty modes, boss fights, HUD, and in-game shop.", 85, y + 116);
+    }
+
+    // ---------- End / Game Over ----------
+
+    private void renderEnd(Graphics2D g) {
+        PageRenderer.drawBackground(g);
+
+        // Game Over title
+        g.setFont(PageRenderer.TITLE_FONT);
+        g.setColor(PageRenderer.DANGER);
+        String go = "Game Over";
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(go, (Game.WIDTH - fm.stringWidth(go)) / 2, 180);
+
+        // Score display
+        PageRenderer.drawPanel(g, (Game.WIDTH - 400) / 2, 230, 400, 140);
+        g.setFont(PageRenderer.LABEL_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        String label = "FINAL SCORE";
+        fm = g.getFontMetrics();
+        g.drawString(label, (Game.WIDTH - fm.stringWidth(label)) / 2, 268);
+
+        g.setFont(new Font("Arial", Font.BOLD, 64));
+        g.setColor(PageRenderer.TEXT);
+        String score = String.valueOf(hud.getScore());
+        fm = g.getFontMetrics();
+        g.drawString(score, (Game.WIDTH - fm.stringWidth(score)) / 2, 345);
+
+        // Retry button
+        PageRenderer.drawPrimaryButton(g, RETRY_X, RETRY_Y, RETRY_W, RETRY_H, "Try Again");
+
+        // Back to menu
+        PageRenderer.drawBackButton(g);
     }
 }

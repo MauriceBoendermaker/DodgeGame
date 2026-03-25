@@ -6,21 +6,20 @@ import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.image.BufferStrategy;
-import java.awt.image.BufferedImage;
 import java.util.Random;
 
 public class Game extends Canvas implements Runnable {
 
     private static final long serialVersionUID = -4241816582633136533L;
 
-    // Base (logical) resolution — all game logic uses these
-    public static final int WIDTH = 1280;
+    // Logical resolution — HEIGHT is fixed, WIDTH adapts to screen aspect ratio
+    public static int WIDTH = 1280;
     public static final int HEIGHT = 720;
 
     // Scaling
     private static double scale = 1.0;
-    private static int windowWidth = WIDTH;
-    private static int windowHeight = HEIGHT;
+    private static int windowWidth = 1280;
+    private static int windowHeight = 720;
 
     private Thread thread;
     private boolean running = false;
@@ -38,8 +37,6 @@ public class Game extends Canvas implements Runnable {
     private Menu menu;
     private Shop shop;
     private MusicPlayer musicPlayer;
-
-    private BufferedImage main_image;
 
     private static final Font FPS_FONT = new Font("Arial", Font.PLAIN, 20);
     private static final Font PAUSED_FONT = new Font("Arial", Font.BOLD, 125);
@@ -66,32 +63,8 @@ public class Game extends Canvas implements Runnable {
 
     public static STATE gameState = STATE.Menu;
 
-    public static BufferedImage sprite_sheet;
-    public static BufferedImage sprite_sheet2;
-    public static BufferedImage sprite_sheet3;
-    public static BufferedImage sprite_sheet4;
-    public static BufferedImage sprite_sheet5;
-    public static BufferedImage sprite_sheet6;
-    public static BufferedImage sprite_sheet7;
-    public static BufferedImage sprite_sheet8;
-    public static BufferedImage sprite_sheet9;
-
     public Game() {
-        BufferedImageLoader loader = new BufferedImageLoader();
-        sprite_sheet = loader.loadImage("MainPage.png");
-        sprite_sheet2 = loader.loadImage("PlayPage.png");
-        sprite_sheet3 = loader.loadImage("InfoPage.png");
-        sprite_sheet4 = loader.loadImage("HelpPage.png");
-        sprite_sheet5 = loader.loadImage("UpdatesPage.png");
-        sprite_sheet6 = loader.loadImage("AboutPage.png");
-        sprite_sheet7 = loader.loadImage("HelpEnglish.png");
-        sprite_sheet8 = loader.loadImage("HelpNederlands.png");
-        sprite_sheet9 = loader.loadImage("HelpDeutsch.png");
-
-        main_image = new SpriteSheet(sprite_sheet).grabImage(1, 1, 720, 1280);
-
         System.out.println("Loading game...");
-        System.out.println("Game loaded!");
 
         // Calculate display size — largest 16:9 that fits the screen
         calculateWindowSize();
@@ -109,10 +82,12 @@ public class Game extends Canvas implements Runnable {
         AudioPlayer.load();
         AudioPlayer.play();
 
-        new Window(windowWidth, windowHeight, "Dotch. - v2.0", this);
+        new Window(windowWidth, windowHeight, "Dotch. - v3.0", this);
 
         spawner = new Spawn(handler, hud, this);
         r = new Random();
+
+        System.out.println("Game loaded!");
 
         if (gameState == STATE.Game) {
             hud.setLevel(1);
@@ -123,29 +98,22 @@ public class Game extends Canvas implements Runnable {
     }
 
     private void calculateWindowSize() {
-        Rectangle screenBounds = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-        int availW = screenBounds.width;
-        int availH = screenBounds.height;
+        java.awt.Dimension screen = java.awt.Toolkit.getDefaultToolkit().getScreenSize();
+        windowWidth = screen.width;
+        windowHeight = screen.height;
 
-        // Largest 16:9 that fits
-        if (availW * 9 <= availH * 16) {
-            windowWidth = availW;
-            windowHeight = availW * 9 / 16;
-        } else {
-            windowHeight = availH;
-            windowWidth = availH * 16 / 9;
-        }
+        // Scale uniformly by height — WIDTH adapts to screen aspect ratio
+        scale = windowHeight / (double) HEIGHT;
+        WIDTH = (int) (windowWidth / scale);
 
-        scale = windowWidth / (double) WIDTH;
-        System.out.println("Display: " + windowWidth + "x" + windowHeight + " (scale: " + String.format("%.2f", scale) + ")");
+        System.out.println("Fullscreen: " + windowWidth + "x" + windowHeight
+                + " (logical: " + WIDTH + "x" + HEIGHT + ", scale: " + String.format("%.2f", scale) + ")");
     }
 
-    /** Convert screen pixel X to game coordinate */
     public static int toGameX(int screenX) {
         return (int) (screenX / scale);
     }
 
-    /** Convert screen pixel Y to game coordinate */
     public static int toGameY(int screenY) {
         return (int) (screenY / scale);
     }
@@ -237,17 +205,14 @@ public class Game extends Canvas implements Runnable {
 
         Graphics2D g = (Graphics2D) bs.getDrawGraphics();
 
-        // Clear at native resolution before scaling
+        // Clear at native resolution before scaling (letterbox bars stay black)
         g.setColor(Color.black);
         g.fillRect(0, 0, getWidth(), getHeight());
 
-        // Apply scaling — everything below is in base 1280x720 coordinates
+        // Offset + scale — everything below is in base 1280x720 coordinates
+        g.translate(offsetX, offsetY);
         g.scale(scale, scale);
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-
-        if (gameState == STATE.Menu) {
-            g.drawImage(main_image, 0, 0, null);
-        }
 
         // FPS counter
         g.setColor(fps >= 240 ? Color.green : Color.gray);

@@ -1,7 +1,9 @@
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 import org.newdawn.slick.Music;
 import org.newdawn.slick.Sound;
@@ -17,10 +19,18 @@ public class AudioPlayer {
 
     public static void load() {
         try {
-            addTrack("game_music", "Game Music", "game_music.ogg", 303f);
+            addTrack("energy_drink", "Virtual Riot - Energy Drink", "Virtual Riot - Energy Drink.ogg", 303f);
+            addTrack("press_start", "MDK - Press Start", "MDK - Press Start.ogg", 263f);
+            addTrack("fingerbang", "MDK - Fingerbang", "MDK - Fingerbang.ogg", 228f);
+            shuffle();
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private static void shuffle() {
+        Collections.shuffle(tracks, new Random());
+        currentTrackIndex = 0;
     }
 
     private static void addTrack(String key, String displayName, String path, float duration) throws Exception {
