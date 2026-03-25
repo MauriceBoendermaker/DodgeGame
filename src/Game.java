@@ -88,6 +88,45 @@ public class Game extends Canvas implements Runnable {
         enemyExplosions = particles;
     }
 
+    // Bullet cascade — queued bullet positions sorted by distance from boss death point
+    // [x, y, delay (ticks until explosion), exploded (0/1)]
+    private static float[][] bulletCascade;
+    private static int cascadeTick = 0;
+    private static boolean cascadeActive = false;
+    // Cascade particles — separate from enemyExplosions so they can coexist
+    private static float[][] cascadeParticles = new float[200][8]; // [x, y, vx, vy, life, r, g, b]
+    private static int cascadeParticleCount = 0;
+
+    public static void triggerBulletCascade(float bossX, float bossY, Handler handler) {
+        java.util.List<float[]> bullets = new java.util.ArrayList<>();
+        java.util.List<GameObject> toRemove = new java.util.ArrayList<>();
+
+        for (int i = 0; i < handler.getObjects().size(); i++) {
+            GameObject obj = handler.getObjects().get(i);
+            if (obj instanceof EnemyBossBullet) {
+                float bx = obj.getX() + 8;
+                float by = obj.getY() + 8;
+                float dist = (float) Math.sqrt((bx - bossX) * (bx - bossX) + (by - bossY) * (by - bossY));
+                // Delay proportional to distance — closer bullets explode first
+                int delay = (int) (dist / 6f);
+                bullets.add(new float[]{bx, by, delay, 0});
+                toRemove.add(obj);
+            }
+        }
+
+        // Remove bullets from handler — they'll be rendered as cascade particles instead
+        for (GameObject obj : toRemove) {
+            handler.removeObject(obj);
+        }
+
+        if (!bullets.isEmpty()) {
+            bulletCascade = bullets.toArray(new float[0][]);
+            cascadeTick = 0;
+            cascadeActive = true;
+            cascadeParticleCount = 0;
+        }
+    }
+
     // Speed lines + camera intensity + look-ahead
     private float playerSpeed = 0;
     private float playerVelX = 0, playerVelY = 0;
@@ -350,6 +389,51 @@ public class Game extends Canvas implements Runnable {
             if (!anyAlive && !bossIntroActive) {
                 enemyExplosions = null;
             }
+        }
+
+        // Bullet cascade — sequential explosions
+        if (cascadeActive && bulletCascade != null) {
+            cascadeTick++;
+            boolean anyLeft = false;
+            java.util.Random cr = shakeRng;
+            for (float[] b : bulletCascade) {
+                if (b[3] == 0) {
+                    if (cascadeTick >= b[2]) {
+                        b[3] = 1;
+                        shakeIntensity = Math.max(shakeIntensity, 3f);
+                        int count = 4 + cr.nextInt(3);
+                        for (int j = 0; j < count && cascadeParticleCount < cascadeParticles.length; j++) {
+                            float angle = (float) (cr.nextFloat() * Math.PI * 2);
+                            float speed = 2f + cr.nextFloat() * 4f;
+                            cascadeParticles[cascadeParticleCount] = new float[]{
+                                    b[0], b[1],
+                                    (float) Math.cos(angle) * speed, (float) Math.sin(angle) * speed,
+                                    0.8f, 235, 87, 87, 2 + cr.nextFloat() * 4
+                            };
+                            cascadeParticleCount++;
+                        }
+                    } else {
+                        anyLeft = true;
+                    }
+                }
+            }
+            if (!anyLeft && cascadeParticleCount == 0) {
+                cascadeActive = false;
+                bulletCascade = null;
+            }
+        }
+        // Cascade particle physics
+        if (cascadeParticleCount > 0) {
+            int cpAlive = 0;
+            for (int i = 0; i < cascadeParticleCount; i++) {
+                float[] p = cascadeParticles[i];
+                p[0] += p[2]; p[1] += p[3];
+                p[2] *= 0.93f; p[3] *= 0.93f;
+                p[3] += 0.08f;
+                p[4] -= 0.025f;
+                if (p[4] > 0) { cascadeParticles[cpAlive] = p; cpAlive++; }
+            }
+            cascadeParticleCount = cpAlive;
         }
 
         // Boss intro cinematic
@@ -663,6 +747,32 @@ public class Game extends Canvas implements Runnable {
                     g.setColor(new Color((int) p[5], (int) p[6], (int) p[7], ea));
                     int es = (int) p[4];
                     g.fillRoundRect((int) p[0] - es / 2, (int) p[1] - es / 2, es, es, 3, 3);
+                }
+            }
+
+            // Bullet cascade particles
+            if (cascadeParticleCount > 0) {
+                for (int i = 0; i < cascadeParticleCount; i++) {
+                    float[] p = cascadeParticles[i];
+                    if (p[4] <= 0) continue;
+                    int ca = Math.min(255, (int) (p[4] * 255));
+                    g.setColor(new Color((int) p[5], (int) p[6], (int) p[7], ca));
+                    int cs = Math.max(1, (int) (p[4] * 5));
+                    g.fillOval((int) p[0] - cs / 2, (int) p[1] - cs / 2, cs, cs);
+                }
+            }
+
+            // Unexploded bullets waiting in cascade — render as pulsing dots
+            if (cascadeActive && bulletCascade != null) {
+                float pulse = (float) (Math.sin(cascadeTick * 0.3) * 0.4 + 0.6);
+                for (float[] b : bulletCascade) {
+                    if (b[3] == 0) {
+                        int ba = (int) (pulse * 180);
+                        g.setColor(new Color(235, 87, 87, ba));
+                        g.fillOval((int) b[0] - 5, (int) b[1] - 5, 10, 10);
+                        g.setColor(new Color(255, 150, 150, (int) (pulse * 60)));
+                        g.fillOval((int) b[0] - 8, (int) b[1] - 8, 16, 16);
+                    }
                 }
             }
 

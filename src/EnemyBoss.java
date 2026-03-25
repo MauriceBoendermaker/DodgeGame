@@ -107,9 +107,8 @@ public class EnemyBoss extends GameObject {
         if (hp <= 0) {
             hp = 0;
             defeated = true;
-            // Clear all boss bullets
-            handler.getObjects().removeIf(obj ->
-                    obj.getId() == ID.BasicEnemy && obj instanceof EnemyBossBullet);
+            // Queue cascading bullet explosions instead of instant clear
+            Game.triggerBulletCascade(x + SIZE / 2, y + SIZE / 2, handler);
             return;
         }
 
