@@ -211,7 +211,8 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         }
         if (Game.gameState == Game.STATE.Settings || Game.gameState == Game.STATE.Statistics
                 || Game.gameState == Game.STATE.AchievementsPage
-                || Game.gameState == Game.STATE.CoinShopPage) {
+                || Game.gameState == Game.STATE.CoinShopPage
+                || Game.gameState == Game.STATE.Update_Notes) {
             settingsScrollTarget += e.getWheelRotation() * 40;
             settingsScrollTarget = Math.max(0, settingsScrollTarget);
         }
@@ -576,7 +577,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         // Bottom bar
         g.setFont(PageRenderer.SMALL_FONT);
         g.setColor(PageRenderer.TEXT_MUTED);
-        g.drawString("v3.0", 30, 700);
+        g.drawString("v4.0", 30, 700);
 
         // Now playing — top left
         if (AudioPlayer.getTrackCount() > 0) {
@@ -2663,7 +2664,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         drawCreditLine(g, x, y, "Original Visual Graphic Design", "Jeffrey Persoon"); y += spacing;
         drawCreditLine(g, x, y, "Built With", "Java AWT / Swing"); y += spacing;
         drawCreditLine(g, x, y, "Audio", "Virtual Riot  /  MDK  /  Desmeon  /  Pegboard Nerds  /  Avicii  /  Skrillex"); y += spacing;
-        drawCreditLine(g, x, y, "Version", "v3.0  \u2014  March 2026"); y += spacing;
+        drawCreditLine(g, x, y, "Version", "v4.0  \u2014  March 2026"); y += spacing;
 
         g.setFont(PageRenderer.SMALL_FONT);
         g.setColor(PageRenderer.TEXT_MUTED);
@@ -2725,53 +2726,144 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         PageRenderer.drawTitle(g, "Changelog");
         PageRenderer.drawBackButton(g, backH);
 
-        int y = 130;
+        int contentTop = 130;
+        int contentBottom = Game.HEIGHT - 30;
+        int margin = 60;
+        int pw = Game.WIDTH - margin * 2;
+        int lineH = 22;
+        int gap = 14;
 
-        PageRenderer.drawPanel(g, 60, y, Game.WIDTH - 120, 130);
-        g.setFont(PageRenderer.HEADING_FONT); g.setColor(PageRenderer.ACCENT);
-        g.drawString("v3.0", 85, y + 32);
-        g.setFont(PageRenderer.SMALL_FONT); g.setColor(PageRenderer.TEXT_MUTED);
-        g.drawString("25.03.2026", 140, y + 32);
-        g.setColor(PageRenderer.BORDER); g.fillRect(85, y + 44, Game.WIDTH - 170, 1);
-        g.setFont(PageRenderer.BODY_FONT); g.setColor(PageRenderer.TEXT_SEC);
-        g.drawString("- Complete visual overhaul with modern dark theme.", 85, y + 68);
-        g.drawString("- Fullscreen mode with automatic resolution scaling.", 85, y + 92);
-        g.drawString("- Built-in music player with playback controls.", 85, y + 116);
+        java.awt.Shape oldClip = g.getClip();
+        g.clipRect(0, contentTop, Game.WIDTH, contentBottom - contentTop);
 
-        y += 148;
-        PageRenderer.drawPanel(g, 60, y, Game.WIDTH - 120, 130);
-        g.setFont(PageRenderer.HEADING_FONT); g.setColor(PageRenderer.TEXT);
-        g.drawString("v2.0", 85, y + 32);
-        g.setFont(PageRenderer.SMALL_FONT); g.setColor(PageRenderer.TEXT_MUTED);
-        g.drawString("25.03.2026", 140, y + 32);
-        g.setColor(PageRenderer.BORDER); g.fillRect(85, y + 44, Game.WIDTH - 170, 1);
-        g.setFont(PageRenderer.BODY_FONT); g.setColor(PageRenderer.TEXT_SEC);
-        g.drawString("- Complete rewrite and overhaul of legacy codebase.", 85, y + 68);
-        g.drawString("- Fixed resolution bugs, removed duplicate classes, cleaned up all dead code.", 85, y + 92);
-        g.drawString("- No new features introduced \u2014 focused on code quality and stability.", 85, y + 116);
+        int y = contentTop - (int) settingsScroll;
 
-        y += 148;
-        PageRenderer.drawPanel(g, 60, y, Game.WIDTH - 120, 108);
-        g.setFont(PageRenderer.HEADING_FONT); g.setColor(PageRenderer.TEXT_MUTED);
-        g.drawString("v1.0", 85, y + 32);
-        g.setFont(PageRenderer.SMALL_FONT); g.setColor(PageRenderer.TEXT_MUTED);
-        g.drawString("10.11.2019", 140, y + 32);
-        g.setColor(PageRenderer.BORDER); g.fillRect(85, y + 44, Game.WIDTH - 170, 1);
-        g.setFont(PageRenderer.BODY_FONT); g.setColor(PageRenderer.TEXT_MUTED);
-        g.drawString("- Name changed from \"Dodge Game!\" to \"Dotch\".", 85, y + 68);
-        g.drawString("- Game layout updated. Added contact page and language support.", 85, y + 92);
+        // ===== v4.0 =====
+        String[] v4lines = {
+                "- Player abilities: Dash (Shift), Shield (auto), Slow-Motion (E).",
+                "- 4 boss types: Classic, Splitter, Laser, Swarm \u2014 rotating per level.",
+                "- Endless scaling: formula-based spawning after scripted levels.",
+                "- Boss every 10th level across all difficulties.",
+                "- Player XP and profile level system with persistent progression.",
+                "- 50 achievements across Survival, Skill, Persistence, and Challenge.",
+                "- Player skin customization: 6 shapes, 8 color palettes.",
+                "- Loadout system: 8 perks, choose up to 2 before each run.",
+                "- Coin Shop: 25 permanent unlocks purchased with earned coins.",
+                "- Statistics dashboard with lifetime stats and recent run history.",
+                "- Daily Challenge: seeded run per day, 28-day cycle, streak tracking.",
+                "- Settings page: volume, screen shake, particles, FPS, colorblind mode.",
+                "- Settings accessible from pause menu during gameplay.",
+                "- Redesigned main menu with unified button layout."
+        };
+        int v4h = 52 + v4lines.length * lineH + 16;
+        if (y + v4h > contentTop - 20 && y < contentBottom + 20) {
+            PageRenderer.drawPanel(g, margin, y, pw, v4h);
+            g.setFont(PageRenderer.HEADING_FONT); g.setColor(PageRenderer.ACCENT);
+            g.drawString("v4.0", 85, y + 32);
+            g.setFont(PageRenderer.SMALL_FONT); g.setColor(PageRenderer.TEXT_MUTED);
+            g.drawString("25.03.2026", 140, y + 32);
+            g.setColor(PageRenderer.BORDER); g.fillRect(85, y + 44, pw - 50, 1);
+            g.setFont(PageRenderer.BODY_FONT); g.setColor(PageRenderer.TEXT_SEC);
+            int ly = y + 66;
+            for (String line : v4lines) { g.drawString(line, 85, ly); ly += lineH; }
+        }
+        y += v4h + gap;
 
-        y += 126;
-        PageRenderer.drawPanel(g, 60, y, Game.WIDTH - 120, 130);
-        g.setFont(PageRenderer.HEADING_FONT); g.setColor(PageRenderer.TEXT_MUTED);
-        g.drawString("v0.1", 85, y + 32);
-        g.setFont(PageRenderer.SMALL_FONT); g.setColor(PageRenderer.TEXT_MUTED);
-        g.drawString("09.08.2016", 138, y + 32);
-        g.setColor(PageRenderer.BORDER); g.fillRect(85, y + 44, Game.WIDTH - 170, 1);
-        g.setFont(PageRenderer.BODY_FONT); g.setColor(PageRenderer.TEXT_MUTED);
-        g.drawString("- Initial release with core game mechanics.", 85, y + 68);
-        g.drawString("- Player movement, enemy spawning, collision detection, and scoring system.", 85, y + 92);
-        g.drawString("- Three difficulty modes, boss fights, HUD, and in-game shop.", 85, y + 116);
+        // ===== v3.0 =====
+        String[] v3lines = {
+                "- Complete visual overhaul with modern dark theme.",
+                "- Fullscreen mode with automatic resolution scaling.",
+                "- Built-in music player with playback controls."
+        };
+        int v3h = 52 + v3lines.length * lineH + 16;
+        if (y + v3h > contentTop - 20 && y < contentBottom + 20) {
+            PageRenderer.drawPanel(g, margin, y, pw, v3h);
+            g.setFont(PageRenderer.HEADING_FONT); g.setColor(PageRenderer.TEXT);
+            g.drawString("v3.0", 85, y + 32);
+            g.setFont(PageRenderer.SMALL_FONT); g.setColor(PageRenderer.TEXT_MUTED);
+            g.drawString("25.03.2026", 140, y + 32);
+            g.setColor(PageRenderer.BORDER); g.fillRect(85, y + 44, pw - 50, 1);
+            g.setFont(PageRenderer.BODY_FONT); g.setColor(PageRenderer.TEXT_SEC);
+            int ly = y + 66;
+            for (String line : v3lines) { g.drawString(line, 85, ly); ly += lineH; }
+        }
+        y += v3h + gap;
+
+        // ===== v2.0 =====
+        String[] v2lines = {
+                "- Complete rewrite and overhaul of legacy codebase.",
+                "- Fixed resolution bugs, removed duplicate classes, cleaned up all dead code.",
+                "- No new features \u2014 focused on code quality and stability."
+        };
+        int v2h = 52 + v2lines.length * lineH + 16;
+        if (y + v2h > contentTop - 20 && y < contentBottom + 20) {
+            PageRenderer.drawPanel(g, margin, y, pw, v2h);
+            g.setFont(PageRenderer.HEADING_FONT); g.setColor(PageRenderer.TEXT_MUTED);
+            g.drawString("v2.0", 85, y + 32);
+            g.setFont(PageRenderer.SMALL_FONT); g.setColor(PageRenderer.TEXT_MUTED);
+            g.drawString("25.03.2026", 140, y + 32);
+            g.setColor(PageRenderer.BORDER); g.fillRect(85, y + 44, pw - 50, 1);
+            g.setFont(PageRenderer.BODY_FONT); g.setColor(PageRenderer.TEXT_MUTED);
+            int ly = y + 66;
+            for (String line : v2lines) { g.drawString(line, 85, ly); ly += lineH; }
+        }
+        y += v2h + gap;
+
+        // ===== v1.0 =====
+        String[] v1lines = {
+                "- Name changed from \"Dodge Game!\" to \"Dotch\".",
+                "- Game layout updated. Added contact page and language support."
+        };
+        int v1h = 52 + v1lines.length * lineH + 16;
+        if (y + v1h > contentTop - 20 && y < contentBottom + 20) {
+            PageRenderer.drawPanel(g, margin, y, pw, v1h);
+            g.setFont(PageRenderer.HEADING_FONT); g.setColor(PageRenderer.TEXT_MUTED);
+            g.drawString("v1.0", 85, y + 32);
+            g.setFont(PageRenderer.SMALL_FONT); g.setColor(PageRenderer.TEXT_MUTED);
+            g.drawString("10.11.2019", 140, y + 32);
+            g.setColor(PageRenderer.BORDER); g.fillRect(85, y + 44, pw - 50, 1);
+            g.setFont(PageRenderer.BODY_FONT); g.setColor(PageRenderer.TEXT_MUTED);
+            int ly = y + 66;
+            for (String line : v1lines) { g.drawString(line, 85, ly); ly += lineH; }
+        }
+        y += v1h + gap;
+
+        // ===== v0.1 =====
+        String[] v01lines = {
+                "- Initial release with core game mechanics.",
+                "- Player movement, enemy spawning, collision detection, and scoring.",
+                "- Three difficulty modes, boss fights, HUD, and in-game shop."
+        };
+        int v01h = 52 + v01lines.length * lineH + 16;
+        if (y + v01h > contentTop - 20 && y < contentBottom + 20) {
+            PageRenderer.drawPanel(g, margin, y, pw, v01h);
+            g.setFont(PageRenderer.HEADING_FONT); g.setColor(PageRenderer.TEXT_MUTED);
+            g.drawString("v0.1", 85, y + 32);
+            g.setFont(PageRenderer.SMALL_FONT); g.setColor(PageRenderer.TEXT_MUTED);
+            g.drawString("09.08.2016", 138, y + 32);
+            g.setColor(PageRenderer.BORDER); g.fillRect(85, y + 44, pw - 50, 1);
+            g.setFont(PageRenderer.BODY_FONT); g.setColor(PageRenderer.TEXT_MUTED);
+            int ly = y + 66;
+            for (String line : v01lines) { g.drawString(line, 85, ly); ly += lineH; }
+        }
+        y += v01h + gap;
+
+        int totalHeight = y + (int) settingsScroll - contentTop;
+        int maxScroll = Math.max(0, totalHeight - (contentBottom - contentTop) + 20);
+        settingsScrollTarget = Math.min(settingsScrollTarget, maxScroll);
+
+        g.setClip(oldClip);
+
+        if (maxScroll > 0) {
+            float scrollPct = (settingsScrollTarget > 0) ? settingsScroll / maxScroll : 0;
+            int trackH = contentBottom - contentTop - 20;
+            int thumbH = Math.max(30, (int) ((float) (contentBottom - contentTop) / totalHeight * trackH));
+            int thumbY = contentTop + 10 + (int) ((trackH - thumbH) * scrollPct);
+            g.setColor(new Color(40, 52, 70, 80));
+            g.fillRoundRect(Game.WIDTH - 22, contentTop + 10, 6, trackH, 3, 3);
+            g.setColor(new Color(78, 205, 196, 120));
+            g.fillRoundRect(Game.WIDTH - 22, thumbY, 6, thumbH, 3, 3);
+        }
     }
 
     // ---------- End / Game Over ----------
