@@ -57,9 +57,16 @@ public class Game extends Canvas implements Runnable {
     private static float flashAlpha = 0;
     private static Random shakeRng = new Random();
 
+    // Level-up pulse
+    private static float levelUpFlash = 0;
+
     public static void triggerHit() {
         shakeIntensity = 8f;
         flashAlpha = 0.6f;
+    }
+
+    public static void triggerLevelUp() {
+        levelUpFlash = 1f;
     }
 
     public enum STATE {
@@ -204,6 +211,8 @@ public class Game extends Canvas implements Runnable {
         else shakeIntensity = 0;
         if (flashAlpha > 0.01f) flashAlpha *= 0.88f;
         else flashAlpha = 0;
+        if (levelUpFlash > 0.01f) levelUpFlash *= 0.93f;
+        else levelUpFlash = 0;
 
         if (gameState == STATE.Game) {
             hud.tick();
@@ -306,6 +315,20 @@ public class Game extends Canvas implements Runnable {
                 g.fillRect(0, 0, border, HEIGHT);
                 // Right
                 g.setPaint(new java.awt.GradientPaint(WIDTH - border, 0, new Color(235, 50, 50, 0), WIDTH, 0, new Color(235, 50, 50, alpha)));
+                g.fillRect(WIDTH - border, 0, border, HEIGHT);
+            }
+
+            // Level-up flash — teal border pulse
+            if (levelUpFlash > 0) {
+                int border = 80;
+                int alpha = (int) (levelUpFlash * 150);
+                g.setPaint(new java.awt.GradientPaint(0, 0, new Color(78, 205, 196, alpha), 0, border, new Color(78, 205, 196, 0)));
+                g.fillRect(0, 0, WIDTH, border);
+                g.setPaint(new java.awt.GradientPaint(0, HEIGHT - border, new Color(78, 205, 196, 0), 0, HEIGHT, new Color(78, 205, 196, alpha)));
+                g.fillRect(0, HEIGHT - border, WIDTH, border);
+                g.setPaint(new java.awt.GradientPaint(0, 0, new Color(78, 205, 196, alpha), border, 0, new Color(78, 205, 196, 0)));
+                g.fillRect(0, 0, border, HEIGHT);
+                g.setPaint(new java.awt.GradientPaint(WIDTH - border, 0, new Color(78, 205, 196, 0), WIDTH, 0, new Color(78, 205, 196, alpha)));
                 g.fillRect(WIDTH - border, 0, border, HEIGHT);
             }
 

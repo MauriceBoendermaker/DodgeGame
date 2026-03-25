@@ -21,19 +21,31 @@ public class HUD {
     private int speedUpgrades = 0;
     private int refills = 0;
 
+    public static final int MAX_TIER = 10;
+
     private static final Font FONT_SCORE = new Font("Arial", Font.BOLD, 32);
     private static final Font FONT_LABEL = new Font("Arial", Font.BOLD, 13);
     private static final Font FONT_STAT = new Font("Arial", Font.PLAIN, 16);
     private static final Font FONT_LEVEL_BG = new Font("Arial", Font.BOLD, 600);
+    private static final Font FONT_TIER = new Font("Arial", Font.BOLD, 10);
+    private static final Font FONT_LEVEL_UP = new Font("Arial", Font.BOLD, 28);
 
-    // Colors matching the theme
+    // Colors
     private static final Color BAR_BG = new Color(22, 30, 44);
     private static final Color BAR_BORDER = new Color(40, 52, 70);
     private static final Color TEXT = new Color(230, 234, 240);
     private static final Color TEXT_DIM = new Color(100, 112, 128);
+    private static final Color ACCENT = new Color(78, 205, 196);
     private static final Color HEALTH_HIGH = new Color(72, 199, 142);
     private static final Color HEALTH_MID = new Color(245, 195, 68);
     private static final Color HEALTH_LOW = new Color(235, 87, 87);
+    private static final Color TIER_HEALTH = new Color(72, 199, 142);
+    private static final Color TIER_SPEED = new Color(78, 205, 196);
+    private static final Color TIER_REFILL = new Color(245, 195, 68);
+    private static final Color TIER_BG = new Color(30, 38, 52);
+
+    // Level-up banner
+    private float levelUpBanner = 0;
 
     public void tick() {
         float maxHealth = 100 + (bounds / 2);
@@ -41,6 +53,13 @@ public class HUD {
         score++;
         points++;
         ticksSurvived++;
+
+        if (levelUpBanner > 0.01f) levelUpBanner *= 0.96f;
+        else levelUpBanner = 0;
+    }
+
+    public void triggerLevelUpBanner() {
+        levelUpBanner = 1f;
     }
 
     public void render(Graphics g) {
@@ -60,11 +79,9 @@ public class HUD {
         int barX = 24;
         int barY = 20;
 
-        // Bar background
         g2.setColor(BAR_BG);
         g2.fillRoundRect(barX, barY, barW, barH, 7, 7);
 
-        // Health fill with color based on percentage
         Color healthColor = getHealthColor(healthPct);
         int fillW = (int) (barW * healthPct);
         if (fillW > 0) {
@@ -72,11 +89,9 @@ public class HUD {
             g2.fillRoundRect(barX, barY, fillW, barH, 7, 7);
         }
 
-        // Bar border
         g2.setColor(BAR_BORDER);
         g2.drawRoundRect(barX, barY, barW, barH, 7, 7);
 
-        // Health text on bar
         g2.setFont(FONT_LABEL);
         g2.setColor(new Color(255, 255, 255, 180));
         String hpText = (int) HEALTH + " / " + (int) maxHealth;
@@ -88,6 +103,13 @@ public class HUD {
         g2.setColor(TEXT_DIM);
         g2.drawString("LVL " + level, barX, barY + 34);
         g2.drawString("PTS " + points, barX + 80, barY + 34);
+
+        // Upgrade tiers — right side of top bar
+        int tierX = Game.WIDTH - 220;
+        int tierY = 16;
+        drawTierBar(g2, tierX, tierY, "HP", healthUpgrades, TIER_HEALTH);
+        drawTierBar(g2, tierX, tierY + 18, "SPD", speedUpgrades, TIER_SPEED);
+        drawTierBar(g2, tierX, tierY + 36, "REF", refills, TIER_REFILL);
 
         // Score — top center
         g2.setFont(FONT_SCORE);
@@ -101,12 +123,49 @@ public class HUD {
         fm = g2.getFontMetrics();
         g2.drawString(scoreLabel, (Game.WIDTH - fm.stringWidth(scoreLabel)) / 2, 18);
 
-        // Large level watermark in background
+        // Large level watermark in background — flashes on level-up
         g2.setFont(FONT_LEVEL_BG);
-        g2.setColor(new Color(255, 255, 255, 20));
+        int watermarkAlpha = 20 + (int) (levelUpBanner * 60);
+        g2.setColor(new Color(78, 205, 196, Math.min(watermarkAlpha, 255)));
         String levelStr = level <= 9 ? "0" + level : "" + level;
         fm = g2.getFontMetrics();
         g2.drawString(levelStr, (Game.WIDTH - fm.stringWidth(levelStr)) / 2, Game.HEIGHT - 80);
+
+        // Level-up banner
+        if (levelUpBanner > 0.05f) {
+            g2.setFont(FONT_LEVEL_UP);
+            int alpha = (int) (levelUpBanner * 255);
+            g2.setColor(new Color(78, 205, 196, alpha));
+            String lvlUp = "LEVEL " + level;
+            fm = g2.getFontMetrics();
+            int bannerY = Game.HEIGHT / 2 - 30 - (int) ((1f - levelUpBanner) * 20);
+            g2.drawString(lvlUp, (Game.WIDTH - fm.stringWidth(lvlUp)) / 2, bannerY);
+        }
+    }
+
+    private void drawTierBar(Graphics2D g, int x, int y, String label, int tier, Color color) {
+        g.setFont(FONT_TIER);
+        g.setColor(TEXT_DIM);
+        g.drawString(label, x, y + 9);
+
+        int dotX = x + 30;
+        int dotSize = 8;
+        int dotGap = 4;
+        for (int i = 0; i < MAX_TIER; i++) {
+            if (i < tier) {
+                g.setColor(color);
+                g.fillRoundRect(dotX + i * (dotSize + dotGap), y + 1, dotSize, dotSize, 3, 3);
+            } else {
+                g.setColor(TIER_BG);
+                g.fillRoundRect(dotX + i * (dotSize + dotGap), y + 1, dotSize, dotSize, 3, 3);
+            }
+        }
+
+        if (tier >= MAX_TIER) {
+            g.setFont(FONT_TIER);
+            g.setColor(color);
+            g.drawString("MAX", dotX + MAX_TIER * (dotSize + dotGap) + 4, y + 9);
+        }
     }
 
     private Color getHealthColor(float pct) {
@@ -157,5 +216,6 @@ public class HUD {
         healthUpgrades = 0;
         speedUpgrades = 0;
         refills = 0;
+        levelUpBanner = 0;
     }
 }

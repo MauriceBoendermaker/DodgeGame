@@ -61,11 +61,14 @@ public class Shop extends MouseAdapter {
         g2.drawString(pts, (Game.WIDTH - fm.stringWidth(pts)) / 2, 130);
 
         drawCard(g2, card1X(), CARD_Y, "Upgrade Health", "Extends and refills your health bar.",
-                healthUpgradeCost, hud.getPoints() >= healthUpgradeCost, PageRenderer.SUCCESS, cardHover[0]);
+                healthUpgradeCost, hud.getPoints() >= healthUpgradeCost, PageRenderer.SUCCESS, cardHover[0],
+                hud.getHealthUpgrades());
         drawCard(g2, card2X(), CARD_Y, "Upgrade Speed", "Increases your movement speed.",
-                speedUpgradeCost, hud.getPoints() >= speedUpgradeCost, PageRenderer.ACCENT, cardHover[1]);
+                speedUpgradeCost, hud.getPoints() >= speedUpgradeCost, PageRenderer.ACCENT, cardHover[1],
+                hud.getSpeedUpgrades());
         drawCard(g2, card3X(), CARD_Y, "Refill Health", "Fully restores your health bar.",
-                refillHealthCost, hud.getPoints() >= refillHealthCost, PageRenderer.WARNING, cardHover[2]);
+                refillHealthCost, hud.getPoints() >= refillHealthCost, PageRenderer.WARNING, cardHover[2],
+                hud.getRefills());
 
         // Footer
         g2.setFont(PageRenderer.BODY_FONT);
@@ -87,18 +90,20 @@ public class Shop extends MouseAdapter {
     }
 
     private void drawCard(Graphics2D g, int x, int y, String title, String desc,
-                          int cost, boolean canAfford, Color accent, float hover) {
+                          int cost, boolean canAfford, Color accent, float hover,
+                          int tier) {
+        boolean maxed = tier >= HUD.MAX_TIER;
+
         // Card background with hover
         Color bg = PageRenderer.lerp(PageRenderer.SURFACE, new Color(30, 42, 58), hover);
-        Color border = PageRenderer.lerp(PageRenderer.BORDER, accent, hover * 0.4f);
+        Color border = PageRenderer.lerp(PageRenderer.BORDER, maxed ? accent : PageRenderer.BORDER, maxed ? 0.3f : hover * 0.4f);
         g.setColor(bg);
         g.fillRoundRect(x, y, CARD_W, CARD_H, PageRenderer.R, PageRenderer.R);
         g.setColor(border);
         g.drawRoundRect(x, y, CARD_W, CARD_H, PageRenderer.R, PageRenderer.R);
 
         // Accent top strip
-        Color stripColor = canAfford ? accent : PageRenderer.TEXT_MUTED;
-        g.setColor(PageRenderer.lerp(stripColor, accent, hover));
+        g.setColor(maxed ? accent : (canAfford ? accent : PageRenderer.TEXT_MUTED));
         g.fillRoundRect(x, y, CARD_W, 4, 4, 4);
 
         // Title
@@ -106,30 +111,52 @@ public class Shop extends MouseAdapter {
         g.setColor(PageRenderer.lerp(PageRenderer.TEXT, accent, hover * 0.3f));
         g.drawString(title, x + 20, y + 40);
 
+        // Tier dots
+        int dotX = x + 20;
+        int dotY = y + 55;
+        int dotSize = 8;
+        int dotGap = 3;
+        for (int i = 0; i < HUD.MAX_TIER; i++) {
+            g.setColor(i < tier ? accent : new Color(30, 38, 52));
+            g.fillRoundRect(dotX + i * (dotSize + dotGap), dotY, dotSize, dotSize, 3, 3);
+        }
+        if (maxed) {
+            g.setFont(new Font("Arial", Font.BOLD, 10));
+            g.setColor(accent);
+            g.drawString("MAX", dotX + HUD.MAX_TIER * (dotSize + dotGap) + 4, dotY + 8);
+        }
+
         // Description
         g.setFont(PageRenderer.BODY_FONT);
         g.setColor(PageRenderer.TEXT_SEC);
-        g.drawString(desc, x + 20, y + 70);
+        g.drawString(desc, x + 20, y + 88);
 
-        // Cost
-        g.setFont(PageRenderer.LABEL_FONT);
-        g.setColor(PageRenderer.TEXT_MUTED);
-        g.drawString("COST", x + 20, y + 120);
-        g.setFont(PageRenderer.HEADING_FONT);
-        g.setColor(canAfford ? accent : PageRenderer.TEXT_MUTED);
-        g.drawString(String.valueOf(cost), x + 20, y + 148);
+        if (maxed) {
+            // Maxed state
+            g.setFont(PageRenderer.HEADING_FONT);
+            g.setColor(accent);
+            g.drawString("Fully upgraded", x + 20, y + 148);
+        } else {
+            // Cost
+            g.setFont(PageRenderer.LABEL_FONT);
+            g.setColor(PageRenderer.TEXT_MUTED);
+            g.drawString("COST", x + 20, y + 120);
+            g.setFont(PageRenderer.HEADING_FONT);
+            g.setColor(canAfford ? accent : PageRenderer.TEXT_MUTED);
+            g.drawString(String.valueOf(cost), x + 20, y + 148);
 
-        // Buy indicator
-        if (canAfford) {
-            Color buyBg = PageRenderer.lerp(accent, new Color(
-                    Math.min(accent.getRed() + 30, 255),
-                    Math.min(accent.getGreen() + 30, 255),
-                    Math.min(accent.getBlue() + 30, 255)), hover);
-            g.setColor(buyBg);
-            g.fillRoundRect(x + CARD_W - 70, y + CARD_H - 40, 50, 24, 6, 6);
-            g.setFont(PageRenderer.SMALL_FONT);
-            g.setColor(PageRenderer.BG_DARK);
-            g.drawString("Buy", x + CARD_W - 58, y + CARD_H - 23);
+            // Buy button
+            if (canAfford) {
+                Color buyBg = PageRenderer.lerp(accent, new Color(
+                        Math.min(accent.getRed() + 30, 255),
+                        Math.min(accent.getGreen() + 30, 255),
+                        Math.min(accent.getBlue() + 30, 255)), hover);
+                g.setColor(buyBg);
+                g.fillRoundRect(x + CARD_W - 70, y + CARD_H - 40, 50, 24, 6, 6);
+                g.setFont(PageRenderer.SMALL_FONT);
+                g.setColor(PageRenderer.BG_DARK);
+                g.drawString("Buy", x + CARD_W - 58, y + CARD_H - 23);
+            }
         }
     }
 
@@ -147,7 +174,8 @@ public class Shop extends MouseAdapter {
         int mx = Game.toGameX(e.getX());
         int my = Game.toGameY(e.getY());
 
-        if (hitCard(mx, my, card1X()) && hud.getPoints() >= healthUpgradeCost) {
+        if (hitCard(mx, my, card1X()) && hud.getPoints() >= healthUpgradeCost
+                && hud.getHealthUpgrades() < HUD.MAX_TIER) {
             hud.setPoints(hud.getPoints() - healthUpgradeCost);
             healthUpgradeCost += 250;
             hud.bounds += 20;
@@ -155,14 +183,16 @@ public class Shop extends MouseAdapter {
             hud.addHealthUpgrade();
         }
 
-        if (hitCard(mx, my, card2X()) && hud.getPoints() >= speedUpgradeCost) {
+        if (hitCard(mx, my, card2X()) && hud.getPoints() >= speedUpgradeCost
+                && hud.getSpeedUpgrades() < HUD.MAX_TIER) {
             hud.setPoints(hud.getPoints() - speedUpgradeCost);
             speedUpgradeCost += 250;
             handler.spd++;
             hud.addSpeedUpgrade();
         }
 
-        if (hitCard(mx, my, card3X()) && hud.getPoints() >= refillHealthCost) {
+        if (hitCard(mx, my, card3X()) && hud.getPoints() >= refillHealthCost
+                && hud.getRefills() < HUD.MAX_TIER) {
             hud.setPoints(hud.getPoints() - refillHealthCost);
             refillHealthCost += 250;
             HUD.HEALTH = 100 + (hud.bounds / 2);

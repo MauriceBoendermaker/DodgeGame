@@ -43,6 +43,8 @@ public class Spawn {
         if (scoreKeep >= 250) {
             scoreKeep = 0;
             hud.setLevel(hud.getLevel() + 1);
+            Game.triggerLevelUp();
+            hud.triggerLevelUpBanner();
 
             if (game.diff == 0) {
                 spawnNormalDifficulty();
