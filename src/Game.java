@@ -60,6 +60,9 @@ public class Game extends Canvas implements Runnable {
     // Level-up pulse
     private static float levelUpFlash = 0;
 
+    // Geometric background layers
+    private float geoPhase = 0;
+
     // Neon walls — impact flares [x, y, intensity, side(0=top,1=bottom,2=left,3=right)]
     private static float[][] wallFlares = new float[32][4];
     private static int wallFlareCount = 0;
@@ -233,6 +236,9 @@ public class Game extends Canvas implements Runnable {
         if (levelUpFlash > 0.01f) levelUpFlash *= 0.93f;
         else levelUpFlash = 0;
 
+        // Geometric layer animation
+        geoPhase += 0.008f;
+
         // Wall pulse + flare decay
         wallPulsePhase += 0.04f;
         int alive = 0;
@@ -361,6 +367,7 @@ public class Game extends Canvas implements Runnable {
 
         if (gameState == STATE.Game || gameState == STATE.Shop || gameState == STATE.Paused || gameState == STATE.Dying) {
             PageRenderer.drawGameBackground(g);
+            renderGeoLayers(g);
             renderNeonWalls(g);
         }
 
@@ -481,6 +488,97 @@ public class Game extends Canvas implements Runnable {
 
         g.dispose();
         bs.show();
+    }
+
+    private void renderGeoLayers(Graphics2D g) {
+        Graphics2D g2 = (Graphics2D) g;
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        int cx = WIDTH / 2;
+        int cy = HEIGHT / 2;
+        float t = geoPhase;
+
+        // Layer 1 — Large slow-rotating triangles (deepest, faintest)
+        java.awt.Stroke oldStroke = g2.getStroke();
+        g2.setStroke(new java.awt.BasicStroke(1.5f));
+        g2.setColor(new Color(78, 205, 196, 10));
+
+        for (int i = 0; i < 3; i++) {
+            float angle = t * 0.4f + i * (float) (Math.PI * 2 / 3);
+            float ox = (float) Math.cos(t * 0.15f + i) * 80; // slow drift
+            float oy = (float) Math.sin(t * 0.12f + i * 1.5f) * 60;
+            int triCx = cx + (int) ox;
+            int triCy = cy + (int) oy;
+            int size = 200 + i * 40;
+            drawRotatedTriangle(g2, triCx, triCy, size, angle);
+        }
+
+        // Layer 2 — Rotating hexagon ring (middle layer)
+        g2.setColor(new Color(78, 205, 196, 8));
+        g2.setStroke(new java.awt.BasicStroke(1f));
+
+        float hexAngle = t * -0.25f;
+        int hexRadius = 280;
+        int hexCount = 6;
+        for (int i = 0; i < hexCount; i++) {
+            float a = hexAngle + i * (float) (Math.PI * 2 / hexCount);
+            int hx = cx + (int) (Math.cos(a) * hexRadius);
+            int hy = cy + (int) (Math.sin(a) * hexRadius);
+            drawHexagon(g2, hx, hy, 50 + (int) (Math.sin(t + i) * 10), a * 0.5f);
+        }
+
+        // Central hexagon — slightly brighter, slower rotation
+        g2.setColor(new Color(78, 205, 196, 12));
+        g2.setStroke(new java.awt.BasicStroke(1.2f));
+        drawHexagon(g2, cx, cy, 160, t * 0.15f);
+
+        // Layer 3 — Drifting diagonal grid lines (closest, subtle)
+        g2.setColor(new Color(40, 55, 75, 12));
+        g2.setStroke(new java.awt.BasicStroke(1f));
+
+        float gridOffset = (t * 30) % 80;
+        // Diagonal set 1 (top-left to bottom-right)
+        for (float i = -HEIGHT; i < WIDTH + HEIGHT; i += 80) {
+            int x1 = (int) (i + gridOffset);
+            int y1 = 0;
+            int x2 = (int) (i + gridOffset - HEIGHT * 0.6f);
+            int y2 = HEIGHT;
+            g2.drawLine(x1, y1, x2, y2);
+        }
+        // Diagonal set 2 (top-right to bottom-left, slower drift)
+        float gridOffset2 = (t * 18) % 80;
+        g2.setColor(new Color(40, 55, 75, 8));
+        for (float i = -HEIGHT; i < WIDTH + HEIGHT; i += 80) {
+            int x1 = (int) (i + gridOffset2);
+            int y1 = 0;
+            int x2 = (int) (i + gridOffset2 + HEIGHT * 0.6f);
+            int y2 = HEIGHT;
+            g2.drawLine(x1, y1, x2, y2);
+        }
+
+        g2.setStroke(oldStroke);
+    }
+
+    private void drawRotatedTriangle(Graphics2D g, int cx, int cy, int size, float angle) {
+        int[] xp = new int[3];
+        int[] yp = new int[3];
+        for (int i = 0; i < 3; i++) {
+            float a = angle + i * (float) (Math.PI * 2 / 3);
+            xp[i] = cx + (int) (Math.cos(a) * size / 2);
+            yp[i] = cy + (int) (Math.sin(a) * size / 2);
+        }
+        g.drawPolygon(xp, yp, 3);
+    }
+
+    private void drawHexagon(Graphics2D g, int cx, int cy, int size, float angle) {
+        int[] xp = new int[6];
+        int[] yp = new int[6];
+        for (int i = 0; i < 6; i++) {
+            float a = angle + i * (float) (Math.PI / 3);
+            xp[i] = cx + (int) (Math.cos(a) * size);
+            yp[i] = cy + (int) (Math.sin(a) * size);
+        }
+        g.drawPolygon(xp, yp, 6);
     }
 
     private void renderNeonWalls(Graphics2D g) {
