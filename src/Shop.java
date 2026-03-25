@@ -34,9 +34,15 @@ public class Shop extends MouseAdapter {
     private static int card2X() { return cardStartX() + CARD_W + CARD_GAP; }
     private static int card3X() { return cardStartX() + (CARD_W + CARD_GAP) * 2; }
 
+    // Preview types
+    private static final int PREVIEW_HEALTH = 0;
+    private static final int PREVIEW_SPEED = 1;
+    private static final int PREVIEW_REFILL = 2;
+
     // Hover state
     private float[] cardHover = new float[3];
     private int mouseX, mouseY;
+    private int frameTick = 0;
 
     public Shop(Handler handler, HUD hud) {
         this.handler = handler;
@@ -63,13 +69,13 @@ public class Shop extends MouseAdapter {
 
         drawCard(g2, card1X(), CARD_Y, "Upgrade Health", "Extends and refills your health bar.",
                 healthUpgradeCost, hud.getPoints() >= healthUpgradeCost, PageRenderer.SUCCESS, cardHover[0],
-                hud.getHealthUpgrades());
+                hud.getHealthUpgrades(), PREVIEW_HEALTH);
         drawCard(g2, card2X(), CARD_Y, "Upgrade Speed", "Increases your movement speed.",
                 speedUpgradeCost, hud.getPoints() >= speedUpgradeCost, PageRenderer.ACCENT, cardHover[1],
-                hud.getSpeedUpgrades());
+                hud.getSpeedUpgrades(), PREVIEW_SPEED);
         drawCard(g2, card3X(), CARD_Y, "Refill Health", "Fully restores your health bar.",
                 refillHealthCost, hud.getPoints() >= refillHealthCost, PageRenderer.WARNING, cardHover[2],
-                hud.getRefills());
+                hud.getRefills(), PREVIEW_REFILL);
 
         // Footer
         g2.setFont(PageRenderer.BODY_FONT);
@@ -80,6 +86,7 @@ public class Shop extends MouseAdapter {
     }
 
     private void updateHover() {
+        frameTick++;
         int[] cardXs = {card1X(), card2X(), card3X()};
         for (int i = 0; i < 3; i++) {
             boolean over = mouseX >= cardXs[i] && mouseX <= cardXs[i] + CARD_W
@@ -92,7 +99,7 @@ public class Shop extends MouseAdapter {
 
     private void drawCard(Graphics2D g, int x, int y, String title, String desc,
                           int cost, boolean canAfford, Color accent, float hover,
-                          int tier) {
+                          int tier, int previewType) {
         boolean maxed = tier >= HUD.MAX_TIER;
 
         // Card background with hover
@@ -159,6 +166,121 @@ public class Shop extends MouseAdapter {
                 g.drawString("Buy", x + CARD_W - 58, y + CARD_H - 23);
             }
         }
+
+        // Preview animation — visible when hovering
+        if (hover > 0.1f) {
+            int px = x + CARD_W - 90;
+            int py = y + 100;
+            float h = hover;
+            float t = frameTick * 0.05f;
+
+            switch (previewType) {
+                case PREVIEW_HEALTH:
+                    drawHealthPreview(g, px, py, accent, h, t);
+                    break;
+                case PREVIEW_SPEED:
+                    drawSpeedPreview(g, px, py, accent, h, t);
+                    break;
+                case PREVIEW_REFILL:
+                    drawRefillPreview(g, px, py, accent, h, t);
+                    break;
+            }
+        }
+    }
+
+    private void drawHealthPreview(Graphics2D g, int x, int y, Color accent, float hover, float t) {
+        int alpha = (int) (hover * 200);
+
+        // Mini health bar background
+        int barW = 70, barH = 10;
+        g.setColor(new Color(22, 30, 44, alpha));
+        g.fillRoundRect(x, y, barW, barH, 5, 5);
+
+        // Current fill
+        float pct = HUD.HEALTH / (100f + hud.bounds / 2f);
+        int fillW = (int) (barW * pct);
+        g.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), alpha));
+        g.fillRoundRect(x, y, fillW, barH, 5, 5);
+
+        // Pulsing extension showing the upgrade effect
+        float pulse = (float) (Math.sin(t * 4) * 0.5 + 0.5);
+        int extW = 8 + (int) (pulse * 6);
+        int extAlpha = (int) (hover * pulse * 160);
+        g.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), extAlpha));
+        g.fillRoundRect(x + fillW, y, extW, barH, 5, 5);
+
+        // "+" icon
+        g.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), (int) (hover * 180)));
+        g.fillRect(x + barW + 10, y + 2, 8, 2);
+        g.fillRect(x + barW + 13, y - 1, 2, 8);
+
+        // Border
+        g.setColor(new Color(40, 52, 70, alpha));
+        g.drawRoundRect(x, y, barW + extW, barH, 5, 5);
+    }
+
+    private void drawSpeedPreview(Graphics2D g, int x, int y, Color accent, float hover, float t) {
+        int alpha = (int) (hover * 180);
+        int cx = x + 35, cy = y + 5;
+
+        // Mini player square
+        g.setColor(new Color(230, 234, 240, alpha));
+        g.fillRoundRect(cx - 6, cy - 6, 12, 12, 4, 4);
+
+        // Motion lines — stream backward from the player
+        for (int i = 0; i < 4; i++) {
+            float offset = ((t * 8 + i * 1.5f) % 6f);
+            int lineX = cx - 12 - (int) (offset * 6);
+            int lineAlpha = (int) (hover * (1f - offset / 6f) * 140);
+            int lineW = 6 + (int) ((1f - offset / 6f) * 8);
+            g.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(),
+                    Math.max(0, Math.min(255, lineAlpha))));
+            g.fillRect(lineX, cy - 1 + (i - 2) * 4, lineW, 2);
+        }
+
+        // Speed arrow
+        g.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), alpha));
+        g.fillPolygon(
+                new int[]{cx + 14, cx + 22, cx + 14},
+                new int[]{cy - 5, cy, cy + 5}, 3);
+    }
+
+    private void drawRefillPreview(Graphics2D g, int x, int y, Color accent, float hover, float t) {
+        int alpha = (int) (hover * 200);
+
+        // Mini health bar background
+        int barW = 70, barH = 10;
+        g.setColor(new Color(22, 30, 44, alpha));
+        g.fillRoundRect(x, y, barW, barH, 5, 5);
+
+        // Animated fill — sweeps from left to full
+        float fillPct = ((t * 2) % 3f);
+        if (fillPct > 1f) fillPct = 1f; // hold at full briefly
+        int fillW = (int) (barW * fillPct);
+        Color fillColor = PageRenderer.lerp(
+                new Color(235, 87, 87), accent, fillPct);
+        g.setColor(new Color(fillColor.getRed(), fillColor.getGreen(), fillColor.getBlue(), alpha));
+        g.fillRoundRect(x, y, fillW, barH, 5, 5);
+
+        // Sparkle at the fill edge
+        if (fillPct > 0.2f && fillPct < 1f) {
+            float sparkle = (float) (Math.sin(t * 12) * 0.5 + 0.5);
+            int sparkAlpha = (int) (sparkle * hover * 200);
+            g.setColor(new Color(255, 255, 255, Math.min(sparkAlpha, 255)));
+            g.fillOval(x + fillW - 3, y + 1, 6, 6);
+        }
+
+        // Full indicator flash
+        if (fillPct >= 1f) {
+            float flash = (float) (Math.sin(t * 6) * 0.3 + 0.7);
+            g.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(),
+                    (int) (flash * hover * 80)));
+            g.fillRoundRect(x, y, barW, barH, 5, 5);
+        }
+
+        // Border
+        g.setColor(new Color(40, 52, 70, alpha));
+        g.drawRoundRect(x, y, barW, barH, 5, 5);
     }
 
     public void mouseMoved(MouseEvent e) {
