@@ -93,6 +93,12 @@ public class Game extends Canvas implements Runnable {
     private java.awt.image.BufferedImage geoCache;
     private int geoCacheFrame = 0;
 
+    // Screen transitions
+    private STATE lastState = STATE.Menu;
+    private float transitionAlpha = 0;
+    private float transitionZoom = 0; // extra zoom for menu→game
+    private static final float TRANS_SPEED = 0.12f;
+
     // Neon walls — impact flares [x, y, intensity, side(0=top,1=bottom,2=left,3=right)]
     private static float[][] wallFlares = new float[32][4];
     private static int wallFlareCount = 0;
@@ -264,6 +270,12 @@ public class Game extends Canvas implements Runnable {
     }
 
     private void tick() {
+        // Auto-advance music — runs in every state
+        if (!AudioPlayer.isStopped() && !AudioPlayer.isPaused() && !AudioPlayer.isPlaying()) {
+            AudioPlayer.nextTrack();
+            AudioPlayer.play();
+        }
+
         if (gameState == STATE.Paused) {
             menu.tick(); // for hover animations
             return;
@@ -305,6 +317,24 @@ public class Game extends Canvas implements Runnable {
                 enemyExplosions = null;
             }
         }
+
+        // Screen transitions — detect state changes
+        if (gameState != lastState) {
+            // Skip transitions for states that have their own animations
+            if (lastState != STATE.Dying && gameState != STATE.Dying
+                    && gameState != STATE.Paused && lastState != STATE.Paused) {
+                transitionAlpha = 1f;
+                // Zoom-in effect when entering gameplay
+                if (gameState == STATE.Game && lastState != STATE.Shop) {
+                    transitionZoom = 1f;
+                }
+            }
+            lastState = gameState;
+        }
+        if (transitionAlpha > 0.01f) transitionAlpha *= (1f - TRANS_SPEED);
+        else transitionAlpha = 0;
+        if (transitionZoom > 0.01f) transitionZoom *= 0.90f;
+        else transitionZoom = 0;
 
         // Geometric layer animation
         geoPhase += 0.008f;
@@ -459,6 +489,14 @@ public class Game extends Canvas implements Runnable {
         g.scale(scale, scale);
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 
+        // Transition zoom — slight zoom-in when entering game
+        boolean hasTransZoom = transitionZoom > 0.02f;
+        if (hasTransZoom) {
+            float z = 1f + transitionZoom * 0.06f;
+            g.translate(WIDTH * (1 - z) / 2, HEIGHT * (1 - z) / 2);
+            g.scale(z, z);
+        }
+
         if (gameState == STATE.Game || gameState == STATE.Shop || gameState == STATE.Paused || gameState == STATE.Dying) {
             PageRenderer.drawGameBackground(g);
             renderBeatVisuals(g);
@@ -596,6 +634,19 @@ public class Game extends Canvas implements Runnable {
         } else {
             menu.render(g);
             handler.render(g);
+        }
+
+        // Undo transition zoom
+        if (hasTransZoom) {
+            float z = 1f + transitionZoom * 0.06f;
+            g.scale(1.0 / z, 1.0 / z);
+            g.translate(WIDTH * (z - 1) / 2, HEIGHT * (z - 1) / 2);
+        }
+
+        // Screen transition overlay — fast fade from black
+        if (transitionAlpha > 0) {
+            g.setColor(new Color(10, 12, 18, (int) (transitionAlpha * 255)));
+            g.fillRect(0, 0, WIDTH, HEIGHT);
         }
 
         // FPS counter — in-game only, bottom-left
