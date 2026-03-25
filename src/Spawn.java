@@ -11,6 +11,9 @@ public class Spawn {
     private int scoreKeep = 0;
     private boolean bossActive = false;
 
+    public float getLevelProgress() { return scoreKeep / 250f; }
+    public boolean isBossActive() { return bossActive; }
+
     // Enemy colors for telegraphs
     private static final Color C_BASIC = new Color(235, 87, 87);
     private static final Color C_FAST = new Color(78, 205, 196);

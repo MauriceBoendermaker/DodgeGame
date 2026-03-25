@@ -44,6 +44,7 @@ public class Game extends Canvas implements Runnable {
 
     private Random r;
     private static Handler handlerRef;
+    private static Spawn spawnerRef;
     private Handler handler;
     private HUD hud;
     private Spawn spawner;
@@ -122,6 +123,14 @@ public class Game extends Canvas implements Runnable {
         flashAlpha = 0.6f;
     }
 
+    public static float getLevelProgress() {
+        return spawnerRef != null ? spawnerRef.getLevelProgress() : 0;
+    }
+
+    public static boolean isBossActive() {
+        return spawnerRef != null && spawnerRef.isBossActive();
+    }
+
     public static int getPlayerMultiplier() {
         if (handlerRef == null) return 1;
         for (int i = 0; i < handlerRef.getObjects().size(); i++) {
@@ -186,6 +195,7 @@ public class Game extends Canvas implements Runnable {
         new Window(windowWidth, windowHeight, "Dotch. - v3.0", this);
 
         spawner = new Spawn(handler, hud, this);
+        spawnerRef = spawner;
         r = new Random();
 
         System.out.println("Game loaded!");

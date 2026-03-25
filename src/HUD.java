@@ -186,6 +186,35 @@ public class HUD {
             int bannerY = Game.HEIGHT / 2 - 30 - (int) ((1f - levelUpBanner) * 20);
             g2.drawString(lvlUp, (Game.WIDTH - fm.stringWidth(lvlUp)) / 2, bannerY);
         }
+
+        // Level progress bar — bottom of screen
+        if (!Game.isBossActive()) {
+            float progress = Game.getLevelProgress();
+            int barH = 4;
+            int barY = Game.HEIGHT - barH;
+
+            // Background
+            g2.setColor(BAR_BG);
+            g2.fillRect(0, barY, Game.WIDTH, barH);
+
+            // Fill
+            int fillW = (int) (Game.WIDTH * progress);
+            if (fillW > 0) {
+                // Flash brighter near completion
+                Color barColor = progress > 0.85f
+                        ? lerpColor(GamePalette.accent(), GOLD, (progress - 0.85f) / 0.15f)
+                        : GamePalette.accent();
+                g2.setColor(barColor);
+                g2.fillRect(0, barY, fillW, barH);
+            }
+
+            // Completion flash — the level-up banner flash handles the burst
+            if (levelUpBanner > 0.5f) {
+                g2.setColor(new Color(GOLD.getRed(), GOLD.getGreen(), GOLD.getBlue(),
+                        (int) (levelUpBanner * 200)));
+                g2.fillRect(0, barY, Game.WIDTH, barH);
+            }
+        }
     }
 
     private void drawTierBar(Graphics2D g, int x, int y, String label, int tier, Color color) {
