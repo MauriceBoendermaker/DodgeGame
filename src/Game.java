@@ -43,6 +43,7 @@ public class Game extends Canvas implements Runnable {
     public String lastDifficulty = "";
 
     private Random r;
+    private static Handler handlerRef;
     private Handler handler;
     private HUD hud;
     private Spawn spawner;
@@ -96,6 +97,15 @@ public class Game extends Canvas implements Runnable {
         flashAlpha = 0.6f;
     }
 
+    public static int getPlayerMultiplier() {
+        if (handlerRef == null) return 1;
+        for (int i = 0; i < handlerRef.getObjects().size(); i++) {
+            GameObject obj = handlerRef.getObjects().get(i);
+            if (obj instanceof Player) return ((Player) obj).getMultiplier();
+        }
+        return 1;
+    }
+
     public static void triggerLevelUp() {
         levelUpFlash = 1f;
     }
@@ -131,6 +141,7 @@ public class Game extends Canvas implements Runnable {
         calculateWindowSize();
 
         handler = new Handler();
+        handlerRef = handler;
         hud = new HUD();
         shop = new Shop(handler, hud);
         menu = new Menu(this, handler, hud);

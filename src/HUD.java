@@ -50,8 +50,11 @@ public class HUD {
     public void tick() {
         float maxHealth = 100 + (bounds / 2);
         HEALTH = Game.clamp(HEALTH, 0, maxHealth);
-        score++;
-        points++;
+
+        // Score multiplied by streak
+        int mult = getPlayerMultiplier();
+        score += mult;
+        points += mult;
         ticksSurvived++;
 
         if (levelUpBanner > 0.01f) levelUpBanner *= 0.96f;
@@ -184,6 +187,13 @@ public class HUD {
                 (int) (a.getRed() + (b.getRed() - a.getRed()) * t),
                 (int) (a.getGreen() + (b.getGreen() - a.getGreen()) * t),
                 (int) (a.getBlue() + (b.getBlue() - a.getBlue()) * t));
+    }
+
+    private int getPlayerMultiplier() {
+        // Find player in handler to read multiplier
+        // This is called from tick which is in the game loop, so handler is accessible via Game
+        // For simplicity, we'll make this work through a static reference
+        return Game.getPlayerMultiplier();
     }
 
     public void setScore(int score) { this.score = score; }
