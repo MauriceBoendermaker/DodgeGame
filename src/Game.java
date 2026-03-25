@@ -94,7 +94,7 @@ public class Game extends Canvas implements Runnable {
         AudioPlayer.load();
         AudioPlayer.getMusic("game_music").loop(1, 0.15f);
 
-        new Window(WIDTH, HEIGHT, "Dotch. - [BETA] [TEST VERSION]", this);
+        new Window(WIDTH, HEIGHT, "Dotch. - v2.0", this);
 
         spawner = new Spawn(handler, hud, this);
         r = new Random();
