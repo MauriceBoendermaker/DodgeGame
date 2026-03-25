@@ -55,6 +55,7 @@ public class KeyInput extends KeyAdapter {
                 case Info:
                 case About:
                 case Update_Notes:
+                case Credits:
                 case MusicPlayer:
                     Game.gameState = Game.STATE.Menu;
                     break;

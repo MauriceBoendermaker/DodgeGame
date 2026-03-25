@@ -5,8 +5,10 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseWheelEvent;
+import java.awt.event.MouseWheelListener;
 
-public class Menu extends MouseAdapter {
+public class Menu extends MouseAdapter implements MouseWheelListener {
 
     private Game game;
     private Handler handler;
@@ -36,6 +38,10 @@ public class Menu extends MouseAdapter {
     private static final int PAUSE_Y0 = 310;
     private static int pauseX() { return (Game.WIDTH - PAUSE_W) / 2; }
 
+    // Now playing skip button
+    private static final int SKIP_SIZE = 22;
+    private static final int SKIP_Y = 691;
+
     // Dynamic X positions
     private static int btnX() { return PageRenderer.btnX(); }
     private static int langX() { return (Game.WIDTH - LANG_W) / 2; }
@@ -45,10 +51,14 @@ public class Menu extends MouseAdapter {
 
     // Hover state
     private float[] btn = new float[3];
-    private float backH, musicH, aboutH, changelogH, quitH, retryH;
-    private float[] pauseBtn = new float[3]; // Resume, Main Menu, Quit
+    private float backH, musicH, aboutH, changelogH, creditsLinkH, quitH, retryH, skipH;
+    private float[] pauseBtn = new float[3];
     private int mouseX, mouseY;
     private static final float LERP = 0.14f;
+
+    // Help page scroll
+    private float helpScroll = 0;
+    private float helpScrollTarget = 0;
 
     public Menu(Game game, Handler handler, HUD hud) {
         this.game = game;
@@ -60,13 +70,16 @@ public class Menu extends MouseAdapter {
 
     public void tick() {
         updateHover();
+        // Smooth scroll
+        helpScroll += (helpScrollTarget - helpScroll) * 0.18f;
+        if (Math.abs(helpScroll - helpScrollTarget) < 0.5f) helpScroll = helpScrollTarget;
     }
 
     private void updateHover() {
         // Determine targets based on current state
         boolean[] btnTargets = new boolean[3];
         boolean backTarget = false, musicTarget = false, aboutTarget = false;
-        boolean changelogTarget = false, quitTarget = false, retryTarget = false;
+        boolean changelogTarget = false, creditsLinkTarget = false, quitTarget = false, retryTarget = false;
 
         switch (Game.gameState) {
             case Menu:
@@ -76,9 +89,10 @@ public class Menu extends MouseAdapter {
                 btnTargets[2] = hit(mouseX, mouseY, bx, HELP_Y, BW, BH);
                 quitTarget = hit(mouseX, mouseY, quitX(), PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H);
                 musicTarget = hit(mouseX, mouseY, musicX(), MUSIC_Y, MUSIC_W, MUSIC_H);
-                int lc = Game.WIDTH / 2;
-                aboutTarget = hit(mouseX, mouseY, lc - 85, 662, 85, 24);
-                changelogTarget = hit(mouseX, mouseY, lc, 662, 85, 24);
+                int[] linkXs = getBottomLinkXs();
+                aboutTarget = hit(mouseX, mouseY, linkXs[0], 666, linkXs[1] - linkXs[0], 20);
+                changelogTarget = hit(mouseX, mouseY, linkXs[1], 666, linkXs[2] - linkXs[1], 20);
+                creditsLinkTarget = hit(mouseX, mouseY, linkXs[2], 666, linkXs[3] - linkXs[2], 20);
                 break;
             case Select:
                 bx = btnX();
@@ -114,6 +128,7 @@ public class Menu extends MouseAdapter {
         musicH = approach(musicH, musicTarget);
         aboutH = approach(aboutH, aboutTarget);
         changelogH = approach(changelogH, changelogTarget);
+        creditsLinkH = approach(creditsLinkH, creditsLinkTarget);
         quitH = approach(quitH, quitTarget);
         retryH = approach(retryH, retryTarget);
     }
@@ -130,6 +145,14 @@ public class Menu extends MouseAdapter {
     public void mouseMoved(MouseEvent e) {
         mouseX = Game.toGameX(e.getX());
         mouseY = Game.toGameY(e.getY());
+    }
+
+    public void mouseWheelMoved(MouseWheelEvent e) {
+        if (Game.gameState == Game.STATE.HelpENG || Game.gameState == Game.STATE.HelpNLD
+                || Game.gameState == Game.STATE.HelpDEU) {
+            helpScrollTarget += e.getWheelRotation() * 40;
+            helpScrollTarget = Math.max(0, helpScrollTarget);
+        }
     }
 
     public void mouseDragged(MouseEvent e) {
@@ -167,11 +190,15 @@ public class Menu extends MouseAdapter {
             if (hit(mx, my, bx, INFO_Y, BW, BH)) { Game.gameState = Game.STATE.Info; resetHover(); return; }
             if (hit(mx, my, bx, HELP_Y, BW, BH)) { Game.gameState = Game.STATE.Help; resetHover(); return; }
             if (hit(mx, my, musicX(), MUSIC_Y, MUSIC_W, MUSIC_H)) { Game.gameState = Game.STATE.MusicPlayer; resetHover(); return; }
-            int linkCenterX = Game.WIDTH / 2;
-            if (hit(mx, my, linkCenterX - 85, 662, 170, 24)) {
-                if (mx < linkCenterX) Game.gameState = Game.STATE.About;
-                else Game.gameState = Game.STATE.Update_Notes;
-                resetHover(); return;
+            int[] linkXs = getBottomLinkXs();
+            if (hit(mx, my, linkXs[0], 666, linkXs[1] - linkXs[0], 20)) {
+                Game.gameState = Game.STATE.About; resetHover(); return;
+            }
+            if (hit(mx, my, linkXs[1], 666, linkXs[2] - linkXs[1], 20)) {
+                Game.gameState = Game.STATE.Update_Notes; resetHover(); return;
+            }
+            if (hit(mx, my, linkXs[2], 666, linkXs[3] - linkXs[2], 20)) {
+                Game.gameState = Game.STATE.Credits; resetHover(); return;
             }
             if (hit(mx, my, quitX(), PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H)) { System.exit(0); }
             return;
@@ -203,7 +230,7 @@ public class Menu extends MouseAdapter {
         }
 
         if (Game.gameState == Game.STATE.Info || Game.gameState == Game.STATE.About
-                || Game.gameState == Game.STATE.Update_Notes) {
+                || Game.gameState == Game.STATE.Update_Notes || Game.gameState == Game.STATE.Credits) {
             if (hitBack()) { Game.gameState = Game.STATE.Menu; resetHover(); return; }
             return;
         }
@@ -233,7 +260,8 @@ public class Menu extends MouseAdapter {
     private void resetHover() {
         for (int i = 0; i < 3; i++) btn[i] = 0;
         for (int i = 0; i < 3; i++) pauseBtn[i] = 0;
-        backH = musicH = aboutH = changelogH = quitH = retryH = 0;
+        backH = musicH = aboutH = changelogH = creditsLinkH = quitH = retryH = 0;
+        helpScroll = helpScrollTarget = 0;
     }
 
     private void startGame(int difficulty, GameObject firstEnemy) {
@@ -270,18 +298,28 @@ public class Menu extends MouseAdapter {
             case Menu:          renderMainMenu(g2); break;
             case Select:        renderSelect(g2); break;
             case Help:          renderHelp(g2); break;
-            case HelpENG:       renderHelpLang(g2, "English", "General", "Controls",
-                                    new String[]{"Use W, A, S, D to move the player,", "dodge enemies, and score points.", "", "Arrow keys also work."},
-                                    new String[]{"P  -  Pause", "Esc  -  Pause Menu", "Space  -  Shop", "", "W / Up  -  Move up", "A / Left  -  Move left", "S / Down  -  Move down", "D / Right  -  Move right"}); break;
-            case HelpNLD:       renderHelpLang(g2, "Nederlands", "Algemeen", "Besturing",
-                                    new String[]{"Gebruik W, A, S, D om te bewegen,", "ontwijk vijanden en scoor punten.", "", "Pijltjestoetsen werken ook."},
-                                    new String[]{"P  -  Pauze", "Esc  -  Pauzemenu", "Spatie  -  Winkel", "", "W / Op  -  Omhoog", "A / Links  -  Links", "S / Neer  -  Omlaag", "D / Rechts  -  Rechts"}); break;
-            case HelpDEU:       renderHelpLang(g2, "Deutsch", "Allgemeines", "Steuerung",
-                                    new String[]{"Verwende W, A, S, D um zu bewegen,", "weiche Feinden aus und sammle Punkte.", "", "Pfeiltasten funktionieren auch."},
-                                    new String[]{"P  -  Pause", "Esc  -  Pausenmen\u00FC", "Leertaste  -  Shop", "", "W / Hoch  -  Nach oben", "A / Links  -  Links", "S / Runter  -  Nach unten", "D / Rechts  -  Rechts"}); break;
+            case HelpENG:       renderHelpPage(g2, "English", new String[][]{
+                    {"How to Play", "Navigate your character through the arena while avoiding all enemies. Survive as long as possible to increase your score. Each level introduces new and tougher enemies. Boss battles occur at milestone levels. Earn points over time to spend on upgrades in the shop."},
+                    {"Controls", "W / \u2191  -  Move up\nA / \u2190  -  Move left\nS / \u2193  -  Move down\nD / \u2192  -  Move right\n\nSpace  -  Open shop\nP / Esc  -  Pause menu"},
+                    {"Enemy Types", "Red squares bounce in straight lines. Teal diamonds move at high speed. Purple circles track and follow the player. Yellow triangles change direction randomly. Red bosses are large and spawn bullets."},
+                    {"Tips", "Keep moving \u2014 standing still is the fastest way to lose health. Upgrade speed early for better survivability. Save points for health upgrades at higher levels. Each enemy type has a unique shape and behavior. Learn their patterns to dodge effectively."}
+                }); break;
+            case HelpNLD:       renderHelpPage(g2, "Nederlands", new String[][]{
+                    {"Hoe te spelen", "Navigeer je karakter door de arena en ontwijk alle vijanden. Overleef zo lang mogelijk om je score te verhogen. Elk level introduceert nieuwe en sterkere vijanden. Baasgevechten vinden plaats bij mijlpaalniveaus. Verdien punten om upgrades te kopen in de winkel."},
+                    {"Besturing", "W / \u2191  -  Omhoog\nA / \u2190  -  Links\nS / \u2193  -  Omlaag\nD / \u2192  -  Rechts\n\nSpatie  -  Winkel openen\nP / Esc  -  Pauzemenu"},
+                    {"Vijandtypes", "Rode vierkanten stuiteren in rechte lijnen. Turquoise ruiten bewegen met hoge snelheid. Paarse cirkels volgen de speler. Gele driehoeken veranderen willekeurig van richting. Rode bazen zijn groot en schieten kogels."},
+                    {"Tips", "Blijf bewegen \u2014 stilstaan is de snelste manier om gezondheid te verliezen. Upgrade snelheid vroeg voor betere overleving. Spaar punten voor gezondheid bij hogere levels. Elk vijandtype heeft een unieke vorm en gedrag. Leer hun patronen om effectief te ontwijken."}
+                }); break;
+            case HelpDEU:       renderHelpPage(g2, "Deutsch", new String[][]{
+                    {"Spielanleitung", "Navigiere deinen Charakter durch die Arena und weiche allen Feinden aus. \u00DCberlebe so lange wie m\u00F6glich, um deinen Score zu erh\u00F6hen. Jedes Level bringt neue, st\u00E4rkere Feinde. Bossk\u00E4mpfe finden bei Meilensteinleveln statt. Verdiene Punkte f\u00FCr Upgrades im Shop."},
+                    {"Steuerung", "W / \u2191  -  Nach oben\nA / \u2190  -  Links\nS / \u2193  -  Nach unten\nD / \u2192  -  Rechts\n\nLeertaste  -  Shop \u00F6ffnen\nP / Esc  -  Pausenmen\u00FC"},
+                    {"Gegnertypen", "Rote Quadrate prallen in geraden Linien ab. T\u00FCrkise Rauten bewegen sich mit hoher Geschwindigkeit. Lila Kreise verfolgen den Spieler. Gelbe Dreiecke \u00E4ndern zuf\u00E4llig die Richtung. Rote Bosse sind gro\u00DF und schie\u00DFen Kugeln."},
+                    {"Tipps", "Bleib in Bewegung \u2014 Stillstehen kostet am schnellsten Gesundheit. Upgrade Geschwindigkeit fr\u00FCh f\u00FCr besseres \u00DCberleben. Spare Punkte f\u00FCr h\u00F6here Level. Jeder Feindtyp hat eine eigene Form und Verhaltensweise. Lerne ihre Muster."}
+                }); break;
             case Info:          renderInfo(g2); break;
             case About:         renderAbout(g2); break;
             case Update_Notes:  renderUpdates(g2); break;
+            case Credits:       renderCredits(g2); break;
             case End:           renderEnd(g2); break;
             case Paused:        renderPauseMenu(g2); break;
             default: break;
@@ -314,19 +352,8 @@ public class Menu extends MouseAdapter {
         g.setColor(PageRenderer.TEXT_MUTED);
         g.drawString("v3.0", 30, 700);
 
-        // About | Changelog links — centered
-        FontMetrics lfm = g.getFontMetrics();
-        String aboutTxt = "About";
-        String divider = "  |  ";
-        String changelogTxt = "Changelog";
-        int totalLinkW = lfm.stringWidth(aboutTxt + divider + changelogTxt);
-        int linkStartX = (Game.WIDTH - totalLinkW) / 2;
-        g.setColor(PageRenderer.lerp(PageRenderer.TEXT_SEC, PageRenderer.ACCENT, aboutH));
-        g.drawString(aboutTxt, linkStartX, 680);
-        g.setColor(PageRenderer.TEXT_MUTED);
-        g.drawString(divider, linkStartX + lfm.stringWidth(aboutTxt), 680);
-        g.setColor(PageRenderer.lerp(PageRenderer.TEXT_SEC, PageRenderer.ACCENT, changelogH));
-        g.drawString(changelogTxt, linkStartX + lfm.stringWidth(aboutTxt + divider), 680);
+        // About | Changelog | Credits links — centered
+        drawBottomLinks(g);
 
         // Music Player button
         int mx = musicX();
@@ -386,45 +413,143 @@ public class Menu extends MouseAdapter {
 
     // ---------- Help Language ----------
 
-    private void renderHelpLang(Graphics2D g, String language,
-                                String leftTitle, String rightTitle,
-                                String[] leftLines, String[] rightLines) {
+    private void renderHelpPage(Graphics2D g, String language, String[][] sections) {
         PageRenderer.drawBackground(g);
         PageRenderer.drawTitle(g, "Help");
         PageRenderer.drawBackButton(g, backH);
 
+        // Language badge
         g.setFont(PageRenderer.LABEL_FONT);
         g.setColor(PageRenderer.ACCENT);
-        FontMetrics fm = g.getFontMetrics();
+        FontMetrics badgeFm = g.getFontMetrics();
         String badge = language.toUpperCase();
-        int bw = fm.stringWidth(badge) + 20;
+        int bw = badgeFm.stringWidth(badge) + 20;
         int bxp = (Game.WIDTH - bw) / 2;
         g.drawRoundRect(bxp, 105, bw, 24, 6, 6);
         g.drawString(badge, bxp + 10, 122);
 
-        int panelY = 160;
-        int panelH = 310;
-        PageRenderer.drawPanel(g, 60, panelY, 540, panelH);
-        g.setFont(PageRenderer.HEADING_FONT);
-        g.setColor(PageRenderer.ACCENT);
-        g.drawString(leftTitle, 85, panelY + 38);
-        g.setColor(PageRenderer.BORDER);
-        g.fillRect(85, panelY + 50, 490, 1);
-        g.setFont(PageRenderer.BODY_FONT);
-        g.setColor(PageRenderer.TEXT_SEC);
-        int y = panelY + 78;
-        for (String line : leftLines) { if (!line.isEmpty()) g.drawString(line, 85, y); y += 24; }
+        // Content area
+        int margin = 60;
+        int panelW = Game.WIDTH - margin * 2;
+        int contentTop = 145;
+        int contentBottom = Game.HEIGHT - 30;
+        int gap = 12;
+        int padding = 20;
+        int lineH = 22;
 
-        PageRenderer.drawPanel(g, 630, panelY, 590, panelH);
-        g.setFont(PageRenderer.HEADING_FONT);
-        g.setColor(PageRenderer.ACCENT);
-        g.drawString(rightTitle, 655, panelY + 38);
-        g.setColor(PageRenderer.BORDER);
-        g.fillRect(655, panelY + 50, 540, 1);
+        // Clip to content area
+        java.awt.Shape oldClip = g.getClip();
+        g.clipRect(0, contentTop, Game.WIDTH, contentBottom - contentTop);
+
+        // Calculate total content height for scroll clamping
         g.setFont(PageRenderer.BODY_FONT);
-        g.setColor(PageRenderer.TEXT_SEC);
-        y = panelY + 78;
-        for (String line : rightLines) { if (!line.isEmpty()) g.drawString(line, 655, y); y += 24; }
+        FontMetrics bodyFm = g.getFontMetrics();
+        int totalHeight = 0;
+        for (String[] section : sections) {
+            int sectionContentH = measureSectionHeight(section[1], panelW - padding * 2, bodyFm, lineH);
+            totalHeight += 52 + sectionContentH + padding + gap;
+        }
+        int maxScroll = Math.max(0, totalHeight - (contentBottom - contentTop) + 20);
+        helpScrollTarget = Math.min(helpScrollTarget, maxScroll);
+
+        int y = contentTop - (int) helpScroll;
+
+        for (String[] section : sections) {
+            String title = section[0];
+            String text = section[1];
+
+            // Measure this section
+            int sectionContentH = measureSectionHeight(text, panelW - padding * 2, bodyFm, lineH);
+            int panelH = 52 + sectionContentH + padding;
+
+            // Only draw if visible
+            if (y + panelH > contentTop - 20 && y < contentBottom + 20) {
+                PageRenderer.drawPanel(g, margin, y, panelW, panelH);
+
+                g.setFont(PageRenderer.HEADING_FONT);
+                g.setColor(PageRenderer.ACCENT);
+                g.drawString(title, margin + padding, y + 34);
+
+                g.setColor(PageRenderer.BORDER);
+                g.fillRect(margin + padding, y + 46, panelW - padding * 2, 1);
+
+                g.setFont(PageRenderer.BODY_FONT);
+                g.setColor(PageRenderer.TEXT_SEC);
+                drawWrappedText(g, text, margin + padding, y + 68, panelW - padding * 2, lineH);
+            }
+
+            y += panelH + gap;
+        }
+
+        g.setClip(oldClip);
+
+        // Scroll indicator if content overflows
+        if (maxScroll > 0) {
+            float scrollPct = (helpScrollTarget > 0) ? helpScroll / maxScroll : 0;
+            int trackH = contentBottom - contentTop - 20;
+            int thumbH = Math.max(30, (int) ((float) (contentBottom - contentTop) / totalHeight * trackH));
+            int thumbY = contentTop + 10 + (int) ((trackH - thumbH) * scrollPct);
+            g.setColor(new Color(40, 52, 70, 80));
+            g.fillRoundRect(Game.WIDTH - 22, contentTop + 10, 6, trackH, 3, 3);
+            g.setColor(new Color(78, 205, 196, 120));
+            g.fillRoundRect(Game.WIDTH - 22, thumbY, 6, thumbH, 3, 3);
+        }
+    }
+
+    private int measureSectionHeight(String text, int maxW, FontMetrics fm, int lineH) {
+        String[] parts = text.split("\n", -1);
+        int lines = 0;
+        for (String part : parts) {
+            if (part.isEmpty()) {
+                lines++;
+            } else {
+                lines += wrapLineCount(part, maxW, fm);
+            }
+        }
+        return lines * lineH;
+    }
+
+    private int wrapLineCount(String text, int maxW, FontMetrics fm) {
+        String[] words = text.split(" ");
+        int count = 1;
+        int lineW = 0;
+        for (String word : words) {
+            int wordW = fm.stringWidth(word + " ");
+            if (lineW + wordW > maxW && lineW > 0) {
+                count++;
+                lineW = 0;
+            }
+            lineW += wordW;
+        }
+        return count;
+    }
+
+    private void drawWrappedText(Graphics2D g, String text, int x, int y, int maxW, int lineH) {
+        FontMetrics fm = g.getFontMetrics();
+        String[] parts = text.split("\n", -1);
+        int cy = y;
+        for (String part : parts) {
+            if (part.isEmpty()) {
+                cy += lineH;
+                continue;
+            }
+            String[] words = part.split(" ");
+            StringBuilder line = new StringBuilder();
+            for (String word : words) {
+                String test = line.length() == 0 ? word : line + " " + word;
+                if (fm.stringWidth(test) > maxW && line.length() > 0) {
+                    g.drawString(line.toString(), x, cy);
+                    cy += lineH;
+                    line = new StringBuilder(word);
+                } else {
+                    line = new StringBuilder(test);
+                }
+            }
+            if (line.length() > 0) {
+                g.drawString(line.toString(), x, cy);
+                cy += lineH;
+            }
+        }
     }
 
     // ---------- Info ----------
@@ -471,37 +596,167 @@ public class Menu extends MouseAdapter {
         PageRenderer.drawTitle(g, "About");
         PageRenderer.drawBackButton(g, backH);
 
-        PageRenderer.drawPanel(g, 60, 140, Game.WIDTH - 120, 300);
-        g.setFont(PageRenderer.HEADING_FONT);
-        g.setColor(PageRenderer.ACCENT);
-        g.drawString("Game Modes", 85, 178);
-        g.setColor(PageRenderer.BORDER);
-        g.fillRect(85, 190, Game.WIDTH - 170, 1);
+        int margin = 60;
+        int panelW = Game.WIDTH - margin * 2;
+        int pad = 20;
+        int lineH = 22;
+        int gap = 12;
+        int y = 130;
+
+        // The Game
         g.setFont(PageRenderer.BODY_FONT);
-        int y = 222;
-        String[][] modes = {
-                {"Normal", "Standard enemies with predictable movement patterns."},
-                {"Hard", "Enemies change direction randomly on each bounce."},
-                {"Insane", "Fast enemies, smart trackers, and random movement combined."}
-        };
-        for (String[] mode : modes) {
-            g.setColor(PageRenderer.TEXT);
-            g.drawString(mode[0], 85, y);
-            g.setColor(PageRenderer.TEXT_SEC);
-            g.drawString(mode[1], 200, y);
-            y += 32;
-        }
+        FontMetrics fm = g.getFontMetrics();
+        String gameDesc = "Dotch. is a fast-paced dodge game where your only goal is survival. Navigate through waves of enemies that grow stronger with each level. Earn points to upgrade your speed, health, and survivability. Originally created in 2016 and rebuilt from the ground up in 2026.";
+        int gameH = 52 + measureSectionHeight(gameDesc, panelW - pad * 2, fm, lineH) + pad;
+        PageRenderer.drawPanel(g, margin, y, panelW, gameH);
         g.setFont(PageRenderer.HEADING_FONT);
         g.setColor(PageRenderer.ACCENT);
-        g.drawString("Mechanics", 85, y + 20);
+        g.drawString("The Game", margin + pad, y + 34);
         g.setColor(PageRenderer.BORDER);
-        g.fillRect(85, y + 32, Game.WIDTH - 170, 1);
+        g.fillRect(margin + pad, y + 46, panelW - pad * 2, 1);
         g.setFont(PageRenderer.BODY_FONT);
         g.setColor(PageRenderer.TEXT_SEC);
-        y += 58;
-        g.drawString("Dodge enemies to survive. Earn points over time to spend in the shop.", 85, y);
-        g.drawString("Upgrade your health bar, movement speed, or refill health.", 85, y + 26);
-        g.drawString("Every few levels, new enemies spawn. Boss fights occur at levels 10 and 15.", 85, y + 52);
+        drawWrappedText(g, gameDesc, margin + pad, y + 68, panelW - pad * 2, lineH);
+        y += gameH + gap;
+
+        // Game Modes
+        String modesDesc = "Normal  \u2014  Predictable bouncing enemies. Recommended for new players.\n\nHard  \u2014  Enemies randomize direction on each bounce. Unpredictable and challenging.\n\nInsane  \u2014  Fast, smart, and random enemies combined. For experienced players only.";
+        int modesH = 52 + measureSectionHeight(modesDesc, panelW - pad * 2, fm, lineH) + pad;
+        PageRenderer.drawPanel(g, margin, y, panelW, modesH);
+        g.setFont(PageRenderer.HEADING_FONT);
+        g.setColor(PageRenderer.ACCENT);
+        g.drawString("Game Modes", margin + pad, y + 34);
+        g.setColor(PageRenderer.BORDER);
+        g.fillRect(margin + pad, y + 46, panelW - pad * 2, 1);
+        g.setFont(PageRenderer.BODY_FONT);
+        g.setColor(PageRenderer.TEXT_SEC);
+        drawWrappedText(g, modesDesc, margin + pad, y + 68, panelW - pad * 2, lineH);
+        y += modesH + gap;
+
+        // Enemy Types
+        int enemyPanelY = y;
+        int iconCol = margin + pad;
+        int textCol = iconCol + 26;
+        int enemyLineH = 28;
+        String[][] enemies = {
+                {"square", "Basic", "Bounces in straight lines at constant speed.", "235,87,87"},
+                {"diamond", "Fast", "High speed diagonal movement across the arena.", "78,205,196"},
+                {"circle", "Smart", "Tracks and follows the player continuously.", "199,125,255"},
+                {"triangle", "Hard", "Changes direction randomly on every bounce.", "245,195,68"},
+                {"boss", "Boss", "Large enemy that spawns bullets. Appears at milestone levels.", "235,87,87"}
+        };
+        int enemyH = 52 + enemies.length * enemyLineH + pad;
+        PageRenderer.drawPanel(g, margin, y, panelW, enemyH);
+        g.setFont(PageRenderer.HEADING_FONT);
+        g.setColor(PageRenderer.ACCENT);
+        g.drawString("Enemy Types", margin + pad, y + 34);
+        g.setColor(PageRenderer.BORDER);
+        g.fillRect(margin + pad, y + 46, panelW - pad * 2, 1);
+
+        int ey = y + 68;
+        for (String[] e : enemies) {
+            String[] rgb = e[3].split(",");
+            Color c = new Color(Integer.parseInt(rgb[0]), Integer.parseInt(rgb[1]), Integer.parseInt(rgb[2]));
+            drawEnemyIcon(g, iconCol, ey - 12, 14, e[0], c);
+            g.setFont(PageRenderer.BODY_FONT);
+            g.setColor(PageRenderer.TEXT);
+            g.drawString(e[1], textCol, ey);
+            g.setColor(PageRenderer.TEXT_MUTED);
+            g.drawString(e[2], textCol + 80, ey);
+            ey += enemyLineH;
+        }
+    }
+
+    private void drawEnemyIcon(Graphics2D g, int x, int y, int s, String shape, Color c) {
+        g.setColor(c);
+        switch (shape) {
+            case "square": g.fillRoundRect(x, y, s, s, 4, 4); break;
+            case "diamond":
+                g.fillPolygon(new int[]{x+s/2, x+s, x+s/2, x}, new int[]{y, y+s/2, y+s, y+s/2}, 4); break;
+            case "circle": g.fillOval(x, y, s, s); break;
+            case "triangle":
+                g.fillPolygon(new int[]{x+s/2, x+s, x}, new int[]{y, y+s, y+s}, 3); break;
+            case "boss":
+                g.fillRoundRect(x, y, s, s, 4, 4);
+                g.setColor(new Color(255, 120, 120));
+                g.drawRoundRect(x, y, s, s, 4, 4); break;
+        }
+    }
+
+    // ---------- Credits ----------
+
+    private void renderCredits(Graphics2D g) {
+        PageRenderer.drawBackground(g);
+        PageRenderer.drawTitle(g, "Credits");
+        PageRenderer.drawBackButton(g, backH);
+
+        int margin = 60;
+        int panelW = Game.WIDTH - margin * 2;
+        int pad = 20;
+
+        PageRenderer.drawPanel(g, margin, 130, panelW, 320);
+
+        int x = margin + pad;
+        int y = 170;
+        int spacing = 52;
+
+        drawCreditLine(g, x, y, "Development", "Maurice Boendermaker"); y += spacing;
+        drawCreditLine(g, x, y, "Original Visual Graphic Design", "Jeffrey Persoon"); y += spacing;
+        drawCreditLine(g, x, y, "Built With", "Java AWT / Swing"); y += spacing;
+        drawCreditLine(g, x, y, "Audio", "Virtual Riot  /  MDK  /  Desmeon  /  Pegboard Nerds"); y += spacing;
+        drawCreditLine(g, x, y, "Version", "v3.0  \u2014  March 2026"); y += spacing;
+
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        String footer = "First release: August 2016";
+        g.drawString(footer, x, y + 10);
+    }
+
+    private void drawCreditLine(Graphics2D g, int x, int y, String role, String name) {
+        g.setFont(PageRenderer.LABEL_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        g.drawString(role.toUpperCase(), x, y);
+        g.setFont(PageRenderer.BODY_FONT);
+        g.setColor(PageRenderer.TEXT);
+        g.drawString(name, x, y + 20);
+    }
+
+    // ---------- Bottom Links Helper ----------
+
+    private int[] getBottomLinkXs() {
+        java.awt.Canvas c = new java.awt.Canvas();
+        FontMetrics fm = c.getFontMetrics(PageRenderer.SMALL_FONT);
+        String a = "About", d = "  |  ", cl = "Changelog", d2 = "  |  ", cr = "Credits";
+        int total = fm.stringWidth(a + d + cl + d2 + cr);
+        int sx = (Game.WIDTH - total) / 2;
+        int x1 = sx;
+        int x2 = x1 + fm.stringWidth(a + d);
+        int x3 = x2 + fm.stringWidth(cl + d2);
+        int x4 = x3 + fm.stringWidth(cr);
+        return new int[]{x1, x2, x3, x4};
+    }
+
+    private void drawBottomLinks(Graphics2D g) {
+        g.setFont(PageRenderer.SMALL_FONT);
+        FontMetrics fm = g.getFontMetrics();
+        String a = "About", d = "  |  ", cl = "Changelog", d2 = "  |  ", cr = "Credits";
+        int total = fm.stringWidth(a + d + cl + d2 + cr);
+        int x = (Game.WIDTH - total) / 2;
+
+        g.setColor(PageRenderer.lerp(PageRenderer.TEXT_SEC, PageRenderer.ACCENT, aboutH));
+        g.drawString(a, x, 680);
+        x += fm.stringWidth(a);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        g.drawString(d, x, 680);
+        x += fm.stringWidth(d);
+        g.setColor(PageRenderer.lerp(PageRenderer.TEXT_SEC, PageRenderer.ACCENT, changelogH));
+        g.drawString(cl, x, 680);
+        x += fm.stringWidth(cl);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        g.drawString(d2, x, 680);
+        x += fm.stringWidth(d2);
+        g.setColor(PageRenderer.lerp(PageRenderer.TEXT_SEC, PageRenderer.ACCENT, creditsLinkH));
+        g.drawString(cr, x, 680);
     }
 
     // ---------- Changelog ----------
