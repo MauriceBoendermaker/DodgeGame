@@ -80,34 +80,37 @@ public class AudioPlayer {
         stopped = true;
     }
 
-    private static int silentTicks = 0;
-
     public static void checkAutoAdvance() {
-        if (tracks.isEmpty() || stopped) return;
+        if (tracks.isEmpty() || stopped || paused) return;
 
-        // If paused by user, don't auto-advance
-        if (paused) { silentTicks = 0; return; }
+        Track current = getCurrentTrack();
 
-        if (!getCurrentTrack().music.playing()) {
-            silentTicks++;
-            // Wait a few ticks to be sure it's actually ended (not just a buffer gap)
-            if (silentTicks >= 5) {
-                silentTicks = 0;
-                // Stop current cleanly
-                try { getCurrentTrack().music.stop(); } catch (Exception e) { /* ignore */ }
-                // Advance
-                currentTrackIndex = (currentTrackIndex + 1) % tracks.size();
-                // Play next
-                try {
-                    Track next = getCurrentTrack();
-                    next.music.play();
-                    next.music.setVolume(volume);
-                } catch (Exception e) { e.printStackTrace(); }
-                paused = false;
-                stopped = false;
+        // Check both: position past duration, OR Slick2D says not playing
+        boolean ended = false;
+        try {
+            float pos = current.music.getPosition();
+            // Position-based check (primary — more reliable than playing())
+            if (pos >= current.duration - 0.5f) {
+                ended = true;
             }
-        } else {
-            silentTicks = 0;
+            // Fallback: Slick2D reports not playing
+            if (!current.music.playing() && pos > 1f) {
+                ended = true;
+            }
+        } catch (Exception e) {
+            ended = true;
+        }
+
+        if (ended) {
+            try { current.music.stop(); } catch (Exception e) { /* ignore */ }
+            currentTrackIndex = (currentTrackIndex + 1) % tracks.size();
+            try {
+                Track next = getCurrentTrack();
+                next.music.play();
+                next.music.setVolume(volume);
+            } catch (Exception e) { e.printStackTrace(); }
+            paused = false;
+            stopped = false;
         }
     }
 
