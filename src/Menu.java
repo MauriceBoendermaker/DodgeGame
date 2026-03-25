@@ -80,6 +80,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         boolean[] btnTargets = new boolean[3];
         boolean backTarget = false, musicTarget = false, aboutTarget = false;
         boolean changelogTarget = false, creditsLinkTarget = false, quitTarget = false, retryTarget = false;
+        boolean skipTarget = false;
 
         switch (Game.gameState) {
             case Menu:
@@ -93,6 +94,10 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
                 aboutTarget = hit(mouseX, mouseY, linkXs[0], 666, linkXs[1] - linkXs[0], 20);
                 changelogTarget = hit(mouseX, mouseY, linkXs[1], 666, linkXs[2] - linkXs[1], 20);
                 creditsLinkTarget = hit(mouseX, mouseY, linkXs[2], 666, linkXs[3] - linkXs[2], 20);
+                if (AudioPlayer.getTrackCount() > 0) {
+                    int skipX = getSkipButtonX();
+                    skipTarget = hit(mouseX, mouseY, skipX, SKIP_Y, SKIP_SIZE, SKIP_SIZE);
+                }
                 break;
             case Select:
                 bx = btnX();
@@ -129,6 +134,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         aboutH = approach(aboutH, aboutTarget);
         changelogH = approach(changelogH, changelogTarget);
         creditsLinkH = approach(creditsLinkH, creditsLinkTarget);
+        skipH = approach(skipH, skipTarget);
         quitH = approach(quitH, quitTarget);
         retryH = approach(retryH, retryTarget);
     }
@@ -200,6 +206,14 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
             if (hit(mx, my, linkXs[2], 666, linkXs[3] - linkXs[2], 20)) {
                 Game.gameState = Game.STATE.Credits; resetHover(); return;
             }
+            if (AudioPlayer.getTrackCount() > 0) {
+                int skipX = getSkipButtonX();
+                if (hit(mx, my, skipX, SKIP_Y, SKIP_SIZE, SKIP_SIZE)) {
+                    AudioPlayer.nextTrack();
+                    if (!AudioPlayer.isPlaying()) AudioPlayer.play();
+                    return;
+                }
+            }
             if (hit(mx, my, quitX(), PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H)) { System.exit(0); }
             return;
         }
@@ -260,7 +274,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
     private void resetHover() {
         for (int i = 0; i < 3; i++) btn[i] = 0;
         for (int i = 0; i < 3; i++) pauseBtn[i] = 0;
-        backH = musicH = aboutH = changelogH = creditsLinkH = quitH = retryH = 0;
+        backH = musicH = aboutH = changelogH = creditsLinkH = skipH = quitH = retryH = 0;
         helpScroll = helpScrollTarget = 0;
     }
 
@@ -351,6 +365,31 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         g.setFont(PageRenderer.SMALL_FONT);
         g.setColor(PageRenderer.TEXT_MUTED);
         g.drawString("v3.0", 30, 700);
+
+        // Now playing
+        if (AudioPlayer.getTrackCount() > 0) {
+            g.setFont(PageRenderer.SMALL_FONT);
+            g.setColor(PageRenderer.TEXT_MUTED);
+            String np = "Now playing";
+            g.drawString(np, 30, 692);
+            g.setColor(PageRenderer.TEXT_SEC);
+            String track = AudioPlayer.getCurrentTrack().displayName;
+            FontMetrics npFm = g.getFontMetrics();
+            int trackX = 30 + npFm.stringWidth(np) + 8;
+            g.drawString(track, trackX, 692);
+
+            // Skip button
+            int skipX = getSkipButtonX();
+            g.setColor(PageRenderer.lerp(PageRenderer.SURFACE_LIGHT, new Color(48, 62, 82), skipH));
+            g.fillRoundRect(skipX, SKIP_Y, SKIP_SIZE, SKIP_SIZE, 6, 6);
+            g.setColor(PageRenderer.lerp(PageRenderer.BORDER, PageRenderer.ACCENT, skipH * 0.5f));
+            g.drawRoundRect(skipX, SKIP_Y, SKIP_SIZE, SKIP_SIZE, 6, 6);
+            // Draw >> icon
+            g.setColor(PageRenderer.lerp(PageRenderer.TEXT_SEC, PageRenderer.ACCENT, skipH));
+            int sx = skipX + 6, sy = SKIP_Y + SKIP_SIZE / 2;
+            g.fillPolygon(new int[]{sx, sx + 5, sx}, new int[]{sy - 4, sy, sy + 4}, 3);
+            g.fillPolygon(new int[]{sx + 5, sx + 10, sx + 5}, new int[]{sy - 4, sy, sy + 4}, 3);
+        }
 
         // About | Changelog | Credits links — centered
         drawBottomLinks(g);
@@ -719,6 +758,16 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         g.setFont(PageRenderer.BODY_FONT);
         g.setColor(PageRenderer.TEXT);
         g.drawString(name, x, y + 20);
+    }
+
+    // ---------- Now Playing Helper ----------
+
+    private int getSkipButtonX() {
+        java.awt.Canvas c = new java.awt.Canvas();
+        FontMetrics fm = c.getFontMetrics(PageRenderer.SMALL_FONT);
+        String np = "Now playing";
+        String track = AudioPlayer.getTrackCount() > 0 ? AudioPlayer.getCurrentTrack().displayName : "";
+        return 30 + fm.stringWidth(np) + 8 + fm.stringWidth(track) + 10;
     }
 
     // ---------- Bottom Links Helper ----------
