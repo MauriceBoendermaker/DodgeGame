@@ -44,8 +44,15 @@ public class HUD {
     private static final Color TIER_REFILL = new Color(245, 195, 68);
     private static final Color TIER_BG = new Color(30, 38, 52);
 
-    // Level-up banner
+    // Level-up announcement
     private float levelUpBanner = 0;
+    private int announceTimer = 0;
+    private String announceText = "";
+    private String announceSubtext = "";
+    private boolean isWaveAnnounce = false;
+    private int waveCount = 0;
+    private static final Font FONT_ANNOUNCE = new Font("Arial", Font.BOLD, 64);
+    private static final Font FONT_ANNOUNCE_SUB = new Font("Arial", Font.BOLD, 20);
 
     // Score milestone pulse
     private static final int MILESTONE_INTERVAL = 2500;
@@ -66,6 +73,7 @@ public class HUD {
 
         if (levelUpBanner > 0.01f) levelUpBanner *= 0.96f;
         else levelUpBanner = 0;
+        if (announceTimer > 0) announceTimer--;
 
         // Score milestone check
         int currentMilestone = score / MILESTONE_INTERVAL;
@@ -79,6 +87,25 @@ public class HUD {
 
     public void triggerLevelUpBanner() {
         levelUpBanner = 1f;
+
+        // Wave = group of 15 levels. Wave 1 = levels 1-15, Wave 2 = 16-30, etc.
+        int newWave = ((level - 1) / 15) + 1;
+        boolean isNewWave = newWave > waveCount;
+        waveCount = newWave;
+
+        int levelInWave = ((level - 1) % 15) + 1;
+
+        if (isNewWave) {
+            isWaveAnnounce = true;
+            announceText = "WAVE " + waveCount;
+            announceSubtext = waveCount == 1 ? "Good luck" : "Boss defeated - next wave";
+            announceTimer = 110;
+        } else {
+            isWaveAnnounce = false;
+            announceText = "LEVEL " + levelInWave;
+            announceSubtext = "";
+            announceTimer = 90;
+        }
     }
 
     public void render(Graphics g) {
@@ -176,15 +203,73 @@ public class HUD {
         fm = g2.getFontMetrics();
         g2.drawString(levelStr, (Game.WIDTH - fm.stringWidth(levelStr)) / 2, Game.HEIGHT - 80);
 
-        // Level-up banner
-        if (levelUpBanner > 0.05f) {
-            g2.setFont(FONT_LEVEL_UP);
-            int alpha = (int) (levelUpBanner * 255);
-            g2.setColor(GamePalette.accent(alpha));
-            String lvlUp = "LEVEL " + level;
-            fm = g2.getFontMetrics();
-            int bannerY = Game.HEIGHT / 2 - 30 - (int) ((1f - levelUpBanner) * 20);
-            g2.drawString(lvlUp, (Game.WIDTH - fm.stringWidth(lvlUp)) / 2, bannerY);
+        // Level/Wave announcement — slam in, hold, fade out
+        if (announceTimer > 0 && announceText.length() > 0) {
+            int total = isWaveAnnounce ? 110 : 90;
+            float t = 1f - (announceTimer / (float) total); // 0 at start, 1 at end
+
+            // Phase: 0-0.15 slam in, 0.15-0.7 hold, 0.7-1.0 fade out
+            float alpha;
+            float scaleF;
+            float offsetY;
+
+            if (t < 0.15f) {
+                // Slam in — scale from 2x to 1x, fade in fast
+                float p = t / 0.15f;
+                scaleF = 2f - p; // 2.0 -> 1.0
+                alpha = p;
+                offsetY = 0;
+            } else if (t < 0.7f) {
+                // Hold
+                scaleF = 1f;
+                alpha = 1f;
+                offsetY = 0;
+            } else {
+                // Fade out + drift up
+                float p = (t - 0.7f) / 0.3f;
+                scaleF = 1f;
+                alpha = 1f - p;
+                offsetY = -p * 30;
+            }
+
+            int cx = Game.WIDTH / 2;
+            int cy = Game.HEIGHT / 2 - 20 + (int) offsetY;
+            int a = (int) (alpha * 255);
+
+            // Draw scaled text
+            Color textColor = isWaveAnnounce
+                    ? new Color(255, 210, 80, Math.min(a, 255))
+                    : GamePalette.accent(Math.min(a, 255));
+
+            // Main text
+            int fontSize = (int) (64 * scaleF);
+            if (fontSize > 8) {
+                Font scaledFont = FONT_ANNOUNCE.deriveFont((float) fontSize);
+                g2.setFont(scaledFont);
+                g2.setColor(textColor);
+                fm = g2.getFontMetrics();
+                g2.drawString(announceText, cx - fm.stringWidth(announceText) / 2, cy);
+            }
+
+            // Subtext (wave only)
+            if (isWaveAnnounce && announceSubtext.length() > 0 && t > 0.1f) {
+                float subAlpha = Math.min((t - 0.1f) / 0.15f, 1f) * alpha;
+                g2.setFont(FONT_ANNOUNCE_SUB);
+                g2.setColor(new Color(200, 200, 200, (int) (subAlpha * 200)));
+                fm = g2.getFontMetrics();
+                g2.drawString(announceSubtext, cx - fm.stringWidth(announceSubtext) / 2, cy + 35 + (int) offsetY);
+            }
+
+            // Accent line under text — scales in then out
+            if (t > 0.1f && t < 0.85f) {
+                float lineP = Math.min((t - 0.1f) / 0.2f, 1f);
+                if (t > 0.7f) lineP *= alpha;
+                int lineW = (int) (200 * lineP);
+                g2.setColor(isWaveAnnounce
+                        ? new Color(255, 210, 80, (int) (lineP * 120))
+                        : GamePalette.accent((int) (lineP * 120)));
+                g2.fillRect(cx - lineW / 2, cy + 8 + (int) offsetY, lineW, 2);
+            }
         }
 
         // Level progress bar — bottom of screen
@@ -300,5 +385,7 @@ public class HUD {
         levelUpBanner = 0;
         scorePulse = 0;
         lastMilestone = 0;
+        announceTimer = 0;
+        waveCount = 0;
     }
 }

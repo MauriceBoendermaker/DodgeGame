@@ -278,6 +278,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         handler.addObject(new Player(Game.WIDTH / 2 - 32, Game.HEIGHT / 2 - 32, ID.Player, handler));
         handler.addObject(firstEnemy);
         game.diff = difficulty;
+        hud.triggerLevelUpBanner(); // Wave 1 announcement
     }
 
     private void resetForMenu() {
