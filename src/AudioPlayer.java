@@ -19,17 +19,31 @@ public class AudioPlayer {
 
     public static void load() {
         try {
+            // Startup tracks — one of these plays first, chosen randomly
             addTrack("energy_drink", "Virtual Riot - Energy Drink", "Virtual Riot - Energy Drink.ogg", 303f);
             addTrack("press_start", "MDK - Press Start", "MDK - Press Start.ogg", 263f);
+            addTrack("hellcat", "Desmeon - Hellcat", "Desmeon - Hellcat.ogg", 226f);
+
+            // Remaining tracks — shuffled after the first song
             addTrack("fingerbang", "MDK - Fingerbang", "MDK - Fingerbang.ogg", 228f);
-            shuffle();
+            addTrack("disconnected", "Pegboard Nerds - Disconnected", "Pegboard Nerds - Disconnected.ogg", 242f);
+
+            buildPlaylist();
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private static void shuffle() {
-        Collections.shuffle(tracks, new Random());
+    private static void buildPlaylist() {
+        Random r = new Random();
+
+        // Pick one of the first two as the opener
+        Track opener = tracks.get(r.nextInt(3));
+
+        // Shuffle all tracks, then move the opener to front
+        Collections.shuffle(tracks, r);
+        tracks.remove(opener);
+        tracks.add(0, opener);
         currentTrackIndex = 0;
     }
 
