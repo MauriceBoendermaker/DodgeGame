@@ -54,10 +54,14 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
 
     // Hover state
     private float[] btn = new float[5];
-    private float backH, musicH, shopH, aboutH, changelogH, creditsLinkH, quitH, retryH;
+    private float backH, musicH, shopH, dailyH, aboutH, changelogH, creditsLinkH, quitH, retryH;
     private static final int SHOP_BTN_W = 170;
     private static final int SHOP_BTN_H = 34;
     private static final int SHOP_BTN_Y = 668;
+    private static final int DAILY_BTN_W = 140;
+    private static final int DAILY_BTN_H = 34;
+    private static final int DAILY_BTN_Y = 668;
+    private static int dailyBtnX() { return 30 + SHOP_BTN_W + 12; }
     private float[] pauseBtn = new float[4];
     private int mouseX, mouseY;
     private static final float LERP = 0.14f;
@@ -109,7 +113,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
     private void updateHover() {
         // Determine targets based on current state
         boolean[] btnTargets = new boolean[5];
-        boolean backTarget = false, musicTarget = false, shopTarget = false, aboutTarget = false;
+        boolean backTarget = false, musicTarget = false, shopTarget = false, dailyTarget = false, aboutTarget = false;
         boolean changelogTarget = false, creditsLinkTarget = false, quitTarget = false, retryTarget = false;
 
         switch (Game.gameState) {
@@ -123,6 +127,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
                 quitTarget = hit(mouseX, mouseY, quitX(), PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H);
                 musicTarget = hit(mouseX, mouseY, musicX(), MUSIC_Y, MUSIC_W, MUSIC_H);
                 shopTarget = hit(mouseX, mouseY, 30, SHOP_BTN_Y, SHOP_BTN_W, SHOP_BTN_H);
+                dailyTarget = hit(mouseX, mouseY, dailyBtnX(), DAILY_BTN_Y, DAILY_BTN_W, DAILY_BTN_H);
                 int[] linkXs = getBottomLinkXs();
                 aboutTarget = hit(mouseX, mouseY, linkXs[0], 666, linkXs[1] - linkXs[0], 20);
                 changelogTarget = hit(mouseX, mouseY, linkXs[1], 666, linkXs[2] - linkXs[1], 20);
@@ -162,6 +167,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
             case Customize:
             case Loadout:
             case CoinShopPage:
+            case DailyPage:
                 backTarget = hitBack();
                 break;
             default:
@@ -173,6 +179,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         backH = approach(backH, backTarget);
         musicH = approach(musicH, musicTarget);
         shopH = approach(shopH, shopTarget);
+        dailyH = approach(dailyH, dailyTarget);
         aboutH = approach(aboutH, aboutTarget);
         changelogH = approach(changelogH, changelogTarget);
         creditsLinkH = approach(creditsLinkH, creditsLinkTarget);
@@ -263,6 +270,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
             if (hit(mx, my, bx, HELP_MENU_Y, BW, BH)) { Game.gameState = Game.STATE.Help; resetHover(); return; }
             if (hit(mx, my, musicX(), MUSIC_Y, MUSIC_W, MUSIC_H)) { Game.gameState = Game.STATE.MusicPlayer; resetHover(); return; }
             if (hit(mx, my, 30, SHOP_BTN_Y, SHOP_BTN_W, SHOP_BTN_H)) { Game.gameState = Game.STATE.CoinShopPage; resetHover(); return; }
+            if (hit(mx, my, dailyBtnX(), DAILY_BTN_Y, DAILY_BTN_W, DAILY_BTN_H)) { Game.gameState = Game.STATE.DailyPage; resetHover(); return; }
             int[] linkXs = getBottomLinkXs();
             if (hit(mx, my, linkXs[0], 666, linkXs[1] - linkXs[0], 20)) {
                 Game.gameState = Game.STATE.About; resetHover(); return;
@@ -327,6 +335,17 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
             return;
         }
 
+        if (Game.gameState == Game.STATE.DailyPage) {
+            if (hitBack()) { Game.gameState = Game.STATE.Menu; resetHover(); return; }
+            // Play button
+            int playX = (Game.WIDTH - 260) / 2;
+            if (DailyChallenge.canPlay() && hit(mx, my, playX, Game.HEIGHT - 90, 260, 50)) {
+                startDailyGame();
+                return;
+            }
+            return;
+        }
+
         if (Game.gameState == Game.STATE.About
                 || Game.gameState == Game.STATE.Update_Notes || Game.gameState == Game.STATE.Credits) {
             if (hitBack()) { Game.gameState = Game.STATE.Menu; resetHover(); return; }
@@ -358,7 +377,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
     private void resetHover() {
         for (int i = 0; i < btn.length; i++) btn[i] = 0;
         for (int i = 0; i < 4; i++) pauseBtn[i] = 0;
-        backH = musicH = shopH = aboutH = changelogH = creditsLinkH = quitH = retryH = 0;
+        backH = musicH = shopH = dailyH = aboutH = changelogH = creditsLinkH = quitH = retryH = 0;
         helpScroll = helpScrollTarget = 0;
         settingsScroll = settingsScrollTarget = 0;
         for (int i = 0; i < SET_HOVER_COUNT; i++) setH[i] = 0;
@@ -402,6 +421,53 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         hud.triggerWaveAnnounce();
     }
 
+    private void startDailyGame() {
+        if (!DailyChallenge.canPlay()) return;
+
+        int difficulty = DailyChallenge.todayDifficulty();
+        handler.getObjects().clear();
+        hud.setLevel(1);
+        hud.setScore(0);
+        hud.setPoints(0);
+        hud.bounds = 0;
+        hud.resetStats();
+
+        // Daily runs: no perk/shop bonuses — pure skill, same conditions for everyone
+        Perks.clearLoadout();
+        HUD.HEALTH = 100;
+        hud.bounds = 0;
+        handler.spd = 6;
+        game.shop.reset();
+        Game.setTimeScale(1f);
+        GamePalette.setDifficulty(difficulty);
+        GamePalette.reset();
+        Profile.startRun(difficulty);
+        Game.currentAttempt = Profile.getCurrentAttempt();
+        game.resetRunTracking();
+
+        // Seed the spawner for deterministic enemy patterns
+        Game.dailyMode = true;
+        Game.seedSpawner(DailyChallenge.todaySeed());
+
+        Game.attemptFade = 1f;
+        Game.gameState = Game.STATE.Game;
+        handler.addObject(new Player(Game.WIDTH / 2 - 32, Game.HEIGHT / 2 - 32, ID.Player, handler));
+
+        // First enemy is also seeded (same for everyone)
+        java.util.Random seedRng = new java.util.Random(DailyChallenge.todaySeed());
+        GameObject firstEnemy;
+        if (difficulty == 0) {
+            firstEnemy = new BasicEnemy(seedRng.nextInt(Game.WIDTH - 80) + 20,
+                    seedRng.nextInt(Game.HEIGHT - 80) + 20, ID.BasicEnemy, handler);
+        } else {
+            firstEnemy = new HardEnemy(seedRng.nextInt(Game.WIDTH - 80) + 20,
+                    seedRng.nextInt(Game.HEIGHT - 80) + 20, ID.BasicEnemy, handler);
+        }
+        handler.addObject(firstEnemy);
+        game.diff = difficulty;
+        hud.triggerWaveAnnounce();
+    }
+
     private void resetForMenu() {
         handler.getObjects().clear();
         hud.setLevel(1);
@@ -410,6 +476,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         hud.bounds = 0;
         HUD.HEALTH = 100;
         Game.setTimeScale(1f);
+        Game.dailyMode = false;
         resetHover();
     }
 
@@ -448,6 +515,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
             case Customize:     renderCustomize(g2); break;
             case Loadout:       renderLoadout(g2); break;
             case CoinShopPage:  renderCoinShop(g2); break;
+            case DailyPage:     renderDailyPage(g2); break;
             case About:         renderAbout(g2); break;
             case Update_Notes:  renderUpdates(g2); break;
             case Credits:       renderCredits(g2); break;
@@ -539,6 +607,21 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         g.setFont(PageRenderer.SMALL_FONT);
         g.setColor(PageRenderer.lerp(new Color(200, 180, 100), new Color(255, 220, 100), shopH));
         PageRenderer.drawCenteredString(g, "Shop  \u00B7  " + Profile.getCoins(), 30, SHOP_BTN_Y, SHOP_BTN_W, SHOP_BTN_H);
+
+        // Daily Challenge button (next to Shop)
+        int dbx = dailyBtnX();
+        boolean canPlayDaily = DailyChallenge.canPlay();
+        Color dailyCol = canPlayDaily ? new Color(120, 200, 255) : PageRenderer.TEXT_MUTED;
+        g.setColor(PageRenderer.lerp(PageRenderer.SURFACE, new Color(25, 38, 55), dailyH));
+        g.fillRoundRect(dbx, DAILY_BTN_Y, DAILY_BTN_W, DAILY_BTN_H, 8, 8);
+        g.setColor(PageRenderer.lerp(new Color(60, 100, 140), dailyCol, dailyH * 0.5f));
+        g.drawRoundRect(dbx, DAILY_BTN_Y, DAILY_BTN_W, DAILY_BTN_H, 8, 8);
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(PageRenderer.lerp(canPlayDaily ? new Color(140, 190, 230) : PageRenderer.TEXT_MUTED,
+                dailyCol, dailyH));
+        String dailyLabel = canPlayDaily ? "Daily  \u00B7  " + DailyChallenge.getCurrentStreak() + " streak"
+                : "Daily  \u00B7  Done";
+        PageRenderer.drawCenteredString(g, dailyLabel, dbx, DAILY_BTN_Y, DAILY_BTN_W, DAILY_BTN_H);
     }
 
     // ---------- Select Difficulty ----------
@@ -913,7 +996,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
             if (hit(mx, my, cx - 130, dy + 30, 120, 38)) {
                 // Confirm yes
                 if ("scores".equals(confirmAction)) Profile.resetHighScores();
-                else if ("progress".equals(confirmAction)) { Profile.resetAll(); Settings.resetToDefaults(); Achievements.resetAll(); CoinShop.resetAll(); }
+                else if ("progress".equals(confirmAction)) { Profile.resetAll(); Settings.resetToDefaults(); Achievements.resetAll(); CoinShop.resetAll(); DailyChallenge.resetAll(); }
                 confirmAction = null;
             } else if (hit(mx, my, cx + 10, dy + 30, 120, 38)) {
                 confirmAction = null; // Cancel
@@ -1565,6 +1648,142 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         g.setColor(PageRenderer.TEXT);
         FontMetrics fm = g.getFontMetrics();
         g.drawString(value, vx - fm.stringWidth(value), y);
+    }
+
+    // ---------- Daily Challenge ----------
+
+    private float dailyPlayH = 0;
+
+    private void renderDailyPage(Graphics2D g) {
+        PageRenderer.drawBackground(g);
+        PageRenderer.drawTitle(g, "Daily Challenge");
+        PageRenderer.drawBackButton(g, backH);
+
+        int cx = Game.WIDTH / 2;
+
+        // Today's info
+        g.setFont(PageRenderer.SUBTITLE_FONT);
+        g.setColor(PageRenderer.TEXT_SEC);
+        String dayInfo = DailyChallenge.todayLabel() + "  \u2014  " + DailyChallenge.todayDifficultyName();
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(dayInfo, cx - fm.stringWidth(dayInfo) / 2, 120);
+
+        // Streak + stats row
+        int statsY = 145;
+        g.setFont(PageRenderer.BODY_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        String statsLine = "Streak: " + DailyChallenge.getCurrentStreak()
+                + "   Best streak: " + DailyChallenge.getBestStreak()
+                + "   Completed: " + DailyChallenge.getTotalCompleted()
+                + "   Best score: " + DailyChallenge.getBestDailyScore();
+        fm = g.getFontMetrics();
+        g.drawString(statsLine, cx - fm.stringWidth(statsLine) / 2, statsY);
+
+        // 28-day calendar grid (4 rows of 7)
+        int cellW = 110;
+        int cellH = 72;
+        int cellGap = 8;
+        int gridW = 7 * cellW + 6 * cellGap;
+        int gridX = (Game.WIDTH - gridW) / 2;
+        int gridY = 170;
+
+        // Day-of-week headers
+        String[] headers = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+        g.setFont(PageRenderer.LABEL_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        for (int d = 0; d < 7; d++) {
+            int hx = gridX + d * (cellW + cellGap) + cellW / 2;
+            fm = g.getFontMetrics();
+            g.drawString(headers[d], hx - fm.stringWidth(headers[d]) / 2, gridY);
+        }
+        gridY += 16;
+
+        int today = DailyChallenge.dayInCycle();
+
+        for (int i = 0; i < 28; i++) {
+            int col = i % 7;
+            int row = i / 7;
+            int cellX = gridX + col * (cellW + cellGap);
+            int cellY = gridY + row * (cellH + cellGap);
+
+            boolean isToday = (i == today);
+            boolean completed = DailyChallenge.isCompleted(i);
+            int score = DailyChallenge.getScore(i);
+            int diff = DailyChallenge.getDifficultyForDay(i);
+            Color diffCol = diff == 0 ? PageRenderer.ACCENT : diff == 1 ? PageRenderer.WARNING : PageRenderer.DANGER;
+
+            // Cell background
+            Color bg = isToday ? new Color(25, 40, 55) : PageRenderer.SURFACE;
+            g.setColor(bg);
+            g.fillRoundRect(cellX, cellY, cellW, cellH, 6, 6);
+
+            // Border — highlight today
+            if (isToday) {
+                g.setColor(new Color(120, 200, 255));
+                g.drawRoundRect(cellX, cellY, cellW, cellH, 6, 6);
+            } else {
+                g.setColor(completed ? new Color(72, 199, 142, 60) : PageRenderer.BORDER);
+                g.drawRoundRect(cellX, cellY, cellW, cellH, 6, 6);
+            }
+
+            // Week label on first column
+            if (col == 0) {
+                g.setFont(PageRenderer.SMALL_FONT);
+                g.setColor(PageRenderer.TEXT_MUTED);
+                g.drawString("W" + (row + 1), cellX + 4, cellY + 14);
+            }
+
+            // Difficulty dot
+            g.setColor(diffCol);
+            g.fillOval(cellX + cellW - 14, cellY + 4, 8, 8);
+
+            // Score or status
+            if (completed) {
+                g.setFont(PageRenderer.BUTTON_FONT);
+                g.setColor(PageRenderer.TEXT);
+                String scoreStr = String.valueOf(score);
+                fm = g.getFontMetrics();
+                g.drawString(scoreStr, cellX + (cellW - fm.stringWidth(scoreStr)) / 2, cellY + 38);
+
+                // Checkmark
+                g.setFont(PageRenderer.SMALL_FONT);
+                g.setColor(new Color(72, 199, 142));
+                g.drawString("\u2713", cellX + cellW / 2 - 4, cellY + 56);
+            } else if (isToday) {
+                g.setFont(PageRenderer.SMALL_FONT);
+                boolean canPlay = DailyChallenge.canPlay();
+                g.setColor(canPlay ? new Color(120, 200, 255) : PageRenderer.TEXT_MUTED);
+                String status = canPlay ? "PLAY" : "DONE";
+                fm = g.getFontMetrics();
+                g.drawString(status, cellX + (cellW - fm.stringWidth(status)) / 2, cellY + 42);
+            } else {
+                g.setFont(PageRenderer.SMALL_FONT);
+                g.setColor(new Color(40, 50, 65));
+                String dash = "\u2014";
+                fm = g.getFontMetrics();
+                g.drawString(dash, cellX + (cellW - fm.stringWidth(dash)) / 2, cellY + 42);
+            }
+        }
+
+        // Play button
+        int playX = (Game.WIDTH - 260) / 2;
+        int playY = Game.HEIGHT - 90;
+        boolean canPlay = DailyChallenge.canPlay();
+        boolean playHovered = hit(mouseX, mouseY, playX, playY, 260, 50);
+        dailyPlayH += ((playHovered ? 1f : 0f) - dailyPlayH) * 0.14f;
+
+        if (canPlay) {
+            PageRenderer.drawPrimaryButton(g, playX, playY, 260, 50,
+                    "Play Today's Challenge", dailyPlayH);
+        } else {
+            g.setColor(PageRenderer.SURFACE);
+            g.fillRoundRect(playX, playY, 260, 50, PageRenderer.R, PageRenderer.R);
+            g.setColor(PageRenderer.BORDER);
+            g.drawRoundRect(playX, playY, 260, 50, PageRenderer.R, PageRenderer.R);
+            g.setFont(PageRenderer.BUTTON_FONT);
+            g.setColor(PageRenderer.TEXT_MUTED);
+            PageRenderer.drawCenteredString(g, "Completed Today", playX, playY, 260, 50);
+        }
     }
 
     // ---------- Coin Shop ----------

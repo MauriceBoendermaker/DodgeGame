@@ -77,6 +77,11 @@ public class Game extends Canvas implements Runnable {
     private Random r;
     private static Handler handlerRef;
     private static Spawn spawnerRef;
+    public static boolean dailyMode = false;
+
+    public static void seedSpawner(long seed) {
+        if (spawnerRef != null) spawnerRef.setSeed(seed);
+    }
     private Handler handler;
     private HUD hud;
     private Spawn spawner;
@@ -271,6 +276,7 @@ public class Game extends Canvas implements Runnable {
         Customize,
         Loadout,
         CoinShopPage,
+        DailyPage,
         About,
         Update_Notes,
         Select,
@@ -655,6 +661,12 @@ public class Game extends Canvas implements Runnable {
                 lastProfileLevel = Profile.getLevel();
                 lastCoinsEarned = Profile.getRunCoinsEarned();
 
+                // Submit daily score if in daily mode
+                if (dailyMode) {
+                    DailyChallenge.submitScore(lastScore);
+                    dailyMode = false;
+                }
+
                 // Check achievements
                 Achievements.checkAfterRun(lastScore, lastLevel, hud.getTicksSurvived(),
                         lastUpgrades, lastHealthUps, lastSpeedUps,
@@ -730,7 +742,8 @@ public class Game extends Canvas implements Runnable {
             musicPlayer.tick();
         } else if (gameState == STATE.Settings || gameState == STATE.Statistics
                 || gameState == STATE.AchievementsPage || gameState == STATE.Customize
-                || gameState == STATE.Loadout || gameState == STATE.CoinShopPage) {
+                || gameState == STATE.Loadout || gameState == STATE.CoinShopPage
+                || gameState == STATE.DailyPage) {
             menu.tick();
         } else {
             menu.tick();
@@ -976,7 +989,8 @@ public class Game extends Canvas implements Runnable {
                 || gameState == STATE.AchievementsPage
                 || gameState == STATE.Customize
                 || gameState == STATE.Loadout
-                || gameState == STATE.CoinShopPage) {
+                || gameState == STATE.CoinShopPage
+                || gameState == STATE.DailyPage) {
             menu.render(g);
         } else {
             menu.render(g);

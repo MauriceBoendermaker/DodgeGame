@@ -44,6 +44,7 @@ public class KeyInput extends KeyAdapter {
                 case AchievementsPage:
                 case Customize:
                 case CoinShopPage:
+                case DailyPage:
                     Game.gameState = Game.STATE.Menu;
                     break;
                 case Loadout:

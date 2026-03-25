@@ -8,6 +8,11 @@ public class Spawn {
     private Game game;
     private Random r = new Random();
 
+    /** Set a deterministic seed for daily challenge mode */
+    public void setSeed(long seed) {
+        r = new Random(seed);
+    }
+
     private int scoreKeep = 0;
     private boolean bossActive = false;
 
