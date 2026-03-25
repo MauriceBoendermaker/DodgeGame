@@ -78,6 +78,8 @@ public class Game extends Canvas implements Runnable {
         this.addMouseListener(menu);
         this.addMouseListener(shop);
         this.addMouseListener(musicPlayer);
+        this.addMouseMotionListener(menu);
+        this.addMouseMotionListener(shop);
         this.addMouseMotionListener(musicPlayer);
 
         AudioPlayer.load();

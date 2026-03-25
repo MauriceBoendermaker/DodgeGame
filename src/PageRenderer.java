@@ -131,55 +131,72 @@ public class PageRenderer {
         g.fillRoundRect((Game.WIDTH - lineW) / 2, 92, lineW, 2, 2, 2);
     }
 
-    // ===== Buttons =====
+    // Hover-enhanced colors
+    private static final Color ACCENT_BRIGHT = new Color(110, 225, 218);
+    private static final Color SURFACE_HOVER = new Color(38, 50, 68);
+    private static final Color DANGER_BRIGHT = new Color(255, 120, 120);
+    private static final Color WARNING_BRIGHT = new Color(255, 220, 100);
 
-    public static void drawPrimaryButton(Graphics2D g, int x, int y, int w, int h, String text) {
-        g.setColor(ACCENT);
+    // ===== Buttons (all accept hover 0.0-1.0) =====
+
+    public static void drawPrimaryButton(Graphics2D g, int x, int y, int w, int h, String text, float hover) {
+        g.setColor(lerp(ACCENT, ACCENT_BRIGHT, hover));
         g.fillRoundRect(x, y, w, h, R, R);
         g.setFont(BUTTON_FONT);
         g.setColor(BG_DARK);
         drawCenteredString(g, text, x, y, w, h);
     }
 
-    public static void drawSecondaryButton(Graphics2D g, int x, int y, int w, int h, String text) {
-        g.setColor(SURFACE);
+    public static void drawSecondaryButton(Graphics2D g, int x, int y, int w, int h, String text, float hover) {
+        g.setColor(lerp(SURFACE, SURFACE_HOVER, hover));
         g.fillRoundRect(x, y, w, h, R, R);
-        g.setColor(BORDER);
+        g.setColor(lerp(BORDER, ACCENT, hover * 0.5f));
         g.drawRoundRect(x, y, w, h, R, R);
         g.setFont(BUTTON_FONT);
-        g.setColor(TEXT);
+        g.setColor(lerp(TEXT, ACCENT_BRIGHT, hover * 0.3f));
         drawCenteredString(g, text, x, y, w, h);
     }
 
-    public static void drawDangerButton(Graphics2D g, int x, int y, int w, int h, String text) {
-        g.setColor(new Color(235, 87, 87, 15));
+    public static void drawDangerButton(Graphics2D g, int x, int y, int w, int h, String text, float hover) {
+        g.setColor(lerp(new Color(235, 87, 87, 15), new Color(235, 87, 87, 40), hover));
         g.fillRoundRect(x, y, w, h, R, R);
-        g.setColor(DANGER);
+        g.setColor(lerp(DANGER, DANGER_BRIGHT, hover));
         g.drawRoundRect(x, y, w, h, R, R);
         g.setFont(BUTTON_FONT);
-        g.setColor(DANGER);
+        g.setColor(lerp(DANGER, DANGER_BRIGHT, hover));
         drawCenteredString(g, text, x, y, w, h);
     }
 
-    public static void drawWarningButton(Graphics2D g, int x, int y, int w, int h, String text) {
-        g.setColor(new Color(245, 195, 68, 15));
+    public static void drawWarningButton(Graphics2D g, int x, int y, int w, int h, String text, float hover) {
+        g.setColor(lerp(new Color(245, 195, 68, 15), new Color(245, 195, 68, 40), hover));
         g.fillRoundRect(x, y, w, h, R, R);
-        g.setColor(WARNING);
+        g.setColor(lerp(WARNING, WARNING_BRIGHT, hover));
         g.drawRoundRect(x, y, w, h, R, R);
         g.setFont(BUTTON_FONT);
-        g.setColor(WARNING);
+        g.setColor(lerp(WARNING, WARNING_BRIGHT, hover));
         drawCenteredString(g, text, x, y, w, h);
     }
 
-    public static void drawBackButton(Graphics2D g) {
+    public static void drawBackButton(Graphics2D g, float hover) {
         int bx = backX();
-        g.setColor(SURFACE);
+        g.setColor(lerp(SURFACE, SURFACE_HOVER, hover));
         g.fillRoundRect(bx, BACK_Y, BACK_W, BACK_H, 8, 8);
-        g.setColor(BORDER);
+        g.setColor(lerp(BORDER, ACCENT, hover * 0.4f));
         g.drawRoundRect(bx, BACK_Y, BACK_W, BACK_H, 8, 8);
         g.setFont(SMALL_FONT);
-        g.setColor(TEXT_SEC);
+        g.setColor(lerp(TEXT_SEC, TEXT, hover));
         drawCenteredString(g, "Back", bx, BACK_Y, BACK_W, BACK_H);
+    }
+
+    // ===== Utility =====
+
+    public static Color lerp(Color a, Color b, float t) {
+        t = Math.max(0f, Math.min(1f, t));
+        return new Color(
+                (int) (a.getRed() + (b.getRed() - a.getRed()) * t),
+                (int) (a.getGreen() + (b.getGreen() - a.getGreen()) * t),
+                (int) (a.getBlue() + (b.getBlue() - a.getBlue()) * t),
+                (int) (a.getAlpha() + (b.getAlpha() - a.getAlpha()) * t));
     }
 
     // ===== Panel =====
