@@ -80,6 +80,17 @@ public class AudioPlayer {
         stopped = true;
     }
 
+    public static void checkAutoAdvance() {
+        if (tracks.isEmpty() || paused || stopped) return;
+        if (!getCurrentTrack().music.playing()) {
+            // Track ended naturally — advance and play
+            currentTrackIndex = (currentTrackIndex + 1) % tracks.size();
+            Track next = getCurrentTrack();
+            next.music.play();
+            next.music.setVolume(volume);
+        }
+    }
+
     public static void togglePlayPause() {
         if (isPlaying()) {
             pause();

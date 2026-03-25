@@ -318,10 +318,7 @@ public class Game extends Canvas implements Runnable {
 
     private void tick() {
         // Auto-advance music — runs in every state
-        if (!AudioPlayer.isStopped() && !AudioPlayer.isPaused() && !AudioPlayer.isPlaying()) {
-            AudioPlayer.nextTrack();
-            AudioPlayer.play();
-        }
+        AudioPlayer.checkAutoAdvance();
 
         if (gameState == STATE.Paused) {
             menu.tick(); // for hover animations
