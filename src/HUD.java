@@ -275,29 +275,29 @@ public class HUD {
         // Level progress bar — bottom of screen
         if (!Game.isBossActive()) {
             float progress = Game.getLevelProgress();
-            int barH = 4;
-            int barY = Game.HEIGHT - barH;
+            int progH = 4;
+            int progY = Game.HEIGHT - progH;
 
             // Background
             g2.setColor(BAR_BG);
-            g2.fillRect(0, barY, Game.WIDTH, barH);
+            g2.fillRect(0, progY, Game.WIDTH, progH);
 
             // Fill
-            int fillW = (int) (Game.WIDTH * progress);
-            if (fillW > 0) {
+            int progFillW = (int) (Game.WIDTH * progress);
+            if (progFillW > 0) {
                 // Flash brighter near completion
                 Color barColor = progress > 0.85f
                         ? lerpColor(GamePalette.accent(), GOLD, (progress - 0.85f) / 0.15f)
                         : GamePalette.accent();
                 g2.setColor(barColor);
-                g2.fillRect(0, barY, fillW, barH);
+                g2.fillRect(0, progY, progFillW, progH);
             }
 
             // Completion flash — the level-up banner flash handles the burst
             if (levelUpBanner > 0.5f) {
                 g2.setColor(new Color(GOLD.getRed(), GOLD.getGreen(), GOLD.getBlue(),
                         (int) (levelUpBanner * 200)));
-                g2.fillRect(0, barY, Game.WIDTH, barH);
+                g2.fillRect(0, progY, Game.WIDTH, progH);
             }
         }
     }
