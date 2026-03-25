@@ -29,11 +29,11 @@ public class BasicEnemy extends GameObject {
         x += velX;
         y += velY;
         if (y <= 0 || y >= Game.HEIGHT - SIZE) {
-            Game.wallHit(x + SIZE / 2, y <= 0 ? 0 : Game.HEIGHT, y <= 0 ? 0 : 1);
+            Game.wallHit(x + SIZE / 2, y <= 0 ? 0 : Game.HEIGHT, y <= 0 ? 0 : 1, 235, 87, 87);
             velY *= -1;
         }
         if (x <= 0 || x >= Game.WIDTH - SIZE) {
-            Game.wallHit(x <= 0 ? 0 : Game.WIDTH, y + SIZE / 2, x <= 0 ? 2 : 3);
+            Game.wallHit(x <= 0 ? 0 : Game.WIDTH, y + SIZE / 2, x <= 0 ? 2 : 3, 235, 87, 87);
             velX *= -1;
         }
         if (++trailTick % 3 == 0)

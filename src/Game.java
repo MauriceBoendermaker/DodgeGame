@@ -112,10 +112,37 @@ public class Game extends Canvas implements Runnable {
     private static int wallFlareCount = 0;
     private static float wallPulsePhase = 0;
 
+    // Bounce particles — [x, y, vx, vy, life, r, g, b]
+    private static float[][] bounceParticles = new float[80][8];
+    private static int bounceParticleCount = 0;
+    private static java.util.Random bounceRng = new java.util.Random();
+
     public static void wallHit(float hitX, float hitY, int side) {
+        wallHit(hitX, hitY, side, 235, 87, 87); // default red
+    }
+
+    public static void wallHit(float hitX, float hitY, int side, int cr, int cg, int cb) {
         if (wallFlareCount < wallFlares.length) {
             wallFlares[wallFlareCount] = new float[]{hitX, hitY, 1f, side};
             wallFlareCount++;
+        }
+        // Spawn 5-7 bounce particles
+        int count = 5 + bounceRng.nextInt(3);
+        for (int i = 0; i < count && bounceParticleCount < bounceParticles.length; i++) {
+            // Scatter away from the wall
+            float angle;
+            if (side == 0) angle = (float)(Math.PI * 0.25 + bounceRng.nextFloat() * Math.PI * 0.5); // down
+            else if (side == 1) angle = (float)(-Math.PI * 0.25 - bounceRng.nextFloat() * Math.PI * 0.5); // up
+            else if (side == 2) angle = (float)(-Math.PI * 0.25 + bounceRng.nextFloat() * Math.PI * 0.5); // right
+            else angle = (float)(Math.PI * 0.75 + bounceRng.nextFloat() * Math.PI * 0.5); // left
+            float speed = 1.5f + bounceRng.nextFloat() * 3f;
+            bounceParticles[bounceParticleCount] = new float[]{
+                    hitX, hitY,
+                    (float) Math.cos(angle) * speed, (float) Math.sin(angle) * speed,
+                    0.7f + bounceRng.nextFloat() * 0.3f,
+                    cr, cg, cb
+            };
+            bounceParticleCount++;
         }
     }
 
@@ -369,6 +396,20 @@ public class Game extends Canvas implements Runnable {
             }
         }
         wallFlareCount = alive;
+
+        // Bounce particle decay
+        int bpAlive = 0;
+        for (int i = 0; i < bounceParticleCount; i++) {
+            float[] p = bounceParticles[i];
+            p[0] += p[2]; p[1] += p[3]; // move
+            p[2] *= 0.94f; p[3] *= 0.94f; // drag
+            p[4] -= 0.03f; // fade
+            if (p[4] > 0) {
+                bounceParticles[bpAlive] = p;
+                bpAlive++;
+            }
+        }
+        bounceParticleCount = bpAlive;
 
         if (gameState == STATE.Game) {
             GamePalette.update(hud.getLevel());
@@ -960,6 +1001,15 @@ public class Game extends Canvas implements Runnable {
             else if (side == 1) g.fillRect((int) fx - 60, HEIGHT - 10, 120, 10);
             else if (side == 2) g.fillRect(0, (int) fy - 60, 10, 120);
             else                g.fillRect(WIDTH - 10, (int) fy - 60, 10, 120);
+        }
+
+        // Bounce particles
+        for (int i = 0; i < bounceParticleCount; i++) {
+            float[] p = bounceParticles[i];
+            int pa = Math.min(255, (int) (p[4] * 255));
+            int size = 2 + (int) (p[4] * 2);
+            g.setColor(new Color((int) p[5], (int) p[6], (int) p[7], pa));
+            g.fillOval((int) p[0] - size / 2, (int) p[1] - size / 2, size, size);
         }
     }
 
