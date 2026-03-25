@@ -8,6 +8,7 @@ public class Spawn {
     private Random r = new Random();
 
     private int scoreKeep = 0;
+    private boolean bossActive = false;
 
     public Spawn(Handler handler, HUD hud, Game game) {
         this.handler = handler;
@@ -16,6 +17,27 @@ public class Spawn {
     }
 
     public void tick() {
+        // Check if boss has been defeated
+        if (bossActive) {
+            boolean bossStillAlive = false;
+            for (int i = 0; i < handler.getObjects().size(); i++) {
+                GameObject obj = handler.getObjects().get(i);
+                if (obj instanceof EnemyBoss) {
+                    EnemyBoss boss = (EnemyBoss) obj;
+                    if (boss.isDefeated()) {
+                        handler.removeObject(boss);
+                        bossActive = false;
+                        // Resume with fresh enemies after boss
+                        handler.addObject(new BasicEnemy(r.nextInt(Game.WIDTH - 50), r.nextInt(Game.HEIGHT - 50), ID.BasicEnemy, handler));
+                        handler.addObject(new FastEnemy(r.nextInt(Game.WIDTH - 50), r.nextInt(Game.HEIGHT - 50), ID.FastEnemy, handler));
+                    } else {
+                        bossStillAlive = true;
+                    }
+                }
+            }
+            if (bossStillAlive) return; // Pause level progression during boss fight
+        }
+
         scoreKeep++;
 
         if (scoreKeep >= 250) {
@@ -53,6 +75,7 @@ public class Spawn {
             case 10:
                 handler.clearEnemys();
                 handler.addObject(new EnemyBoss((Game.WIDTH / 2) - 48, -120, ID.EnemyBoss, handler));
+                bossActive = true;
                 break;
             case 15:
                 handler.clearEnemys();
@@ -86,6 +109,7 @@ public class Spawn {
             case 15:
                 handler.clearEnemys();
                 handler.addObject(new EnemyBoss((Game.WIDTH / 2) - 48, -120, ID.EnemyBoss, handler));
+                bossActive = true;
                 break;
         }
     }
@@ -113,6 +137,7 @@ public class Spawn {
             case 15:
                 handler.clearEnemys();
                 handler.addObject(new EnemyBoss((Game.WIDTH / 2) - 48, -120, ID.EnemyBoss, handler));
+                bossActive = true;
                 break;
         }
     }

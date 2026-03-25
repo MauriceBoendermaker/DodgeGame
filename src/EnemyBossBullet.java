@@ -2,23 +2,21 @@ import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
-import java.util.Random;
 
 public class EnemyBossBullet extends GameObject {
 
-    private static final int SIZE = 20;
+    private static final int SIZE = 16;
     private static final Color FILL = new Color(235, 87, 87);
     private static final Color GLOW = new Color(235, 87, 87, 40);
     private static final Color TRAIL_COLOR = new Color(235, 87, 87);
 
     private Handler handler;
 
-    public EnemyBossBullet(int x, int y, ID id, Handler handler) {
+    public EnemyBossBullet(int x, int y, ID id, Handler handler, float vx, float vy) {
         super(x, y, id);
         this.handler = handler;
-        Random r = new Random();
-        velX = r.nextInt(11) - 5;
-        velY = 5;
+        velX = vx;
+        velY = vy;
     }
 
     public Rectangle getBounds() {
@@ -28,8 +26,12 @@ public class EnemyBossBullet extends GameObject {
     public void tick() {
         x += velX;
         y += velY;
-        if (y >= Game.HEIGHT) handler.removeObject(this);
-        handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.025f, handler));
+        // Remove if off-screen
+        if (y >= Game.HEIGHT || y < -50 || x < -50 || x > Game.WIDTH + 50) {
+            handler.removeObject(this);
+            return;
+        }
+        handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.03f, handler));
     }
 
     public void render(Graphics g) {
