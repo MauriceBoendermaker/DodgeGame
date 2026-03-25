@@ -80,14 +80,34 @@ public class AudioPlayer {
         stopped = true;
     }
 
+    private static int silentTicks = 0;
+
     public static void checkAutoAdvance() {
-        if (tracks.isEmpty() || paused || stopped) return;
+        if (tracks.isEmpty() || stopped) return;
+
+        // If paused by user, don't auto-advance
+        if (paused) { silentTicks = 0; return; }
+
         if (!getCurrentTrack().music.playing()) {
-            // Track ended naturally — advance and play
-            currentTrackIndex = (currentTrackIndex + 1) % tracks.size();
-            Track next = getCurrentTrack();
-            next.music.play();
-            next.music.setVolume(volume);
+            silentTicks++;
+            // Wait a few ticks to be sure it's actually ended (not just a buffer gap)
+            if (silentTicks >= 5) {
+                silentTicks = 0;
+                // Stop current cleanly
+                try { getCurrentTrack().music.stop(); } catch (Exception e) { /* ignore */ }
+                // Advance
+                currentTrackIndex = (currentTrackIndex + 1) % tracks.size();
+                // Play next
+                try {
+                    Track next = getCurrentTrack();
+                    next.music.play();
+                    next.music.setVolume(volume);
+                } catch (Exception e) { e.printStackTrace(); }
+                paused = false;
+                stopped = false;
+            }
+        } else {
+            silentTicks = 0;
         }
     }
 
