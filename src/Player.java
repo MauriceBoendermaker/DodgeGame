@@ -22,6 +22,11 @@ public class Player extends GameObject {
     // Input state
     public boolean moveUp, moveDown, moveLeft, moveRight;
 
+    // Invincibility frames
+    private int iFrames = 0;
+    private static final int I_FRAME_DURATION = 45; // ~0.75 seconds
+    private static final float DAMAGE_PER_HIT = 12; // discrete damage per hit
+
     // Streak system
     private int streakTicks = 0;        // ticks without damage
     private float streakLevel = 0;      // 0-1 smoothed intensity
@@ -99,34 +104,34 @@ public class Player extends GameObject {
             handler.addObject(new Trail(x, y, ID.Trail, trailCol, SIZE, SIZE, Math.max(trailLife, 0.015f), handler));
         }
 
+        if (iFrames > 0) iFrames--;
         collision();
     }
 
-    private boolean wasColliding = false;
-
     private void collision() {
-        boolean colliding = false;
+        if (iFrames > 0) return; // invincible
+
         for (int i = 0; i < handler.getObjects().size(); i++) {
             GameObject tempObject = handler.getObjects().get(i);
             if (tempObject.getId() == ID.BasicEnemy || tempObject.getId() == ID.FastEnemy
                     || tempObject.getId() == ID.SmartEnemy || tempObject.getId() == ID.HardEnemy
                     || tempObject.getId() == ID.EnemyBoss) {
                 if (getBounds().intersects(tempObject.getBounds())) {
-                    HUD.HEALTH -= 2;
-                    colliding = true;
+                    // Discrete hit
+                    HUD.HEALTH -= DAMAGE_PER_HIT;
+                    iFrames = I_FRAME_DURATION;
+                    Game.triggerHit();
+
+                    // Break streak
+                    if (streakTicks > STREAK_T1) {
+                        hitPop = 1f;
+                    }
+                    streakTicks = 0;
+                    streakLevel = 0;
+                    return; // one hit per frame max
                 }
             }
         }
-        if (colliding && !wasColliding) {
-            Game.triggerHit();
-            // Break streak with visual pop
-            if (streakTicks > STREAK_T1) {
-                hitPop = 1f;
-            }
-            streakTicks = 0;
-            streakLevel = 0;
-        }
-        wasColliding = colliding;
     }
 
     public void render(Graphics g) {
@@ -161,25 +166,37 @@ public class Player extends GameObject {
             }
         }
 
-        // Outer glow — intensifies with streak
-        int glowAlpha = 30 + (int) (streakLevel * 60);
-        int glowSize = 5 + (int) (streakLevel * 6);
-        Color glowCol = lerpColor(new Color(230, 234, 240), accent, streakLevel * 0.5f);
-        g2.setColor(new Color(glowCol.getRed(), glowCol.getGreen(), glowCol.getBlue(),
-                Math.min(glowAlpha, 255)));
-        g2.fillRoundRect(ix - glowSize, iy - glowSize, SIZE + glowSize * 2, SIZE + glowSize * 2,
-                R + glowSize, R + glowSize);
+        // I-frame blink — fast flicker, skip rendering on odd frames
+        boolean visible = true;
+        float iFrameAlpha = 1f;
+        if (iFrames > 0) {
+            visible = (iFrames / 3) % 2 == 0; // blink every 3 frames
+            iFrameAlpha = 0.5f + (float) Math.sin(iFrames * 0.5) * 0.3f;
+        }
 
-        // Inner glow
-        int innerAlpha = 60 + (int) (streakLevel * 50);
-        g2.setColor(new Color(glowCol.getRed(), glowCol.getGreen(), glowCol.getBlue(),
-                Math.min(innerAlpha, 255)));
-        g2.fillRoundRect(ix - 2, iy - 2, SIZE + 4, SIZE + 4, R + 2, R + 2);
+        if (visible) {
+            // Outer glow — intensifies with streak
+            int glowAlpha = (int) ((30 + (int) (streakLevel * 60)) * iFrameAlpha);
+            int glowSize = 5 + (int) (streakLevel * 6);
+            Color glowCol = lerpColor(new Color(230, 234, 240), accent, streakLevel * 0.5f);
+            g2.setColor(new Color(glowCol.getRed(), glowCol.getGreen(), glowCol.getBlue(),
+                    Math.min(glowAlpha, 255)));
+            g2.fillRoundRect(ix - glowSize, iy - glowSize, SIZE + glowSize * 2, SIZE + glowSize * 2,
+                    R + glowSize, R + glowSize);
 
-        // Main shape — tints toward accent at high streak
-        Color fill = lerpColor(FILL, accent, streakLevel * 0.25f);
-        g2.setColor(fill);
-        g2.fillRoundRect(ix, iy, SIZE, SIZE, R, R);
+            // Inner glow
+            int innerAlpha = (int) ((60 + (int) (streakLevel * 50)) * iFrameAlpha);
+            g2.setColor(new Color(glowCol.getRed(), glowCol.getGreen(), glowCol.getBlue(),
+                    Math.min(innerAlpha, 255)));
+            g2.fillRoundRect(ix - 2, iy - 2, SIZE + 4, SIZE + 4, R + 2, R + 2);
+
+            // Main shape — flashes white during i-frames
+            Color fill = iFrames > 0
+                    ? lerpColor(FILL, new Color(255, 255, 255), (float) Math.abs(Math.sin(iFrames * 0.4)) * 0.5f)
+                    : lerpColor(FILL, accent, streakLevel * 0.25f);
+            g2.setColor(fill);
+            g2.fillRoundRect(ix, iy, SIZE, SIZE, R, R);
+        }
 
         // Multiplier text above player
         if (getMultiplier() > 1) {
