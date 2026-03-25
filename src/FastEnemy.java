@@ -37,7 +37,7 @@ public class FastEnemy extends GameObject {
             velX *= -1;
         }
         if (++trailTick % 3 == 0)
-            handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.02f, handler));
+            handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.02f, handler, Trail.SHAPE_DIAMOND));
     }
 
     public void render(Graphics g) {

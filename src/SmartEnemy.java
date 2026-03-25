@@ -38,7 +38,7 @@ public class SmartEnemy extends GameObject {
         velX = ((-2 / distance) * diffX);
         velY = ((-2 / distance) * diffY);
         if (++trailTick % 4 == 0)
-            handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.06f, handler));
+            handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.06f, handler, Trail.SHAPE_CIRCLE));
     }
 
     public void render(Graphics g) {

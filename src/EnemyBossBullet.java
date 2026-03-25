@@ -33,7 +33,7 @@ public class EnemyBossBullet extends GameObject {
             return;
         }
         if (++trailTick % 3 == 0)
-            handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.03f, handler));
+            handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.03f, handler, Trail.SHAPE_CIRCLE));
     }
 
     public void render(Graphics g) {
