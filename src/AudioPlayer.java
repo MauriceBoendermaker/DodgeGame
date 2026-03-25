@@ -20,13 +20,13 @@ public class AudioPlayer {
     public static void load() {
         try {
             // Startup tracks — one of these plays first, chosen randomly
-            addTrack("energy_drink", "Virtual Riot - Energy Drink", "Virtual Riot - Energy Drink.ogg", 303f);
-            addTrack("press_start", "MDK - Press Start", "MDK - Press Start.ogg", 263f);
-            addTrack("hellcat", "Desmeon - Hellcat", "Desmeon - Hellcat.ogg", 226f);
+            addTrack("energy_drink", "Virtual Riot - Energy Drink", "Virtual Riot - Energy Drink.ogg", 303f, 150f);
+            addTrack("press_start", "MDK - Press Start", "MDK - Press Start.ogg", 263f, 160f);
+            addTrack("hellcat", "Desmeon - Hellcat", "Desmeon - Hellcat.ogg", 226f, 150f);
 
             // Remaining tracks — shuffled after the first song
-            addTrack("fingerbang", "MDK - Fingerbang", "MDK - Fingerbang.ogg", 228f);
-            addTrack("disconnected", "Pegboard Nerds - Disconnected", "Pegboard Nerds - Disconnected.ogg", 242f);
+            addTrack("fingerbang", "MDK - Fingerbang", "MDK - Fingerbang.ogg", 228f, 150f);
+            addTrack("disconnected", "Pegboard Nerds - Disconnected", "Pegboard Nerds - Disconnected.ogg", 242f, 128f);
 
             buildPlaylist();
         } catch (Exception e) {
@@ -47,8 +47,8 @@ public class AudioPlayer {
         currentTrackIndex = 0;
     }
 
-    private static void addTrack(String key, String displayName, String path, float duration) throws Exception {
-        tracks.add(new Track(key, displayName, new Music(path), duration));
+    private static void addTrack(String key, String displayName, String path, float duration, float bpm) throws Exception {
+        tracks.add(new Track(key, displayName, new Music(path), duration, bpm));
     }
 
     public static void play() {
@@ -155,17 +155,30 @@ public class AudioPlayer {
         return sounds.get(key);
     }
 
+    /** Returns a 0-1 pulse that peaks sharply on each beat */
+    public static float getBeatPulse() {
+        if (tracks.isEmpty() || stopped || !isPlaying()) return 0;
+        Track track = getCurrentTrack();
+        float pos = getPosition();
+        float beatsPerSec = track.bpm / 60f;
+        float beatPhase = (pos * beatsPerSec) % 1f;
+        // Sharp attack, smooth exponential decay
+        return (float) Math.pow(1.0 - beatPhase, 3.5);
+    }
+
     public static class Track {
         public final String key;
         public final String displayName;
         public final Music music;
         public final float duration;
+        public final float bpm;
 
-        public Track(String key, String displayName, Music music, float duration) {
+        public Track(String key, String displayName, Music music, float duration, float bpm) {
             this.key = key;
             this.displayName = displayName;
             this.music = music;
             this.duration = duration;
+            this.bpm = bpm;
         }
     }
 }

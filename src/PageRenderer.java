@@ -87,13 +87,7 @@ public class PageRenderer {
         ));
         g.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
 
-        // Grid dots
-        g.setColor(new Color(30, 38, 52));
-        for (int x = 20; x < Game.WIDTH; x += 40) {
-            for (int y = 20; y < Game.HEIGHT; y += 40) {
-                g.fillOval(x, y, 2, 2);
-            }
-        }
+        // Grid dots removed — drawn live with beat pulse in Game.renderBeatVisuals()
 
         // Subtle edge vignette
         g.setPaint(new RadialGradientPaint(

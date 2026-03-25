@@ -369,6 +369,7 @@ public class Game extends Canvas implements Runnable {
 
         if (gameState == STATE.Game || gameState == STATE.Shop || gameState == STATE.Paused || gameState == STATE.Dying) {
             PageRenderer.drawGameBackground(g);
+            renderBeatVisuals(g);
             renderGeoLayers(g);
             renderNeonWalls(g);
         }
@@ -492,6 +493,31 @@ public class Game extends Canvas implements Runnable {
         bs.show();
     }
 
+    private void renderBeatVisuals(Graphics2D g) {
+        float beat = AudioPlayer.getBeatPulse();
+
+        // Grid dots — expand on beat
+        int baseDotSize = 2;
+        int beatDotSize = baseDotSize + (int) (beat * 3);
+        int baseAlpha = 22 + (int) (beat * 35);
+        g.setColor(new Color(78, 205, 196, Math.min(baseAlpha, 255)));
+        for (int x = 20; x < WIDTH; x += 40) {
+            for (int y = 20; y < HEIGHT; y += 40) {
+                g.fillOval(x - beatDotSize / 2, y - beatDotSize / 2, beatDotSize, beatDotSize);
+            }
+        }
+
+        // Edge pulse — vignette throbs on beat
+        if (beat > 0.1f) {
+            int vigAlpha = (int) (beat * 25);
+            g.setColor(new Color(78, 205, 196, vigAlpha));
+            g.fillRect(0, 0, WIDTH, 4);
+            g.fillRect(0, HEIGHT - 4, WIDTH, 4);
+            g.fillRect(0, 0, 4, HEIGHT);
+            g.fillRect(WIDTH - 4, 0, 4, HEIGHT);
+        }
+    }
+
     private void renderGeoLayers(Graphics2D g) {
         // Redraw cache every 4 frames (15fps is plenty for slow-moving bg elements)
         if (geoCache == null || geoCache.getWidth() != WIDTH || ++geoCacheFrame >= 4) {
@@ -571,8 +597,10 @@ public class Game extends Canvas implements Runnable {
     }
 
     private void renderNeonWalls(Graphics2D g) {
+        float beat = AudioPlayer.getBeatPulse();
         float basePulse = (float) (Math.sin(wallPulsePhase) * 0.3 + 0.7);
-        int baseAlpha = (int) (basePulse * 40);
+        int baseAlpha = (int) ((basePulse + beat * 0.6f) * 40);
+        baseAlpha = Math.min(baseAlpha, 80);
 
         // Thin border lines
         g.setColor(new Color(78, 205, 196, baseAlpha));
