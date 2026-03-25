@@ -60,6 +60,12 @@ public class Game extends Canvas implements Runnable {
     // Level-up pulse
     private static float levelUpFlash = 0;
 
+    // Death animation
+    private int deathTimer = 0;
+    private float deathFlash = 0;
+    private float[][] deathParticles; // [i][0]=x, [1]=y, [2]=vx, [3]=vy, [4]=size, [5]=r, [6]=g, [7]=b
+    private float deathPlayerX, deathPlayerY;
+
     public static void triggerHit() {
         shakeIntensity = 8f;
         flashAlpha = 0.6f;
@@ -87,7 +93,8 @@ public class Game extends Canvas implements Runnable {
         Game,
         Credits,
         End,
-        Paused
+        Paused,
+        Dying
     }
 
     public static STATE gameState = STATE.Menu;
@@ -219,7 +226,7 @@ public class Game extends Canvas implements Runnable {
             spawner.tick();
             handler.tick();
             if (HUD.HEALTH <= 0) {
-                // Capture all run stats before resetting
+                // Capture all run stats
                 lastScore = hud.getScore();
                 lastLevel = hud.getLevel();
                 lastTime = hud.getTimeSurvived();
@@ -229,7 +236,6 @@ public class Game extends Canvas implements Runnable {
                 lastRefills = hud.getRefills();
                 lastDifficulty = diff == 0 ? "Normal" : diff == 1 ? "Hard" : "Insane";
 
-                // Count enemies on screen (exclude player and trails)
                 lastEnemies = 0;
                 for (int i = 0; i < handler.getObjects().size(); i++) {
                     ID id = handler.getObjects().get(i).getId();
@@ -239,6 +245,60 @@ public class Game extends Canvas implements Runnable {
                     }
                 }
 
+                // Find player position for death particles
+                for (int i = 0; i < handler.getObjects().size(); i++) {
+                    if (handler.getObjects().get(i).getId() == ID.Player) {
+                        deathPlayerX = handler.getObjects().get(i).getX() + 24;
+                        deathPlayerY = handler.getObjects().get(i).getY() + 24;
+                        break;
+                    }
+                }
+
+                // Spawn death particles
+                int count = 25 + r.nextInt(10);
+                deathParticles = new float[count][8];
+                for (int i = 0; i < count; i++) {
+                    float angle = (float) (r.nextFloat() * Math.PI * 2);
+                    float speed = 2f + r.nextFloat() * 6f;
+                    float size = 3 + r.nextFloat() * 8;
+                    // White/teal fragments
+                    float tint = r.nextFloat();
+                    deathParticles[i] = new float[]{
+                            deathPlayerX, deathPlayerY,
+                            (float) Math.cos(angle) * speed, (float) Math.sin(angle) * speed,
+                            size,
+                            200 + (int) (55 * tint), 220 + (int) (35 * tint), 230 + (int) (25 * tint)
+                    };
+                }
+
+                // Remove player from world
+                handler.getObjects().removeIf(obj -> obj.getId() == ID.Player);
+
+                deathTimer = 0;
+                deathFlash = 1f;
+                shakeIntensity = 14f;
+                gameState = STATE.Dying;
+            }
+        } else if (gameState == STATE.Dying) {
+            deathTimer++;
+
+            // Freeze for first 12 frames (200ms), then animate particles
+            if (deathTimer > 12 && deathParticles != null) {
+                for (float[] p : deathParticles) {
+                    p[0] += p[2]; // x += vx
+                    p[1] += p[3]; // y += vy
+                    p[3] += 0.15f; // gravity
+                    p[2] *= 0.98f; // drag
+                    p[4] *= 0.985f; // shrink
+                }
+            }
+
+            // White flash decay
+            if (deathFlash > 0.01f) deathFlash *= 0.92f;
+            else deathFlash = 0;
+
+            // Transition to End screen after ~120 frames (2 seconds)
+            if (deathTimer >= 120) {
                 HUD.HEALTH = 100;
                 hud.bounds = 0;
                 gameState = STATE.End;
@@ -246,6 +306,7 @@ public class Game extends Canvas implements Runnable {
                 for (int i = 0; i < 15; i++) {
                     handler.addObject(new MenuParticle(r.nextInt(WIDTH), r.nextInt(HEIGHT), ID.MenuParticle, handler));
                 }
+                deathParticles = null;
             }
         } else if (gameState == STATE.Shop) {
             // shop handles its own input via mouse listener
@@ -274,7 +335,7 @@ public class Game extends Canvas implements Runnable {
         g.scale(scale, scale);
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 
-        if (gameState == STATE.Game || gameState == STATE.Shop || gameState == STATE.Paused) {
+        if (gameState == STATE.Game || gameState == STATE.Shop || gameState == STATE.Paused || gameState == STATE.Dying) {
             PageRenderer.drawGameBackground(g);
         }
 
@@ -287,6 +348,47 @@ public class Game extends Canvas implements Runnable {
             g.fillRect(0, 0, WIDTH, HEIGHT);
             // Pause menu rendered by Menu
             menu.render(g);
+        } else if (gameState == STATE.Dying) {
+            // Screen shake applies to frozen world
+            float dsx = 0, dsy = 0;
+            if (shakeIntensity > 0) {
+                dsx = (shakeRng.nextFloat() - 0.5f) * 2 * shakeIntensity;
+                dsy = (shakeRng.nextFloat() - 0.5f) * 2 * shakeIntensity;
+                g.translate(dsx, dsy);
+            }
+
+            // Render frozen game world (enemies still visible, player removed)
+            handler.render(g);
+
+            if (shakeIntensity > 0) g.translate(-dsx, -dsy);
+
+            // Death particles
+            if (deathParticles != null) {
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                float fade = Math.max(0, 1f - deathTimer / 100f);
+                for (float[] p : deathParticles) {
+                    if (p[4] < 0.5f) continue;
+                    int alpha = (int) (fade * 255);
+                    g.setColor(new Color((int) p[5], (int) p[6], (int) p[7], Math.max(0, Math.min(255, alpha))));
+                    int s = (int) p[4];
+                    g.fillRoundRect((int) p[0] - s / 2, (int) p[1] - s / 2, s, s, 3, 3);
+                }
+            }
+
+            // White flash overlay
+            if (deathFlash > 0) {
+                g.setColor(new Color(255, 255, 255, (int) (deathFlash * 200)));
+                g.fillRect(0, 0, WIDTH, HEIGHT);
+            }
+
+            // Fade to black as we approach transition
+            if (deathTimer > 80) {
+                float blackFade = (deathTimer - 80) / 40f;
+                g.setColor(new Color(10, 12, 18, (int) (Math.min(1, blackFade) * 255)));
+                g.fillRect(0, 0, WIDTH, HEIGHT);
+            }
+
+            hud.render(g);
         } else if (gameState == STATE.Game) {
             // Screen shake — offset the game world
             float sx = 0, sy = 0;
