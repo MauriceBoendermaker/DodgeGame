@@ -1,12 +1,15 @@
 import java.awt.Color;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.util.Random;
 
 public class MenuParticle extends GameObject {
 
+    private static final int SIZE = 16;
     private Handler handler;
     private Color col;
+    private int trailTick = 0;
 
     public MenuParticle(int x, int y, ID id, Handler handler) {
         super(x, y, id);
@@ -22,21 +25,21 @@ public class MenuParticle extends GameObject {
     }
 
     public Rectangle getBounds() {
-        return new Rectangle((int) x, (int) y, 16, 16);
+        return new Rectangle((int) x, (int) y, SIZE, SIZE);
     }
 
     public void tick() {
         x += velX;
         y += velY;
-
-        if (y <= 0 || y >= Game.HEIGHT - 32) velY *= -1;
-        if (x <= 0 || x >= Game.WIDTH - 16) velX *= -1;
-
-        handler.addObject(new Trail(x, y, ID.Trail, col, 16, 16, 0.04f, handler));
+        if (y <= 0 || y >= Game.HEIGHT - SIZE * 2) velY *= -1;
+        if (x <= 0 || x >= Game.WIDTH - SIZE) velX *= -1;
+        if (++trailTick % 3 == 0)
+            handler.addObject(new Trail(x, y, ID.Trail, col, SIZE, SIZE, 0.04f, handler));
     }
 
     public void render(Graphics g) {
-        g.setColor(col);
-        g.fillRect((int) x, (int) y, 16, 16);
+        Graphics2D g2 = (Graphics2D) g;
+        g2.setColor(col);
+        g2.fillRoundRect((int) x, (int) y, SIZE, SIZE, 6, 6);
     }
 }

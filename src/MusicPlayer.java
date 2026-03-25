@@ -1,254 +1,298 @@
 import java.awt.Color;
-import java.awt.Font;
+import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Polygon;
 import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 
 public class MusicPlayer extends MouseAdapter {
 
-    // Spotify-inspired colors
-    private static final Color BG_COLOR = new Color(25, 20, 20);
-    private static final Color ACCENT_GREEN = new Color(29, 185, 84);
-    private static final Color ACCENT_GREEN_HOVER = new Color(30, 215, 96);
-    private static final Color BAR_BG = new Color(60, 60, 60);
-    private static final Color TEXT_PRIMARY = Color.white;
-    private static final Color TEXT_SECONDARY = new Color(179, 179, 179);
-    private static final Color CONTROL_COLOR = new Color(200, 200, 200);
-    private static final Color PANEL_COLOR = new Color(40, 40, 40);
+    // Dynamic positions
+    private static int cx() { return Game.WIDTH / 2; }
+    private static int progX() { return (Game.WIDTH - PROG_W) / 2; }
+    private static int volX() { return (Game.WIDTH - VOL_W) / 2; }
 
-    // Fonts
-    private static final Font FONT_TITLE = new Font("Arial", Font.BOLD, 36);
-    private static final Font FONT_TRACK = new Font("Arial", Font.BOLD, 28);
-    private static final Font FONT_SUBTITLE = new Font("Arial", Font.PLAIN, 18);
-    private static final Font FONT_TIME = new Font("Arial", Font.PLAIN, 14);
-    private static final Font FONT_CONTROLS = new Font("Arial", Font.BOLD, 24);
-    private static final Font FONT_PLAY = new Font("Arial", Font.BOLD, 32);
-    private static final Font FONT_VOLUME_LABEL = new Font("Arial", Font.PLAIN, 14);
-    private static final Font FONT_BACK = new Font("Arial", Font.BOLD, 18);
-    private static final Font FONT_TRACK_NUM = new Font("Arial", Font.PLAIN, 16);
-
-    // Layout constants
-    private static final int CENTER_X = Game.WIDTH / 2;
-
-    // Progress bar
-    private static final int PROG_X = 240;
+    // Fixed dimensions
     private static final int PROG_Y = 430;
     private static final int PROG_W = 800;
-    private static final int PROG_H = 6;
+    private static final int PROG_H = 5;
     private static final int PROG_KNOB = 14;
-
-    // Control buttons (y position)
     private static final int CTRL_Y = 490;
-    private static final int CTRL_BTN_SIZE = 48;
-    private static final int PLAY_BTN_SIZE = 60;
-
-    // Volume bar
-    private static final int VOL_X = 490;
+    private static final int CTRL_SIZE = 44;
+    private static final int PLAY_SIZE = 56;
     private static final int VOL_Y = 580;
     private static final int VOL_W = 300;
-    private static final int VOL_H = 6;
+    private static final int VOL_H = 5;
     private static final int VOL_KNOB = 12;
+    private static final int DRAG_MARGIN = 16;
+    private static final int CTRL_SPACING = 80;
 
-    // Back button
-    private static final int BACK_X = 1145;
-    private static final int BACK_Y = 52;
-    private static final int BACK_W = 100;
-    private static final int BACK_H = 33;
+    // Button indices
+    private static final int BTN_PREV = 0;
+    private static final int BTN_PLAY = 1;
+    private static final int BTN_NEXT = 2;
+    private static final int BTN_BACK = 3;
+    private static final int BTN_COUNT = 4;
+
+    // Hover animation state
+    private float[] hover = new float[BTN_COUNT];
+    private float progBarHover = 0;
+    private float volBarHover = 0;
+
+    // Mouse tracking
+    private int mouseX, mouseY;
+
+    // Drag state
+    private enum DragTarget { NONE, PROGRESS, VOLUME }
+    private DragTarget dragging = DragTarget.NONE;
+
+    // Hover colors
+    private static final Color CTRL_BG = PageRenderer.SURFACE_LIGHT;
+    private static final Color CTRL_BG_HOVER = new Color(48, 62, 82);
+    private static final Color CTRL_ICON = PageRenderer.TEXT_SEC;
+    private static final Color CTRL_ICON_HOVER = PageRenderer.TEXT;
+    private static final Color PLAY_BG_ACTIVE = PageRenderer.ACCENT;
+    private static final Color PLAY_BG_ACTIVE_HOVER = new Color(110, 225, 218);
 
     public void tick() {
-        // Auto-advance to next track when current ends
-        if (!AudioPlayer.isStopped() && !AudioPlayer.isPaused() && !AudioPlayer.isPlaying()) {
-            AudioPlayer.nextTrack();
-            AudioPlayer.play();
+        // Music auto-advance is handled globally in Game.tick()
+
+        if (Game.gameState != Game.STATE.MusicPlayer) return;
+
+        // Update hover animations
+        boolean[] targets = getHoverTargets();
+        for (int i = 0; i < BTN_COUNT; i++) {
+            float target = targets[i] ? 1f : 0f;
+            hover[i] += (target - hover[i]) * 0.14f;
+            if (Math.abs(hover[i] - target) < 0.01f) hover[i] = target;
         }
+
+        // Bar hover
+        boolean onProg = dragging == DragTarget.PROGRESS
+                || hitBar(mouseX, mouseY, progX(), PROG_Y, PROG_W);
+        boolean onVol = dragging == DragTarget.VOLUME
+                || hitBar(mouseX, mouseY, volX(), VOL_Y, VOL_W);
+        progBarHover += ((onProg ? 1f : 0f) - progBarHover) * 0.14f;
+        volBarHover += ((onVol ? 1f : 0f) - volBarHover) * 0.14f;
     }
 
+    private boolean[] getHoverTargets() {
+        boolean[] t = new boolean[BTN_COUNT];
+        int cxv = cx();
+        int playCy = CTRL_Y + CTRL_SIZE / 2 - (PLAY_SIZE - CTRL_SIZE) / 2 + PLAY_SIZE / 2;
+        t[BTN_PREV] = inCircle(mouseX, mouseY, cxv - CTRL_SPACING, CTRL_Y + CTRL_SIZE / 2, CTRL_SIZE / 2 + 4);
+        t[BTN_PLAY] = inCircle(mouseX, mouseY, cxv, playCy, PLAY_SIZE / 2 + 4);
+        t[BTN_NEXT] = inCircle(mouseX, mouseY, cxv + CTRL_SPACING, CTRL_Y + CTRL_SIZE / 2, CTRL_SIZE / 2 + 4);
+        t[BTN_BACK] = mouseX >= PageRenderer.backX() && mouseX <= PageRenderer.backX() + PageRenderer.BACK_W
+                && mouseY >= PageRenderer.BACK_Y && mouseY <= PageRenderer.BACK_Y + PageRenderer.BACK_H;
+        return t;
+    }
+
+    // ==================== Rendering ====================
+
     public void render(Graphics g) {
-        Graphics2D g2d = (Graphics2D) g;
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        Graphics2D g2 = (Graphics2D) g;
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
-        // Background
-        g.setColor(BG_COLOR);
-        g.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
+        PageRenderer.drawBackground(g2);
+        PageRenderer.drawTitle(g2, "Music Player");
 
-        // Title
-        g.setFont(FONT_TITLE);
-        g.setColor(TEXT_PRIMARY);
-        String title = "Music Player";
-        int titleW = g.getFontMetrics().stringWidth(title);
-        g.drawString(title, CENTER_X - titleW / 2, 80);
+        // Back button with hover
+        int bx = PageRenderer.backX();
+        g2.setColor(lerp(PageRenderer.SURFACE, CTRL_BG_HOVER, hover[BTN_BACK]));
+        g2.fillRoundRect(bx, PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H, 8, 8);
+        g2.setColor(lerp(PageRenderer.BORDER, PageRenderer.ACCENT, hover[BTN_BACK] * 0.4f));
+        g2.drawRoundRect(bx, PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H, 8, 8);
+        g2.setFont(PageRenderer.SMALL_FONT);
+        g2.setColor(lerp(PageRenderer.TEXT_SEC, PageRenderer.TEXT, hover[BTN_BACK]));
+        PageRenderer.drawCenteredString(g2, "Back", bx, PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H);
 
-        // Decorative line under title
-        g.setColor(ACCENT_GREEN);
-        g.fillRect(CENTER_X - 60, 95, 120, 3);
-
-        // Album art placeholder (rounded dark panel)
-        int artSize = 200;
-        int artX = CENTER_X - artSize / 2;
+        // Album art
+        int artSize = 180;
+        int artX = cx() - artSize / 2;
         int artY = 130;
-        g.setColor(PANEL_COLOR);
-        g2d.fillRoundRect(artX, artY, artSize, artSize, 16, 16);
+        PageRenderer.drawPanel(g2, artX, artY, artSize, artSize);
+        g2.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 60));
+        g2.setColor(PageRenderer.ACCENT);
+        FontMetrics fm = g2.getFontMetrics();
+        g2.drawString("\u266B", cx() - fm.stringWidth("\u266B") / 2, artY + artSize / 2 + 20);
 
-        // Music note icon in art area
-        g.setFont(new Font("Arial", Font.BOLD, 72));
-        g.setColor(ACCENT_GREEN);
-        String note = "\u266B";
-        int noteW = g.getFontMetrics().stringWidth(note);
-        g.drawString(note, CENTER_X - noteW / 2, artY + artSize / 2 + 25);
-
-        // Track info
         if (AudioPlayer.getTrackCount() > 0) {
             AudioPlayer.Track track = AudioPlayer.getCurrentTrack();
 
             // Track name
-            g.setFont(FONT_TRACK);
-            g.setColor(TEXT_PRIMARY);
-            String name = track.displayName;
-            int nameW = g.getFontMetrics().stringWidth(name);
-            g.drawString(name, CENTER_X - nameW / 2, 375);
+            g2.setFont(PageRenderer.HEADING_FONT);
+            g2.setColor(PageRenderer.TEXT);
+            fm = g2.getFontMetrics();
+            g2.drawString(track.displayName, cx() - fm.stringWidth(track.displayName) / 2, 365);
 
             // Track number
-            g.setFont(FONT_TRACK_NUM);
-            g.setColor(TEXT_SECONDARY);
-            String trackNum = "Track " + (AudioPlayer.getCurrentTrackIndex() + 1) + " of " + AudioPlayer.getTrackCount();
-            int numW = g.getFontMetrics().stringWidth(trackNum);
-            g.drawString(trackNum, CENTER_X - numW / 2, 400);
+            g2.setFont(PageRenderer.SMALL_FONT);
+            g2.setColor(PageRenderer.TEXT_MUTED);
+            String info = "Track " + (AudioPlayer.getCurrentTrackIndex() + 1) + " of " + AudioPlayer.getTrackCount();
+            fm = g2.getFontMetrics();
+            g2.drawString(info, cx() - fm.stringWidth(info) / 2, 390);
 
             // Progress bar
-            renderProgressBar(g, g2d, track);
-
-            // Time labels
-            float pos = AudioPlayer.getPosition();
-            float dur = track.duration;
-            g.setFont(FONT_TIME);
-            g.setColor(TEXT_SECONDARY);
-            g.drawString(formatTime(pos), PROG_X, PROG_Y + 25);
-            String durStr = formatTime(dur);
-            int durW = g.getFontMetrics().stringWidth(durStr);
-            g.drawString(durStr, PROG_X + PROG_W - durW, PROG_Y + 25);
+            renderProgressBar(g2, track);
         } else {
-            g.setFont(FONT_TRACK);
-            g.setColor(TEXT_SECONDARY);
-            String noTracks = "No tracks loaded";
-            int ntW = g.getFontMetrics().stringWidth(noTracks);
-            g.drawString(noTracks, CENTER_X - ntW / 2, 375);
+            g2.setFont(PageRenderer.HEADING_FONT);
+            g2.setColor(PageRenderer.TEXT_MUTED);
+            fm = g2.getFontMetrics();
+            String msg = "No tracks loaded";
+            g2.drawString(msg, cx() - fm.stringWidth(msg) / 2, 375);
         }
 
-        // Playback controls
-        renderControls(g, g2d);
-
-        // Volume control
-        renderVolumeBar(g, g2d);
-
-        // Back button
-        g.setColor(PANEL_COLOR);
-        g2d.fillRoundRect(BACK_X, BACK_Y, BACK_W, BACK_H, 8, 8);
-        g.setColor(TEXT_PRIMARY);
-        g.setFont(FONT_BACK);
-        String backStr = "BACK";
-        int backW = g.getFontMetrics().stringWidth(backStr);
-        g.drawString(backStr, BACK_X + (BACK_W - backW) / 2, BACK_Y + 23);
-
-        // Reset antialiasing
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
-        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);
+        renderControls(g2);
+        renderVolumeBar(g2);
     }
 
-    private void renderProgressBar(Graphics g, Graphics2D g2d, AudioPlayer.Track track) {
+    private void renderProgressBar(Graphics2D g, AudioPlayer.Track track) {
         float pos = AudioPlayer.getPosition();
         float dur = track.duration;
         float progress = (dur > 0) ? Math.min(pos / dur, 1f) : 0;
+        int px = progX();
 
         // Bar background
-        g.setColor(BAR_BG);
-        g2d.fillRoundRect(PROG_X, PROG_Y, PROG_W, PROG_H, 3, 3);
+        g.setColor(lerp(PageRenderer.BORDER, new Color(55, 70, 90), progBarHover));
+        g.fillRoundRect(px, PROG_Y, PROG_W, PROG_H, 3, 3);
 
-        // Filled portion
+        // Filled
         int filledW = (int) (PROG_W * progress);
         if (filledW > 0) {
-            g.setColor(ACCENT_GREEN);
-            g2d.fillRoundRect(PROG_X, PROG_Y, filledW, PROG_H, 3, 3);
+            g.setColor(PageRenderer.ACCENT);
+            g.fillRoundRect(px, PROG_Y, filledW, PROG_H, 3, 3);
         }
 
-        // Knob
-        int knobX = PROG_X + filledW - PROG_KNOB / 2;
-        g.setColor(TEXT_PRIMARY);
-        g2d.fillOval(knobX, PROG_Y - (PROG_KNOB - PROG_H) / 2, PROG_KNOB, PROG_KNOB);
+        // Knob — grows slightly on hover
+        int knobSize = PROG_KNOB + (int) (4 * progBarHover);
+        g.setColor(lerp(PageRenderer.TEXT, PageRenderer.ACCENT, progBarHover));
+        g.fillOval(px + filledW - knobSize / 2, PROG_Y + PROG_H / 2 - knobSize / 2, knobSize, knobSize);
+
+        // Time labels
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        g.drawString(formatTime(pos), px, PROG_Y + 25);
+        String durStr = formatTime(dur);
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(durStr, px + PROG_W - fm.stringWidth(durStr), PROG_Y + 25);
     }
 
-    private void renderControls(Graphics g, Graphics2D g2d) {
-        int spacing = 80;
-        int prevX = CENTER_X - spacing * 2;
-        int stopX = CENTER_X + spacing * 2;
-        int prevTrackX = CENTER_X - spacing;
-        int nextTrackX = CENTER_X + spacing;
+    private void renderControls(Graphics2D g) {
+        int cxv = cx();
+        int prevX = cxv - CTRL_SPACING;
+        int nextX = cxv + CTRL_SPACING;
+        int cy = CTRL_Y + CTRL_SIZE / 2;
 
         // Previous
-        drawControlButton(g, g2d, prevX, CTRL_Y, CTRL_BTN_SIZE, "<<", FONT_CONTROLS);
+        drawCtrlCircle(g, prevX, CTRL_Y, CTRL_SIZE, hover[BTN_PREV], false);
+        drawPrevIcon(g, prevX, cy, hover[BTN_PREV]);
 
-        // Play/Pause (larger, green when playing)
+        // Play/Pause
         boolean playing = AudioPlayer.isPlaying();
-        Color playColor = playing ? ACCENT_GREEN : PANEL_COLOR;
-        g.setColor(playColor);
-        g2d.fillOval(CENTER_X - PLAY_BTN_SIZE / 2, CTRL_Y - (PLAY_BTN_SIZE - CTRL_BTN_SIZE) / 2,
-                PLAY_BTN_SIZE, PLAY_BTN_SIZE);
-        g.setColor(playing ? Color.BLACK : TEXT_PRIMARY);
-        g.setFont(FONT_PLAY);
-        String playStr = playing ? "||" : ">";
-        int playW = g.getFontMetrics().stringWidth(playStr);
-        int playTextY = CTRL_Y - (PLAY_BTN_SIZE - CTRL_BTN_SIZE) / 2 + PLAY_BTN_SIZE / 2 + 10;
-        g.drawString(playStr, CENTER_X - playW / 2, playTextY);
+        int py = CTRL_Y - (PLAY_SIZE - CTRL_SIZE) / 2;
+        int playCy = py + PLAY_SIZE / 2;
+        if (playing) {
+            g.setColor(lerp(PLAY_BG_ACTIVE, PLAY_BG_ACTIVE_HOVER, hover[BTN_PLAY]));
+        } else {
+            g.setColor(lerp(CTRL_BG, CTRL_BG_HOVER, hover[BTN_PLAY]));
+        }
+        g.fillOval(cxv - PLAY_SIZE / 2, py, PLAY_SIZE, PLAY_SIZE);
+        if (!playing) {
+            g.setColor(lerp(PageRenderer.BORDER, PageRenderer.ACCENT, hover[BTN_PLAY] * 0.5f));
+            g.drawOval(cxv - PLAY_SIZE / 2, py, PLAY_SIZE, PLAY_SIZE);
+        }
+        Color iconCol = playing
+                ? PageRenderer.BG_DARK
+                : lerp(CTRL_ICON, PageRenderer.ACCENT, hover[BTN_PLAY]);
+        if (playing) {
+            drawPauseIcon(g, cxv, playCy, iconCol);
+        } else {
+            drawPlayIcon(g, cxv, playCy, iconCol);
+        }
 
         // Next
-        drawControlButton(g, g2d, nextTrackX, CTRL_Y, CTRL_BTN_SIZE, ">>", FONT_CONTROLS);
-
-        // Stop
-        drawControlButton(g, g2d, stopX, CTRL_Y, CTRL_BTN_SIZE, "\u25A0", FONT_CONTROLS);
+        drawCtrlCircle(g, nextX, CTRL_Y, CTRL_SIZE, hover[BTN_NEXT], false);
+        drawNextIcon(g, nextX, cy, hover[BTN_NEXT]);
     }
 
-    private void drawControlButton(Graphics g, Graphics2D g2d, int cx, int cy, int size,
-                                   String label, Font font) {
-        g.setColor(PANEL_COLOR);
-        g2d.fillOval(cx - size / 2, cy, size, size);
-        g.setColor(CONTROL_COLOR);
-        g.setFont(font);
-        int labelW = g.getFontMetrics().stringWidth(label);
-        g.drawString(label, cx - labelW / 2, cy + size / 2 + 8);
+    private void drawCtrlCircle(Graphics2D g, int cx, int cy, int size, float h, boolean active) {
+        g.setColor(lerp(CTRL_BG, CTRL_BG_HOVER, h));
+        g.fillOval(cx - size / 2, cy, size, size);
+        g.setColor(lerp(PageRenderer.BORDER, PageRenderer.ACCENT, h * 0.4f));
+        g.drawOval(cx - size / 2, cy, size, size);
     }
 
-    private void renderVolumeBar(Graphics g, Graphics2D g2d) {
+    private void drawPlayIcon(Graphics2D g, int cx, int cy, Color c) {
+        g.setColor(c);
+        Polygon tri = new Polygon(
+                new int[]{cx - 7, cx - 7, cx + 10},
+                new int[]{cy - 12, cy + 12, cy}, 3);
+        g.fillPolygon(tri);
+    }
+
+    private void drawPauseIcon(Graphics2D g, int cx, int cy, Color c) {
+        g.setColor(c);
+        g.fillRoundRect(cx - 9, cy - 10, 6, 20, 2, 2);
+        g.fillRoundRect(cx + 3, cy - 10, 6, 20, 2, 2);
+    }
+
+    private void drawPrevIcon(Graphics2D g, int cx, int cy, float h) {
+        g.setColor(lerp(CTRL_ICON, CTRL_ICON_HOVER, h));
+        // Bar
+        g.fillRect(cx - 9, cy - 7, 3, 14);
+        // Triangle
+        Polygon tri = new Polygon(
+                new int[]{cx + 8, cx - 4, cx + 8},
+                new int[]{cy - 7, cy, cy + 7}, 3);
+        g.fillPolygon(tri);
+    }
+
+    private void drawNextIcon(Graphics2D g, int cx, int cy, float h) {
+        g.setColor(lerp(CTRL_ICON, CTRL_ICON_HOVER, h));
+        // Triangle
+        Polygon tri = new Polygon(
+                new int[]{cx - 8, cx + 4, cx - 8},
+                new int[]{cy - 7, cy, cy + 7}, 3);
+        g.fillPolygon(tri);
+        // Bar
+        g.fillRect(cx + 6, cy - 7, 3, 14);
+    }
+
+    private void renderVolumeBar(Graphics2D g) {
         float vol = AudioPlayer.getVolume();
+        int vx = volX();
 
-        // Label
-        g.setFont(FONT_VOLUME_LABEL);
-        g.setColor(TEXT_SECONDARY);
-        g.drawString("\u266A", VOL_X - 25, VOL_Y + 5);
-        g.drawString("\u266B", VOL_X + VOL_W + 12, VOL_Y + 5);
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        g.drawString("\u266A", vx - 22, VOL_Y + 5);
+        g.drawString("\u266B", vx + VOL_W + 10, VOL_Y + 5);
 
-        // Volume percentage
-        String volPct = Math.round(vol * 100) + "%";
-        int pctW = g.getFontMetrics().stringWidth(volPct);
-        g.drawString(volPct, CENTER_X - pctW / 2, VOL_Y + 30);
+        String pct = Math.round(vol * 100) + "%";
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(pct, cx() - fm.stringWidth(pct) / 2, VOL_Y + 28);
 
         // Bar background
-        g.setColor(BAR_BG);
-        g2d.fillRoundRect(VOL_X, VOL_Y, VOL_W, VOL_H, 3, 3);
+        g.setColor(lerp(PageRenderer.BORDER, new Color(55, 70, 90), volBarHover));
+        g.fillRoundRect(vx, VOL_Y, VOL_W, VOL_H, 3, 3);
 
-        // Filled portion
+        // Filled
         int filledW = (int) (VOL_W * vol);
         if (filledW > 0) {
-            g.setColor(ACCENT_GREEN);
-            g2d.fillRoundRect(VOL_X, VOL_Y, filledW, VOL_H, 3, 3);
+            g.setColor(PageRenderer.ACCENT);
+            g.fillRoundRect(vx, VOL_Y, filledW, VOL_H, 3, 3);
         }
 
         // Knob
-        int knobX = VOL_X + filledW - VOL_KNOB / 2;
-        g.setColor(TEXT_PRIMARY);
-        g2d.fillOval(knobX, VOL_Y - (VOL_KNOB - VOL_H) / 2, VOL_KNOB, VOL_KNOB);
+        int knobSize = VOL_KNOB + (int) (3 * volBarHover);
+        g.setColor(lerp(PageRenderer.TEXT, PageRenderer.ACCENT, volBarHover));
+        g.fillOval(vx + filledW - knobSize / 2, VOL_Y + VOL_H / 2 - knobSize / 2, knobSize, knobSize);
     }
+
+    // ==================== Input ====================
 
     public void mousePressed(MouseEvent e) {
         if (Game.gameState != Game.STATE.MusicPlayer) return;
@@ -256,70 +300,92 @@ public class MusicPlayer extends MouseAdapter {
         int mx = Game.toGameX(e.getX());
         int my = Game.toGameY(e.getY());
 
-        // Back button
-        if (mx >= BACK_X && mx <= BACK_X + BACK_W && my >= BACK_Y && my <= BACK_Y + BACK_H) {
+        // Back
+        if (mx >= PageRenderer.backX() && mx <= PageRenderer.backX() + PageRenderer.BACK_W
+                && my >= PageRenderer.BACK_Y && my <= PageRenderer.BACK_Y + PageRenderer.BACK_H) {
             Game.gameState = Game.STATE.Menu;
             return;
         }
 
-        // Progress bar click (seek)
-        if (mx >= PROG_X && mx <= PROG_X + PROG_W && my >= PROG_Y - 10 && my <= PROG_Y + PROG_H + 10) {
-            if (AudioPlayer.getTrackCount() > 0 && !AudioPlayer.isStopped()) {
-                float ratio = (float) (mx - PROG_X) / PROG_W;
-                float seekTime = ratio * AudioPlayer.getCurrentTrack().duration;
-                AudioPlayer.seekTo(seekTime);
-            }
+        if (hitBar(mx, my, progX(), PROG_Y, PROG_W)) {
+            dragging = DragTarget.PROGRESS;
+            applyProgress(mx);
             return;
         }
 
-        // Volume bar click
-        if (mx >= VOL_X && mx <= VOL_X + VOL_W && my >= VOL_Y - 10 && my <= VOL_Y + VOL_H + 10) {
-            float ratio = (float) (mx - VOL_X) / VOL_W;
-            AudioPlayer.setVolume(ratio);
+        if (hitBar(mx, my, volX(), VOL_Y, VOL_W)) {
+            dragging = DragTarget.VOLUME;
+            applyVolume(mx);
             return;
         }
 
-        // Control buttons
-        int spacing = 80;
-        int prevX = CENTER_X - spacing * 2;
-        int nextX = CENTER_X + spacing;
-        int stopX = CENTER_X + spacing * 2;
-
-        // Play/Pause
-        if (isInCircle(mx, my, CENTER_X, CTRL_Y + PLAY_BTN_SIZE / 2 - (PLAY_BTN_SIZE - CTRL_BTN_SIZE) / 2, PLAY_BTN_SIZE / 2)) {
-            AudioPlayer.togglePlayPause();
-            return;
+        int cxv = cx();
+        int playCy = CTRL_Y + CTRL_SIZE / 2 - (PLAY_SIZE - CTRL_SIZE) / 2 + PLAY_SIZE / 2;
+        if (inCircle(mx, my, cxv, playCy, PLAY_SIZE / 2)) {
+            AudioPlayer.togglePlayPause(); return;
         }
-
-        // Previous
-        if (isInCircle(mx, my, prevX, CTRL_Y + CTRL_BTN_SIZE / 2, CTRL_BTN_SIZE / 2)) {
-            AudioPlayer.previousTrack();
-            return;
+        if (inCircle(mx, my, cxv - CTRL_SPACING, CTRL_Y + CTRL_SIZE / 2, CTRL_SIZE / 2)) {
+            AudioPlayer.previousTrack(); return;
         }
-
-        // Next
-        if (isInCircle(mx, my, nextX, CTRL_Y + CTRL_BTN_SIZE / 2, CTRL_BTN_SIZE / 2)) {
-            AudioPlayer.nextTrack();
-            return;
-        }
-
-        // Stop
-        if (isInCircle(mx, my, stopX, CTRL_Y + CTRL_BTN_SIZE / 2, CTRL_BTN_SIZE / 2)) {
-            AudioPlayer.stop();
-            return;
+        if (inCircle(mx, my, cxv + CTRL_SPACING, CTRL_Y + CTRL_SIZE / 2, CTRL_SIZE / 2)) {
+            AudioPlayer.nextTrack(); return;
         }
     }
 
-    private boolean isInCircle(int mx, int my, int cx, int cy, int radius) {
-        int dx = mx - cx;
-        int dy = my - cy;
-        return dx * dx + dy * dy <= radius * radius;
+    public void mouseDragged(MouseEvent e) {
+        if (Game.gameState != Game.STATE.MusicPlayer) return;
+        mouseX = Game.toGameX(e.getX());
+        mouseY = Game.toGameY(e.getY());
+        if (dragging == DragTarget.PROGRESS) applyProgress(mouseX);
+        else if (dragging == DragTarget.VOLUME) applyVolume(mouseX);
+    }
+
+    public void mouseMoved(MouseEvent e) {
+        mouseX = Game.toGameX(e.getX());
+        mouseY = Game.toGameY(e.getY());
+    }
+
+    public void mouseReleased(MouseEvent e) {
+        dragging = DragTarget.NONE;
+    }
+
+    // ==================== Helpers ====================
+
+    private void applyProgress(int mx) {
+        if (AudioPlayer.getTrackCount() > 0 && !AudioPlayer.isStopped()) {
+            AudioPlayer.seekTo(clampRatio(mx, progX(), PROG_W) * AudioPlayer.getCurrentTrack().duration);
+        }
+    }
+
+    private void applyVolume(int mx) {
+        float vol = clampRatio(mx, volX(), VOL_W);
+        Settings.setMusicVolume(vol);
+    }
+
+    private float clampRatio(int mx, int barX, int barW) {
+        return Math.max(0f, Math.min(1f, (float) (mx - barX) / barW));
+    }
+
+    private boolean hitBar(int mx, int my, int barX, int barY, int barW) {
+        return mx >= barX - DRAG_MARGIN && mx <= barX + barW + DRAG_MARGIN
+                && my >= barY - DRAG_MARGIN && my <= barY + PROG_H + DRAG_MARGIN;
+    }
+
+    private boolean inCircle(int mx, int my, int cx, int cy, int r) {
+        return (mx - cx) * (mx - cx) + (my - cy) * (my - cy) <= r * r;
+    }
+
+    private Color lerp(Color a, Color b, float t) {
+        t = Math.max(0f, Math.min(1f, t));
+        return new Color(
+                (int) (a.getRed() + (b.getRed() - a.getRed()) * t),
+                (int) (a.getGreen() + (b.getGreen() - a.getGreen()) * t),
+                (int) (a.getBlue() + (b.getBlue() - a.getBlue()) * t),
+                (int) (a.getAlpha() + (b.getAlpha() - a.getAlpha()) * t));
     }
 
     private String formatTime(float seconds) {
-        int totalSec = (int) seconds;
-        int min = totalSec / 60;
-        int sec = totalSec % 60;
-        return String.format("%d:%02d", min, sec);
+        int total = (int) seconds;
+        return String.format("%d:%02d", total / 60, total % 60);
     }
 }

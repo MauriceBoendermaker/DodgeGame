@@ -1,30 +1,66 @@
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 import org.newdawn.slick.Music;
+import org.newdawn.slick.MusicListener;
 import org.newdawn.slick.Sound;
 
-public class AudioPlayer {
+public class AudioPlayer implements MusicListener {
 
     private static Map<String, Sound> sounds = new HashMap<>();
     private static List<Track> tracks = new ArrayList<>();
     private static int currentTrackIndex = 0;
-    private static float volume = 0.15f;
+    private static float volume = 0.10f;
     private static boolean paused = false;
     private static boolean stopped = true;
+    private static boolean trackEnded = false;
+    private static long trackStartTime = 0;
+    private static AudioPlayer instance = new AudioPlayer();
 
     public static void load() {
         try {
-            addTrack("game_music", "Game Music", "game_music.ogg", 303f);
+            addTrack("energy_drink", "Virtual Riot - Energy Drink", "Virtual Riot - Energy Drink.ogg", 303f, 150f);
+            addTrack("press_start", "MDK - Press Start", "MDK - Press Start.ogg", 263f, 160f);
+            addTrack("hellcat", "Desmeon - Hellcat", "Desmeon - Hellcat.ogg", 226f, 150f);
+
+            addTrack("fingerbang", "MDK - Fingerbang", "MDK - Fingerbang.ogg", 228f, 150f);
+            addTrack("disconnected", "Pegboard Nerds - Disconnected", "Pegboard Nerds - Disconnected.ogg", 242f, 128f);
+            addTrack("levels", "Avicii - Levels (Skrillex Remix)", "Avicii - Levels (Skrillex remix).ogg", 210f, 128f);
+
+            // Register listener on all tracks
+            for (Track t : tracks) {
+                t.music.addListener(instance);
+            }
+
+            buildPlaylist();
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private static void addTrack(String key, String displayName, String path, float duration) throws Exception {
-        tracks.add(new Track(key, displayName, new Music(path), duration));
+    // MusicListener callback — fired by Slick2D when a track ends
+    public void musicEnded(Music music) {
+        trackEnded = true;
+    }
+
+    public void musicSwapped(Music oldMusic, Music newMusic) {
+    }
+
+    private static void addTrack(String key, String displayName, String path, float duration, float bpm) throws Exception {
+        tracks.add(new Track(key, displayName, new Music(path), duration, bpm));
+    }
+
+    private static void buildPlaylist() {
+        Random r = new Random();
+        Track opener = tracks.get(r.nextInt(Math.min(4, tracks.size())));
+        Collections.shuffle(tracks, r);
+        tracks.remove(opener);
+        tracks.add(0, opener);
+        currentTrackIndex = 0;
     }
 
     public static void play() {
@@ -36,8 +72,10 @@ public class AudioPlayer {
         } else {
             track.music.play();
             track.music.setVolume(volume);
+            trackStartTime = System.currentTimeMillis();
         }
         stopped = false;
+        trackEnded = false;
     }
 
     public static void pause() {
@@ -54,6 +92,36 @@ public class AudioPlayer {
         getCurrentTrack().music.stop();
         paused = false;
         stopped = true;
+        trackEnded = false;
+    }
+
+    public static void checkAutoAdvance() {
+        if (tracks.isEmpty() || stopped || paused) return;
+
+        boolean ended = trackEnded;
+
+        // Timer-based fallback — if elapsed time exceeds track duration
+        if (!ended && trackStartTime > 0) {
+            long elapsed = System.currentTimeMillis() - trackStartTime;
+            float durationMs = getCurrentTrack().duration * 1000f;
+            if (elapsed >= durationMs - 500) {
+                ended = true;
+            }
+        }
+
+        if (ended) {
+            trackEnded = false;
+            try { getCurrentTrack().music.stop(); } catch (Exception e) { /* ignore */ }
+            currentTrackIndex = (currentTrackIndex + 1) % tracks.size();
+            try {
+                Track next = getCurrentTrack();
+                next.music.play();
+                next.music.setVolume(volume);
+                trackStartTime = System.currentTimeMillis();
+            } catch (Exception e) { e.printStackTrace(); }
+            stopped = false;
+            paused = false;
+        }
     }
 
     public static void togglePlayPause() {
@@ -93,8 +161,8 @@ public class AudioPlayer {
 
     public static void seekTo(float seconds) {
         if (tracks.isEmpty() || stopped) return;
-        Track track = getCurrentTrack();
-        track.music.setPosition(seconds);
+        getCurrentTrack().music.setPosition(seconds);
+        trackStartTime = System.currentTimeMillis() - (long)(seconds * 1000);
     }
 
     public static float getPosition() {
@@ -131,17 +199,28 @@ public class AudioPlayer {
         return sounds.get(key);
     }
 
+    public static float getBeatPulse() {
+        if (tracks.isEmpty() || stopped || !isPlaying()) return 0;
+        Track track = getCurrentTrack();
+        float pos = getPosition();
+        float beatsPerSec = track.bpm / 60f;
+        float beatPhase = (pos * beatsPerSec) % 1f;
+        return (float) Math.pow(1.0 - beatPhase, 3.5);
+    }
+
     public static class Track {
         public final String key;
         public final String displayName;
         public final Music music;
         public final float duration;
+        public final float bpm;
 
-        public Track(String key, String displayName, Music music, float duration) {
+        public Track(String key, String displayName, Music music, float duration, float bpm) {
             this.key = key;
             this.displayName = displayName;
             this.music = music;
             this.duration = duration;
+            this.bpm = bpm;
         }
     }
 }

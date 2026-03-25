@@ -1,36 +1,48 @@
 import java.awt.Color;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Rectangle;
-import java.util.Random;
 
 public class EnemyBossBullet extends GameObject {
 
-    private Handler handler;
+    private static final int SIZE = 16;
+    private static final Color FILL = new Color(235, 87, 87);
+    private static final Color GLOW = new Color(235, 87, 87, 40);
+    private static final Color TRAIL_COLOR = new Color(235, 87, 87);
 
-    public EnemyBossBullet(int x, int y, ID id, Handler handler) {
+    private Handler handler;
+    private int trailTick = 0;
+
+    public EnemyBossBullet(int x, int y, ID id, Handler handler, float vx, float vy) {
         super(x, y, id);
         this.handler = handler;
-
-        Random r = new Random();
-        velX = r.nextInt(11) - 5;
-        velY = 5;
+        velX = vx;
+        velY = vy;
     }
 
     public Rectangle getBounds() {
-        return new Rectangle((int) x, (int) y, 32, 32);
+        return new Rectangle((int) x, (int) y, SIZE, SIZE);
     }
 
     public void tick() {
         x += velX;
         y += velY;
-
-        if (y >= Game.HEIGHT) handler.removeObject(this);
-
-        handler.addObject(new Trail(x, y, ID.Trail, Color.red, 32, 32, 0.02f, handler));
+        // Remove if off-screen
+        if (y >= Game.HEIGHT || y < -50 || x < -50 || x > Game.WIDTH + 50) {
+            handler.removeObject(this);
+            return;
+        }
+        if (++trailTick % 3 == 0)
+            handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.03f, handler, Trail.SHAPE_CIRCLE));
     }
 
     public void render(Graphics g) {
-        g.setColor(Color.red);
-        g.fillRect((int) x, (int) y, 32, 32);
+        Graphics2D g2 = (Graphics2D) g;
+        int ix = (int) x, iy = (int) y;
+
+        g2.setColor(GLOW);
+        g2.fillOval(ix - 3, iy - 3, SIZE + 6, SIZE + 6);
+        g2.setColor(FILL);
+        g2.fillOval(ix, iy, SIZE, SIZE);
     }
 }
