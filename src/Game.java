@@ -62,6 +62,8 @@ public class Game extends Canvas implements Runnable {
 
     // Geometric background layers
     private float geoPhase = 0;
+    private java.awt.image.BufferedImage geoCache;
+    private int geoCacheFrame = 0;
 
     // Neon walls — impact flares [x, y, intensity, side(0=top,1=bottom,2=left,3=right)]
     private static float[][] wallFlares = new float[32][4];
@@ -491,72 +493,59 @@ public class Game extends Canvas implements Runnable {
     }
 
     private void renderGeoLayers(Graphics2D g) {
-        Graphics2D g2 = (Graphics2D) g;
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        // Redraw cache every 4 frames (15fps is plenty for slow-moving bg elements)
+        if (geoCache == null || geoCache.getWidth() != WIDTH || ++geoCacheFrame >= 4) {
+            geoCacheFrame = 0;
+            if (geoCache == null || geoCache.getWidth() != WIDTH) {
+                geoCache = new java.awt.image.BufferedImage(WIDTH, HEIGHT, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            }
+            Graphics2D g2 = geoCache.createGraphics();
+            g2.setComposite(java.awt.AlphaComposite.Clear);
+            g2.fillRect(0, 0, WIDTH, HEIGHT);
+            g2.setComposite(java.awt.AlphaComposite.SrcOver);
 
-        int cx = WIDTH / 2;
-        int cy = HEIGHT / 2;
-        float t = geoPhase;
+            int cx = WIDTH / 2;
+            int cy = HEIGHT / 2;
+            float t = geoPhase;
 
-        // Layer 1 — Large slow-rotating triangles (deepest, faintest)
-        java.awt.Stroke oldStroke = g2.getStroke();
-        g2.setStroke(new java.awt.BasicStroke(1.5f));
-        g2.setColor(new Color(78, 205, 196, 10));
+            // Layer 1 — Large slow-rotating triangles
+            g2.setStroke(new java.awt.BasicStroke(1.5f));
+            g2.setColor(new Color(78, 205, 196, 10));
+            for (int i = 0; i < 3; i++) {
+                float angle = t * 0.4f + i * (float) (Math.PI * 2 / 3);
+                float ox = (float) Math.cos(t * 0.15f + i) * 80;
+                float oy = (float) Math.sin(t * 0.12f + i * 1.5f) * 60;
+                drawRotatedTriangle(g2, cx + (int) ox, cy + (int) oy, 200 + i * 40, angle);
+            }
 
-        for (int i = 0; i < 3; i++) {
-            float angle = t * 0.4f + i * (float) (Math.PI * 2 / 3);
-            float ox = (float) Math.cos(t * 0.15f + i) * 80; // slow drift
-            float oy = (float) Math.sin(t * 0.12f + i * 1.5f) * 60;
-            int triCx = cx + (int) ox;
-            int triCy = cy + (int) oy;
-            int size = 200 + i * 40;
-            drawRotatedTriangle(g2, triCx, triCy, size, angle);
+            // Layer 2 — Hexagon ring
+            g2.setColor(new Color(78, 205, 196, 8));
+            g2.setStroke(new java.awt.BasicStroke(1f));
+            float hexAngle = t * -0.25f;
+            for (int i = 0; i < 6; i++) {
+                float a = hexAngle + i * (float) (Math.PI / 3);
+                drawHexagon(g2, cx + (int) (Math.cos(a) * 280), cy + (int) (Math.sin(a) * 280),
+                        50 + (int) (Math.sin(t + i) * 10), a * 0.5f);
+            }
+            g2.setColor(new Color(78, 205, 196, 12));
+            drawHexagon(g2, cx, cy, 160, t * 0.15f);
+
+            // Layer 3 — Diagonal grid lines
+            g2.setStroke(new java.awt.BasicStroke(1f));
+            g2.setColor(new Color(40, 55, 75, 12));
+            float go1 = (t * 30) % 80;
+            for (float i = -HEIGHT; i < WIDTH + HEIGHT; i += 80) {
+                g2.drawLine((int) (i + go1), 0, (int) (i + go1 - HEIGHT * 0.6f), HEIGHT);
+            }
+            g2.setColor(new Color(40, 55, 75, 8));
+            float go2 = (t * 18) % 80;
+            for (float i = -HEIGHT; i < WIDTH + HEIGHT; i += 80) {
+                g2.drawLine((int) (i + go2), 0, (int) (i + go2 + HEIGHT * 0.6f), HEIGHT);
+            }
+
+            g2.dispose();
         }
-
-        // Layer 2 — Rotating hexagon ring (middle layer)
-        g2.setColor(new Color(78, 205, 196, 8));
-        g2.setStroke(new java.awt.BasicStroke(1f));
-
-        float hexAngle = t * -0.25f;
-        int hexRadius = 280;
-        int hexCount = 6;
-        for (int i = 0; i < hexCount; i++) {
-            float a = hexAngle + i * (float) (Math.PI * 2 / hexCount);
-            int hx = cx + (int) (Math.cos(a) * hexRadius);
-            int hy = cy + (int) (Math.sin(a) * hexRadius);
-            drawHexagon(g2, hx, hy, 50 + (int) (Math.sin(t + i) * 10), a * 0.5f);
-        }
-
-        // Central hexagon — slightly brighter, slower rotation
-        g2.setColor(new Color(78, 205, 196, 12));
-        g2.setStroke(new java.awt.BasicStroke(1.2f));
-        drawHexagon(g2, cx, cy, 160, t * 0.15f);
-
-        // Layer 3 — Drifting diagonal grid lines (closest, subtle)
-        g2.setColor(new Color(40, 55, 75, 12));
-        g2.setStroke(new java.awt.BasicStroke(1f));
-
-        float gridOffset = (t * 30) % 80;
-        // Diagonal set 1 (top-left to bottom-right)
-        for (float i = -HEIGHT; i < WIDTH + HEIGHT; i += 80) {
-            int x1 = (int) (i + gridOffset);
-            int y1 = 0;
-            int x2 = (int) (i + gridOffset - HEIGHT * 0.6f);
-            int y2 = HEIGHT;
-            g2.drawLine(x1, y1, x2, y2);
-        }
-        // Diagonal set 2 (top-right to bottom-left, slower drift)
-        float gridOffset2 = (t * 18) % 80;
-        g2.setColor(new Color(40, 55, 75, 8));
-        for (float i = -HEIGHT; i < WIDTH + HEIGHT; i += 80) {
-            int x1 = (int) (i + gridOffset2);
-            int y1 = 0;
-            int x2 = (int) (i + gridOffset2 + HEIGHT * 0.6f);
-            int y2 = HEIGHT;
-            g2.drawLine(x1, y1, x2, y2);
-        }
-
-        g2.setStroke(oldStroke);
+        g.drawImage(geoCache, 0, 0, null);
     }
 
     private void drawRotatedTriangle(Graphics2D g, int cx, int cy, int size, float angle) {
@@ -582,69 +571,44 @@ public class Game extends Canvas implements Runnable {
     }
 
     private void renderNeonWalls(Graphics2D g) {
-        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
         float basePulse = (float) (Math.sin(wallPulsePhase) * 0.3 + 0.7);
         int baseAlpha = (int) (basePulse * 40);
-        int lineW = 2;
-        int glowW = 12;
-        Color baseCol = new Color(78, 205, 196, baseAlpha);
-        Color glowCol = new Color(78, 205, 196, baseAlpha / 3);
-
-        // Base glow (gradient from edge inward)
-        // Top
-        g.setPaint(new java.awt.GradientPaint(0, 0, glowCol, 0, glowW, new Color(78, 205, 196, 0)));
-        g.fillRect(0, 0, WIDTH, glowW);
-        // Bottom
-        g.setPaint(new java.awt.GradientPaint(0, HEIGHT - glowW, new Color(78, 205, 196, 0), 0, HEIGHT, glowCol));
-        g.fillRect(0, HEIGHT - glowW, WIDTH, glowW);
-        // Left
-        g.setPaint(new java.awt.GradientPaint(0, 0, glowCol, glowW, 0, new Color(78, 205, 196, 0)));
-        g.fillRect(0, 0, glowW, HEIGHT);
-        // Right
-        g.setPaint(new java.awt.GradientPaint(WIDTH - glowW, 0, new Color(78, 205, 196, 0), WIDTH, 0, glowCol));
-        g.fillRect(WIDTH - glowW, 0, glowW, HEIGHT);
 
         // Thin border lines
-        g.setColor(baseCol);
-        g.fillRect(0, 0, WIDTH, lineW);           // top
-        g.fillRect(0, HEIGHT - lineW, WIDTH, lineW); // bottom
-        g.fillRect(0, 0, lineW, HEIGHT);           // left
-        g.fillRect(WIDTH - lineW, 0, lineW, HEIGHT); // right
+        g.setColor(new Color(78, 205, 196, baseAlpha));
+        g.fillRect(0, 0, WIDTH, 2);
+        g.fillRect(0, HEIGHT - 2, WIDTH, 2);
+        g.fillRect(0, 0, 2, HEIGHT);
+        g.fillRect(WIDTH - 2, 0, 2, HEIGHT);
 
-        // Impact flares
+        // Subtle edge glow (single layer, no GradientPaint)
+        g.setColor(new Color(78, 205, 196, baseAlpha / 4));
+        g.fillRect(0, 0, WIDTH, 8);
+        g.fillRect(0, HEIGHT - 8, WIDTH, 8);
+        g.fillRect(0, 0, 8, HEIGHT);
+        g.fillRect(WIDTH - 8, 0, 8, HEIGHT);
+
+        // Impact flares — simple bright spots
         for (int i = 0; i < wallFlareCount; i++) {
             float fx = wallFlares[i][0];
             float fy = wallFlares[i][1];
             float intensity = wallFlares[i][2];
             int side = (int) wallFlares[i][3];
+            int a = Math.min(255, (int) (intensity * 160));
+            int aw = Math.min(255, (int) (intensity * 50));
 
-            int flareAlpha = (int) (intensity * 180);
-            int flareGlowAlpha = (int) (intensity * 60);
-            int spread = 60;
-            int depth = 25;
+            g.setColor(new Color(78, 205, 196, a));
+            if (side == 0)      g.fillRect((int) fx - 40, 0, 80, 4);
+            else if (side == 1) g.fillRect((int) fx - 40, HEIGHT - 4, 80, 4);
+            else if (side == 2) g.fillRect(0, (int) fy - 40, 4, 80);
+            else                g.fillRect(WIDTH - 4, (int) fy - 40, 4, 80);
 
-            if (side == 0) { // top
-                g.setPaint(new java.awt.GradientPaint(0, 0, new Color(78, 205, 196, flareAlpha), 0, depth, new Color(78, 205, 196, 0)));
-                g.fillRect((int) fx - spread, 0, spread * 2, depth);
-                g.setColor(new Color(255, 255, 255, flareGlowAlpha));
-                g.fillRect((int) fx - spread / 3, 0, spread * 2 / 3, 3);
-            } else if (side == 1) { // bottom
-                g.setPaint(new java.awt.GradientPaint(0, HEIGHT - depth, new Color(78, 205, 196, 0), 0, HEIGHT, new Color(78, 205, 196, flareAlpha)));
-                g.fillRect((int) fx - spread, HEIGHT - depth, spread * 2, depth);
-                g.setColor(new Color(255, 255, 255, flareGlowAlpha));
-                g.fillRect((int) fx - spread / 3, HEIGHT - 3, spread * 2 / 3, 3);
-            } else if (side == 2) { // left
-                g.setPaint(new java.awt.GradientPaint(0, 0, new Color(78, 205, 196, flareAlpha), depth, 0, new Color(78, 205, 196, 0)));
-                g.fillRect(0, (int) fy - spread, depth, spread * 2);
-                g.setColor(new Color(255, 255, 255, flareGlowAlpha));
-                g.fillRect(0, (int) fy - spread / 3, 3, spread * 2 / 3);
-            } else { // right
-                g.setPaint(new java.awt.GradientPaint(WIDTH - depth, 0, new Color(78, 205, 196, 0), WIDTH, 0, new Color(78, 205, 196, flareAlpha)));
-                g.fillRect(WIDTH - depth, (int) fy - spread, depth, spread * 2);
-                g.setColor(new Color(255, 255, 255, flareGlowAlpha));
-                g.fillRect(WIDTH - 3, (int) fy - spread / 3, 3, spread * 2 / 3);
-            }
+            // Wider faint glow
+            g.setColor(new Color(78, 205, 196, aw));
+            if (side == 0)      g.fillRect((int) fx - 60, 0, 120, 10);
+            else if (side == 1) g.fillRect((int) fx - 60, HEIGHT - 10, 120, 10);
+            else if (side == 2) g.fillRect(0, (int) fy - 60, 10, 120);
+            else                g.fillRect(WIDTH - 10, (int) fy - 60, 10, 120);
         }
     }
 

@@ -11,6 +11,7 @@ public class EnemyBossBullet extends GameObject {
     private static final Color TRAIL_COLOR = new Color(235, 87, 87);
 
     private Handler handler;
+    private int trailTick = 0;
 
     public EnemyBossBullet(int x, int y, ID id, Handler handler, float vx, float vy) {
         super(x, y, id);
@@ -31,7 +32,8 @@ public class EnemyBossBullet extends GameObject {
             handler.removeObject(this);
             return;
         }
-        handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.03f, handler));
+        if (++trailTick % 3 == 0)
+            handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.03f, handler));
     }
 
     public void render(Graphics g) {

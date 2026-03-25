@@ -9,6 +9,7 @@ public class MenuParticle extends GameObject {
     private static final int SIZE = 16;
     private Handler handler;
     private Color col;
+    private int trailTick = 0;
 
     public MenuParticle(int x, int y, ID id, Handler handler) {
         super(x, y, id);
@@ -32,7 +33,8 @@ public class MenuParticle extends GameObject {
         y += velY;
         if (y <= 0 || y >= Game.HEIGHT - SIZE * 2) velY *= -1;
         if (x <= 0 || x >= Game.WIDTH - SIZE) velX *= -1;
-        handler.addObject(new Trail(x, y, ID.Trail, col, SIZE, SIZE, 0.04f, handler));
+        if (++trailTick % 3 == 0)
+            handler.addObject(new Trail(x, y, ID.Trail, col, SIZE, SIZE, 0.04f, handler));
     }
 
     public void render(Graphics g) {

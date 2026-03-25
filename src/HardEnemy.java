@@ -14,6 +14,7 @@ public class HardEnemy extends GameObject {
 
     private Handler handler;
     private Random r = new Random();
+    private int trailTick = 0;
 
     public HardEnemy(int x, int y, ID id, Handler handler) {
         super(x, y, id);
@@ -37,7 +38,8 @@ public class HardEnemy extends GameObject {
             Game.wallHit(x <= 0 ? 0 : Game.WIDTH, y + SIZE / 2, x <= 0 ? 2 : 3);
             velX = (x <= 0) ? (r.nextInt(7) + 1) : -(r.nextInt(7) + 1);
         }
-        handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.02f, handler));
+        if (++trailTick % 3 == 0)
+            handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.02f, handler));
     }
 
     public void render(Graphics g) {

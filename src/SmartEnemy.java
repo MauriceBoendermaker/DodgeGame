@@ -12,6 +12,7 @@ public class SmartEnemy extends GameObject {
 
     private Handler handler;
     private GameObject player;
+    private int trailTick = 0;
 
     public SmartEnemy(int x, int y, ID id, Handler handler) {
         super(x, y, id);
@@ -36,7 +37,8 @@ public class SmartEnemy extends GameObject {
                 + (y - player.getY()) * (y - player.getY()));
         velX = ((-2 / distance) * diffX);
         velY = ((-2 / distance) * diffY);
-        handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.02f, handler));
+        if (++trailTick % 4 == 0)
+            handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.06f, handler));
     }
 
     public void render(Graphics g) {

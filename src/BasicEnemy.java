@@ -12,6 +12,7 @@ public class BasicEnemy extends GameObject {
     private static final Color TRAIL_COLOR = new Color(235, 87, 87);
 
     private Handler handler;
+    private int trailTick = 0;
 
     public BasicEnemy(int x, int y, ID id, Handler handler) {
         super(x, y, id);
@@ -35,7 +36,8 @@ public class BasicEnemy extends GameObject {
             Game.wallHit(x <= 0 ? 0 : Game.WIDTH, y + SIZE / 2, x <= 0 ? 2 : 3);
             velX *= -1;
         }
-        handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.02f, handler));
+        if (++trailTick % 3 == 0)
+            handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.02f, handler));
     }
 
     public void render(Graphics g) {

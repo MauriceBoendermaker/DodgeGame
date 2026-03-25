@@ -17,6 +17,7 @@ public class Player extends GameObject {
     private static final float DECEL = 0.30f;
 
     private Handler handler;
+    private int trailTick = 0;
 
     // Input state — set by KeyInput
     public boolean moveUp, moveDown, moveLeft, moveRight;
@@ -62,7 +63,9 @@ public class Player extends GameObject {
         x = Game.clamp(x, 0, Game.WIDTH - 37);
         y = Game.clamp(y, 0, Game.HEIGHT - 60);
 
-        handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.045f, handler));
+        if (++trailTick % 3 == 0) {
+            handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.045f, handler));
+        }
         collision();
     }
 
