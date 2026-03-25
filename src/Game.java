@@ -47,7 +47,7 @@ public class Game extends Canvas implements Runnable {
     private HUD hud;
     private Spawn spawner;
     private Menu menu;
-    private Shop shop;
+    public Shop shop;
     private MusicPlayer musicPlayer;
 
     private static final Font PAUSED_FONT = new Font("Arial", Font.BOLD, 125);

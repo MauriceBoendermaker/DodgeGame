@@ -268,6 +268,8 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         hud.bounds = 0;
         hud.resetStats();
         HUD.HEALTH = 100;
+        handler.spd = 6;
+        game.shop.reset();
         Game.gameState = Game.STATE.Game;
         handler.addObject(new Player(Game.WIDTH / 2 - 32, Game.HEIGHT / 2 - 32, ID.Player, handler));
         handler.addObject(firstEnemy);

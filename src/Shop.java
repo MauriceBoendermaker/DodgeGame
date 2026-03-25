@@ -15,6 +15,12 @@ public class Shop extends MouseAdapter {
     private int speedUpgradeCost = 750;
     private int refillHealthCost = 750;
 
+    public void reset() {
+        healthUpgradeCost = 1000;
+        speedUpgradeCost = 750;
+        refillHealthCost = 750;
+    }
+
     // Card layout
     private static final int CARD_W = 320;
     private static final int CARD_H = 200;
