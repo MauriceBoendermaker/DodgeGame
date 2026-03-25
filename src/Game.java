@@ -48,6 +48,31 @@ public class Game extends Canvas implements Runnable {
     public int lastSpeedUps = 0;
     public int lastRefills = 0;
     public String lastDifficulty = "";
+    public int lastXpEarned = 0;
+    public int lastCoinsEarned = 0;
+    public boolean lastLeveledUp = false;
+    public int lastProfileLevel = 1;
+
+    // Run-tracking for Profile (accumulate during run, submit on death)
+    public int runBossesDefeated = 0;
+    public float runDamageTaken = 0;
+    public int runLongestStreak = 0;
+    public int runEncBasic = 0, runEncFast = 0, runEncSmart = 0, runEncHard = 0, runEncBoss = 0;
+
+    public static void addBossDefeated() {
+        if (instance != null) instance.runBossesDefeated++;
+    }
+    public static void addDamage(float dmg) {
+        if (instance != null) instance.runDamageTaken += dmg;
+    }
+    public void resetRunTracking() {
+        runBossesDefeated = 0;
+        runDamageTaken = 0;
+        runLongestStreak = 0;
+        runEncBasic = 0; runEncFast = 0; runEncSmart = 0; runEncHard = 0; runEncBoss = 0;
+        slowmoAccum = 0;
+    }
+    private static Game instance;
 
     private Random r;
     private static Handler handlerRef;
@@ -241,7 +266,11 @@ public class Game extends Canvas implements Runnable {
         Menu,
         MusicPlayer,
         Settings,
-        Info,
+        Statistics,
+        AchievementsPage,
+        Customize,
+        Loadout,
+        CoinShopPage,
         About,
         Update_Notes,
         Select,
@@ -263,6 +292,7 @@ public class Game extends Canvas implements Runnable {
     public static STATE gameState = STATE.Menu;
 
     public Game() {
+        instance = this;
         System.out.println("Loading game...");
 
         // Calculate display size — largest 16:9 that fits the screen
@@ -589,16 +619,47 @@ public class Game extends Canvas implements Runnable {
                 lastSpeedUps = hud.getSpeedUpgrades();
                 lastRefills = hud.getRefills();
                 lastDifficulty = diff == 0 ? "Normal" : diff == 1 ? "Hard" : "Insane";
-                lastIsHighScore = Stats.submitScore(diff, lastScore);
+                lastIsHighScore = Profile.submitScore(diff, lastScore);
 
                 lastEnemies = 0;
                 for (int i = 0; i < handler.getObjects().size(); i++) {
-                    ID id = handler.getObjects().get(i).getId();
+                    GameObject obj = handler.getObjects().get(i);
+                    ID id = obj.getId();
                     if (id == ID.BasicEnemy || id == ID.FastEnemy || id == ID.SmartEnemy
                             || id == ID.HardEnemy || id == ID.EnemyBoss) {
                         lastEnemies++;
                     }
+                    // Count enemy encounters for profile
+                    if (id == ID.BasicEnemy && !(obj instanceof EnemyBossBullet)) runEncBasic++;
+                    else if (id == ID.FastEnemy) runEncFast++;
+                    else if (id == ID.SmartEnemy) runEncSmart++;
+                    else if (id == ID.HardEnemy) runEncHard++;
+                    else if (id == ID.EnemyBoss) runEncBoss++;
                 }
+
+                // Track longest streak from player
+                for (int i = 0; i < handler.getObjects().size(); i++) {
+                    GameObject obj = handler.getObjects().get(i);
+                    if (obj instanceof Player) {
+                        int streak = ((Player) obj).getStreakTicks();
+                        if (streak > runLongestStreak) runLongestStreak = streak;
+                    }
+                }
+
+                // Submit to Profile
+                lastXpEarned = Profile.endRun(diff, lastScore, lastLevel,
+                        hud.getTicksSurvived(), lastHealthUps, lastSpeedUps, lastRefills,
+                        runLongestStreak, runBossesDefeated, runDamageTaken,
+                        runEncBasic, runEncFast, runEncSmart, runEncHard, runEncBoss);
+                lastLeveledUp = Profile.didLevelUp();
+                lastProfileLevel = Profile.getLevel();
+                lastCoinsEarned = Profile.getRunCoinsEarned();
+
+                // Check achievements
+                Achievements.checkAfterRun(lastScore, lastLevel, hud.getTicksSurvived(),
+                        lastUpgrades, lastHealthUps, lastSpeedUps,
+                        runBossesDefeated, runDamageTaken,
+                        runLongestStreak, diff, hud.getWaveCount());
 
                 // Find player position for death particles
                 for (int i = 0; i < handler.getObjects().size(); i++) {
@@ -667,7 +728,9 @@ public class Game extends Canvas implements Runnable {
             // shop handles its own input via mouse listener
         } else if (gameState == STATE.MusicPlayer) {
             musicPlayer.tick();
-        } else if (gameState == STATE.Settings) {
+        } else if (gameState == STATE.Settings || gameState == STATE.Statistics
+                || gameState == STATE.AchievementsPage || gameState == STATE.Customize
+                || gameState == STATE.Loadout || gameState == STATE.CoinShopPage) {
             menu.tick();
         } else {
             menu.tick();
@@ -908,7 +971,12 @@ public class Game extends Canvas implements Runnable {
             musicPlayer.render(g);
         } else if (gameState == STATE.Menu || gameState == STATE.End
                 || gameState == STATE.Select || gameState == STATE.Credits
-                || gameState == STATE.Settings) {
+                || gameState == STATE.Settings
+                || gameState == STATE.Statistics
+                || gameState == STATE.AchievementsPage
+                || gameState == STATE.Customize
+                || gameState == STATE.Loadout
+                || gameState == STATE.CoinShopPage) {
             menu.render(g);
         } else {
             menu.render(g);

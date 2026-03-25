@@ -24,10 +24,17 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
     private static final int MUSIC_Y = 668;
     private static final int RETRY_W = 300;
     private static final int RETRY_H = 50;
-    private static final int RETRY_Y = 472;
+    private static final int RETRY_Y = 530;
 
-    // Y positions
-    private static final int PLAY_Y = 300;
+    // Y positions — 5 main menu buttons
+    private static final int MENU_SP = 56; // tighter spacing for 5 buttons
+    private static final int PLAY_Y = 280;
+    private static final int CUSTOM_MENU_Y = PLAY_Y + MENU_SP;
+    private static final int STATS_MENU_Y = CUSTOM_MENU_Y + MENU_SP;
+    private static final int SETTINGS_MENU_Y = STATS_MENU_Y + MENU_SP;
+    private static final int HELP_MENU_Y = SETTINGS_MENU_Y + MENU_SP;
+
+    // Legacy aliases — used by Select/Help sub-screens (3-button layouts)
     private static final int INFO_Y = PLAY_Y + SP;
     private static final int HELP_Y = INFO_Y + SP;
 
@@ -46,8 +53,11 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
     private static int retryX() { return (Game.WIDTH - RETRY_W) / 2; }
 
     // Hover state
-    private float[] btn = new float[3];
-    private float backH, musicH, settingsH, aboutH, changelogH, creditsLinkH, quitH, retryH;
+    private float[] btn = new float[5];
+    private float backH, musicH, shopH, aboutH, changelogH, creditsLinkH, quitH, retryH;
+    private static final int SHOP_BTN_W = 170;
+    private static final int SHOP_BTN_H = 34;
+    private static final int SHOP_BTN_Y = 668;
     private float[] pauseBtn = new float[4];
     private int mouseX, mouseY;
     private static final float LERP = 0.14f;
@@ -57,10 +67,6 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
     private float helpScrollTarget = 0;
 
     // Settings page state
-    private static final int SETTINGS_W = 170;
-    private static final int SETTINGS_H = 34;
-    private static final int SETTINGS_Y = 668;
-    private static int settingsX() { return 30; }
 
     private float settingsScroll = 0;
     private float settingsScrollTarget = 0;
@@ -102,19 +108,21 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
 
     private void updateHover() {
         // Determine targets based on current state
-        boolean[] btnTargets = new boolean[3];
-        boolean backTarget = false, musicTarget = false, settingsTarget = false, aboutTarget = false;
+        boolean[] btnTargets = new boolean[5];
+        boolean backTarget = false, musicTarget = false, shopTarget = false, aboutTarget = false;
         boolean changelogTarget = false, creditsLinkTarget = false, quitTarget = false, retryTarget = false;
 
         switch (Game.gameState) {
             case Menu:
                 int bx = btnX();
                 btnTargets[0] = hit(mouseX, mouseY, bx, PLAY_Y, BW, BH);
-                btnTargets[1] = hit(mouseX, mouseY, bx, INFO_Y, BW, BH);
-                btnTargets[2] = hit(mouseX, mouseY, bx, HELP_Y, BW, BH);
+                btnTargets[1] = hit(mouseX, mouseY, bx, CUSTOM_MENU_Y, BW, BH);
+                btnTargets[2] = hit(mouseX, mouseY, bx, STATS_MENU_Y, BW, BH);
+                btnTargets[3] = hit(mouseX, mouseY, bx, SETTINGS_MENU_Y, BW, BH);
+                btnTargets[4] = hit(mouseX, mouseY, bx, HELP_MENU_Y, BW, BH);
                 quitTarget = hit(mouseX, mouseY, quitX(), PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H);
                 musicTarget = hit(mouseX, mouseY, musicX(), MUSIC_Y, MUSIC_W, MUSIC_H);
-                settingsTarget = hit(mouseX, mouseY, settingsX(), SETTINGS_Y, SETTINGS_W, SETTINGS_H);
+                shopTarget = hit(mouseX, mouseY, 30, SHOP_BTN_Y, SHOP_BTN_W, SHOP_BTN_H);
                 int[] linkXs = getBottomLinkXs();
                 aboutTarget = hit(mouseX, mouseY, linkXs[0], 666, linkXs[1] - linkXs[0], 20);
                 changelogTarget = hit(mouseX, mouseY, linkXs[1], 666, linkXs[2] - linkXs[1], 20);
@@ -149,15 +157,22 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
                 backTarget = hitBack();
                 updateSettingsHover();
                 break;
+            case Statistics:
+            case AchievementsPage:
+            case Customize:
+            case Loadout:
+            case CoinShopPage:
+                backTarget = hitBack();
+                break;
             default:
                 backTarget = hitBack();
                 break;
         }
 
-        for (int i = 0; i < 3; i++) btn[i] = approach(btn[i], btnTargets[i]);
+        for (int i = 0; i < 5; i++) btn[i] = approach(btn[i], btnTargets[i]);
         backH = approach(backH, backTarget);
         musicH = approach(musicH, musicTarget);
-        settingsH = approach(settingsH, settingsTarget);
+        shopH = approach(shopH, shopTarget);
         aboutH = approach(aboutH, aboutTarget);
         changelogH = approach(changelogH, changelogTarget);
         creditsLinkH = approach(creditsLinkH, creditsLinkTarget);
@@ -185,7 +200,9 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
             helpScrollTarget += e.getWheelRotation() * 40;
             helpScrollTarget = Math.max(0, helpScrollTarget);
         }
-        if (Game.gameState == Game.STATE.Settings) {
+        if (Game.gameState == Game.STATE.Settings || Game.gameState == Game.STATE.Statistics
+                || Game.gameState == Game.STATE.AchievementsPage
+                || Game.gameState == Game.STATE.CoinShopPage) {
             settingsScrollTarget += e.getWheelRotation() * 40;
             settingsScrollTarget = Math.max(0, settingsScrollTarget);
         }
@@ -240,10 +257,12 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         if (Game.gameState == Game.STATE.Menu) {
             int bx = btnX();
             if (hit(mx, my, bx, PLAY_Y, BW, BH)) { Game.gameState = Game.STATE.Select; resetHover(); return; }
-            if (hit(mx, my, bx, INFO_Y, BW, BH)) { Game.gameState = Game.STATE.Info; resetHover(); return; }
-            if (hit(mx, my, bx, HELP_Y, BW, BH)) { Game.gameState = Game.STATE.Help; resetHover(); return; }
+            if (hit(mx, my, bx, CUSTOM_MENU_Y, BW, BH)) { Game.gameState = Game.STATE.Customize; resetHover(); return; }
+            if (hit(mx, my, bx, STATS_MENU_Y, BW, BH)) { Game.gameState = Game.STATE.Statistics; resetHover(); return; }
+            if (hit(mx, my, bx, SETTINGS_MENU_Y, BW, BH)) { Game.gameState = Game.STATE.Settings; resetHover(); return; }
+            if (hit(mx, my, bx, HELP_MENU_Y, BW, BH)) { Game.gameState = Game.STATE.Help; resetHover(); return; }
             if (hit(mx, my, musicX(), MUSIC_Y, MUSIC_W, MUSIC_H)) { Game.gameState = Game.STATE.MusicPlayer; resetHover(); return; }
-            if (hit(mx, my, settingsX(), SETTINGS_Y, SETTINGS_W, SETTINGS_H)) { Game.gameState = Game.STATE.Settings; resetHover(); return; }
+            if (hit(mx, my, 30, SHOP_BTN_Y, SHOP_BTN_W, SHOP_BTN_H)) { Game.gameState = Game.STATE.CoinShopPage; resetHover(); return; }
             int[] linkXs = getBottomLinkXs();
             if (hit(mx, my, linkXs[0], 666, linkXs[1] - linkXs[0], 20)) {
                 Game.gameState = Game.STATE.About; resetHover(); return;
@@ -260,9 +279,9 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
 
         if (Game.gameState == Game.STATE.Select) {
             int bx = btnX();
-            if (hit(mx, my, bx, PLAY_Y, BW, BH)) { startGame(0, new BasicEnemy(Game.WIDTH - 50, Game.HEIGHT - 50, ID.BasicEnemy, handler)); return; }
-            if (hit(mx, my, bx, INFO_Y, BW, BH)) { startGame(1, new HardEnemy(Game.WIDTH - 100, Game.HEIGHT - 100, ID.BasicEnemy, handler)); return; }
-            if (hit(mx, my, bx, HELP_Y, BW, BH)) { startGame(2, new HardEnemy(Game.WIDTH - 50, Game.HEIGHT - 50, ID.BasicEnemy, handler)); return; }
+            if (hit(mx, my, bx, PLAY_Y, BW, BH)) { pendingDifficulty = 0; Perks.clearLoadout(); Game.gameState = Game.STATE.Loadout; resetHover(); return; }
+            if (hit(mx, my, bx, INFO_Y, BW, BH)) { pendingDifficulty = 1; Perks.clearLoadout(); Game.gameState = Game.STATE.Loadout; resetHover(); return; }
+            if (hit(mx, my, bx, HELP_Y, BW, BH)) { pendingDifficulty = 2; Perks.clearLoadout(); Game.gameState = Game.STATE.Loadout; resetHover(); return; }
             if (hitBack()) { Game.gameState = Game.STATE.Menu; resetHover(); return; }
             return;
         }
@@ -288,7 +307,27 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
             return;
         }
 
-        if (Game.gameState == Game.STATE.Info || Game.gameState == Game.STATE.About
+        if (Game.gameState == Game.STATE.Statistics || Game.gameState == Game.STATE.AchievementsPage) {
+            if (hitBack()) { Game.gameState = Game.STATE.Menu; resetHover(); }
+            return;
+        }
+
+        if (Game.gameState == Game.STATE.Customize) {
+            handleCustomizeClick(mx, my);
+            return;
+        }
+
+        if (Game.gameState == Game.STATE.Loadout) {
+            handleLoadoutClick(mx, my);
+            return;
+        }
+
+        if (Game.gameState == Game.STATE.CoinShopPage) {
+            handleCoinShopClick(mx, my);
+            return;
+        }
+
+        if (Game.gameState == Game.STATE.About
                 || Game.gameState == Game.STATE.Update_Notes || Game.gameState == Game.STATE.Credits) {
             if (hitBack()) { Game.gameState = Game.STATE.Menu; resetHover(); return; }
             return;
@@ -317,9 +356,9 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
     }
 
     private void resetHover() {
-        for (int i = 0; i < 3; i++) btn[i] = 0;
+        for (int i = 0; i < btn.length; i++) btn[i] = 0;
         for (int i = 0; i < 4; i++) pauseBtn[i] = 0;
-        backH = musicH = settingsH = aboutH = changelogH = creditsLinkH = quitH = retryH = 0;
+        backH = musicH = shopH = aboutH = changelogH = creditsLinkH = quitH = retryH = 0;
         helpScroll = helpScrollTarget = 0;
         settingsScroll = settingsScrollTarget = 0;
         for (int i = 0; i < SET_HOVER_COUNT; i++) setH[i] = 0;
@@ -329,6 +368,9 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         confirmYesH = confirmNoH = 0;
     }
 
+    // Pending game start — set by Select, consumed by Loadout
+    private int pendingDifficulty = -1;
+
     private void startGame(int difficulty, GameObject firstEnemy) {
         handler.getObjects().clear();
         hud.setLevel(1);
@@ -336,20 +378,28 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         hud.setPoints(0);
         hud.bounds = 0;
         hud.resetStats();
-        HUD.HEALTH = 100;
-        handler.spd = 6;
+
+        // Apply perk + coin shop bonuses to starting stats
+        int healthBonus = Perks.getStartingHealthBonus() + CoinShop.getPermHealthBonus();
+        float healthMult = Perks.getMaxHealthMultiplier();
+        float baseHealth = (100 + healthBonus) * healthMult;
+        HUD.HEALTH = baseHealth;
+        hud.bounds = (int) ((baseHealth - 100) * 2);
+
+        handler.spd = 6 + Perks.getStartingSpeedBonus() + CoinShop.getPermSpeedBonus();
         game.shop.reset();
         Game.setTimeScale(1f);
         GamePalette.setDifficulty(difficulty);
         GamePalette.reset();
-        Stats.newAttempt(difficulty);
-        Game.currentAttempt = Stats.getCurrentAttempt();
+        Profile.startRun(difficulty);
+        Game.currentAttempt = Profile.getCurrentAttempt();
+        game.resetRunTracking();
         Game.attemptFade = 1f;
         Game.gameState = Game.STATE.Game;
         handler.addObject(new Player(Game.WIDTH / 2 - 32, Game.HEIGHT / 2 - 32, ID.Player, handler));
         handler.addObject(firstEnemy);
         game.diff = difficulty;
-        hud.triggerWaveAnnounce(); // Wave 1 announcement
+        hud.triggerWaveAnnounce();
     }
 
     private void resetForMenu() {
@@ -378,7 +428,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
                     {"How to Play", "Navigate your character through the arena while avoiding all enemies. Survive as long as possible to increase your score. Each level introduces new and tougher enemies. Boss battles occur at milestone levels. Earn points over time to spend on upgrades in the shop."},
                     {"Controls", "W / \u2191  -  Move up\nA / \u2190  -  Move left\nS / \u2193  -  Move down\nD / \u2192  -  Move right\n\nShift  -  Dash (short burst with invincibility)\nE  -  Slow Motion (slows everything for 2.5s)\nSpace  -  Open shop\nP / Esc  -  Pause menu\n\nShield activates automatically and absorbs one hit."},
                     {"Enemy Types", "Red squares bounce in straight lines. Teal diamonds move at high speed. Purple circles track and follow the player. Yellow triangles change direction randomly. Red bosses are large and spawn bullets."},
-                    {"Tips", "Keep moving \u2014 standing still is the fastest way to lose health. Upgrade speed early for better survivability. Save points for health upgrades at higher levels. Each enemy type has a unique shape and behavior. Learn their patterns to dodge effectively."}
+                    {"Tips", "Keep moving \u2014 standing still is the fastest way to lose health. Upgrade speed early for better survivability. Save points for health upgrades at higher levels. Each enemy type has a unique shape and behavior. Learn their patterns to dodge effectively.\n\nBefore each run you can choose up to 2 perks from the Loadout screen. Perks unlock as you level up."}
                 }); break;
             case HelpNLD:       renderHelpPage(g2, "Nederlands", new String[][]{
                     {"Hoe te spelen", "Navigeer je karakter door de arena en ontwijk alle vijanden. Overleef zo lang mogelijk om je score te verhogen. Elk level introduceert nieuwe en sterkere vijanden. Baasgevechten vinden plaats bij mijlpaalniveaus. Verdien punten om upgrades te kopen in de winkel."},
@@ -393,7 +443,11 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
                     {"Tipps", "Bleib in Bewegung \u2014 Stillstehen kostet am schnellsten Gesundheit. Upgrade Geschwindigkeit fr\u00FCh f\u00FCr besseres \u00DCberleben. Spare Punkte f\u00FCr h\u00F6here Level. Jeder Feindtyp hat eine eigene Form und Verhaltensweise. Lerne ihre Muster."}
                 }); break;
             case Settings:      renderSettings(g2); break;
-            case Info:          renderInfo(g2); break;
+            case Statistics:    renderStatistics(g2); break;
+            case AchievementsPage: renderAchievements(g2); break;
+            case Customize:     renderCustomize(g2); break;
+            case Loadout:       renderLoadout(g2); break;
+            case CoinShopPage:  renderCoinShop(g2); break;
             case About:         renderAbout(g2); break;
             case Update_Notes:  renderUpdates(g2); break;
             case Credits:       renderCredits(g2); break;
@@ -407,12 +461,40 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
 
     private void renderMainMenu(Graphics2D g) {
         PageRenderer.drawBackground(g);
-        PageRenderer.drawLogo(g, 200);
+        PageRenderer.drawLogo(g, 180);
 
+        // Player level + XP bar — below logo
+        int lvlCx = Game.WIDTH / 2;
+        g.setFont(PageRenderer.LABEL_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        String lvlLabel = "LEVEL " + Profile.getLevel();
+        FontMetrics lfm = g.getFontMetrics();
+        g.drawString(lvlLabel, lvlCx - lfm.stringWidth(lvlLabel) / 2, 228);
+        int xpBarW = 160;
+        int xpBarH = 4;
+        int xpBarX = lvlCx - xpBarW / 2;
+        int xpBarY = 234;
+        g.setColor(PageRenderer.SURFACE);
+        g.fillRoundRect(xpBarX, xpBarY, xpBarW, xpBarH, 2, 2);
+        int xpFillW = (int) (xpBarW * Profile.levelProgress());
+        if (xpFillW > 0) {
+            g.setColor(PageRenderer.ACCENT);
+            g.fillRoundRect(xpBarX, xpBarY, xpFillW, xpBarH, 2, 2);
+        }
+
+        // 5 centered buttons
         int bx = btnX();
         PageRenderer.drawPrimaryButton(g, bx, PLAY_Y, BW, BH, "Play", btn[0]);
-        PageRenderer.drawSecondaryButton(g, bx, INFO_Y, BW, BH, "Info", btn[1]);
-        PageRenderer.drawSecondaryButton(g, bx, HELP_Y, BW, BH, "Help", btn[2]);
+        PageRenderer.drawSecondaryButton(g, bx, CUSTOM_MENU_Y, BW, BH, "Customize", btn[1]);
+        PageRenderer.drawSecondaryButton(g, bx, STATS_MENU_Y, BW, BH, "Statistics", btn[2]);
+        PageRenderer.drawSecondaryButton(g, bx, SETTINGS_MENU_Y, BW, BH, "Settings", btn[3]);
+        PageRenderer.drawSecondaryButton(g, bx, HELP_MENU_Y, BW, BH, "Help", btn[4]);
+
+        // Achievements count — small text right of Statistics button
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(new Color(255, 210, 80, 160));
+        String achStr = Achievements.getUnlockedCount() + "/" + Achievements.getCount();
+        g.drawString(achStr, bx + BW + 14, STATS_MENU_Y + 30);
 
         // Quit (top-right)
         int qx = quitX();
@@ -438,7 +520,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
             g.drawString(AudioPlayer.getCurrentTrack().displayName, 24, 46);
         }
 
-        // About | Changelog | Credits links — centered
+        // About | Changelog | Credits links — centered bottom
         drawBottomLinks(g);
 
         // Music Player button (bottom right)
@@ -449,15 +531,14 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         g.setColor(PageRenderer.BG_DARK);
         PageRenderer.drawCenteredString(g, "Music Player", mx, MUSIC_Y, MUSIC_W, MUSIC_H);
 
-        // Settings button (bottom left)
-        int sx = settingsX();
-        g.setColor(PageRenderer.lerp(PageRenderer.SURFACE, new Color(38, 50, 68), settingsH));
-        g.fillRoundRect(sx, SETTINGS_Y, SETTINGS_W, SETTINGS_H, 8, 8);
-        g.setColor(PageRenderer.lerp(PageRenderer.BORDER, PageRenderer.ACCENT, settingsH * 0.4f));
-        g.drawRoundRect(sx, SETTINGS_Y, SETTINGS_W, SETTINGS_H, 8, 8);
+        // Coin Shop button (bottom left)
+        g.setColor(PageRenderer.lerp(new Color(50, 42, 20), new Color(70, 58, 28), shopH));
+        g.fillRoundRect(30, SHOP_BTN_Y, SHOP_BTN_W, SHOP_BTN_H, 8, 8);
+        g.setColor(PageRenderer.lerp(new Color(180, 150, 50), new Color(255, 210, 80), shopH));
+        g.drawRoundRect(30, SHOP_BTN_Y, SHOP_BTN_W, SHOP_BTN_H, 8, 8);
         g.setFont(PageRenderer.SMALL_FONT);
-        g.setColor(PageRenderer.lerp(PageRenderer.TEXT_SEC, PageRenderer.TEXT, settingsH));
-        PageRenderer.drawCenteredString(g, "Settings", sx, SETTINGS_Y, SETTINGS_W, SETTINGS_H);
+        g.setColor(PageRenderer.lerp(new Color(200, 180, 100), new Color(255, 220, 100), shopH));
+        PageRenderer.drawCenteredString(g, "Shop  \u00B7  " + Profile.getCoins(), 30, SHOP_BTN_Y, SHOP_BTN_W, SHOP_BTN_H);
     }
 
     // ---------- Select Difficulty ----------
@@ -831,8 +912,8 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
             int dy = Game.HEIGHT / 2;
             if (hit(mx, my, cx - 130, dy + 30, 120, 38)) {
                 // Confirm yes
-                if ("scores".equals(confirmAction)) Stats.resetHighScores();
-                else if ("progress".equals(confirmAction)) { Stats.resetAll(); Settings.resetToDefaults(); }
+                if ("scores".equals(confirmAction)) Profile.resetHighScores();
+                else if ("progress".equals(confirmAction)) { Profile.resetAll(); Settings.resetToDefaults(); Achievements.resetAll(); CoinShop.resetAll(); }
                 confirmAction = null;
             } else if (hit(mx, my, cx + 10, dy + 30, 120, 38)) {
                 confirmAction = null; // Cancel
@@ -1273,41 +1354,980 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         PageRenderer.drawSecondaryButton(g, cxd + 10, btnY, 120, 38, "Cancel", confirmNoH);
     }
 
-    // ---------- Info ----------
+    // ---------- Statistics ----------
 
-    private void renderInfo(Graphics2D g) {
+    private void renderStatistics(Graphics2D g) {
         PageRenderer.drawBackground(g);
-        PageRenderer.drawTitle(g, "Info");
+        PageRenderer.drawTitle(g, "Statistics");
         PageRenderer.drawBackButton(g, backH);
 
-        PageRenderer.drawPanel(g, 60, 140, 600, 260);
-        g.setFont(PageRenderer.HEADING_FONT);
-        g.setColor(PageRenderer.ACCENT);
-        g.drawString("Contact", 85, 178);
-        g.setColor(PageRenderer.BORDER);
-        g.fillRect(85, 190, 550, 1);
+        int contentTop = 130;
+        int contentBottom = Game.HEIGHT - 30;
+        int margin = 50;
+        int pw = Game.WIDTH - margin * 2;
+        int gap = 12;
+        int pad = 20;
+        int rowH = 24;
+
+        java.awt.Shape oldClip = g.getClip();
+        g.clipRect(0, contentTop, Game.WIDTH, contentBottom - contentTop);
+
+        int y = contentTop - (int) settingsScroll;
+        int lx = margin + pad;
+        int vx = margin + pw - pad;
+
+        // ===== OVERVIEW PANEL =====
+        int overviewRows = 6;
+        int overviewH = 52 + overviewRows * rowH + pad;
+        if (y + overviewH > contentTop - 20 && y < contentBottom + 20) {
+            PageRenderer.drawPanel(g, margin, y, pw, overviewH);
+            g.setFont(PageRenderer.HEADING_FONT);
+            g.setColor(PageRenderer.ACCENT);
+            g.drawString("Overview", lx, y + 34);
+            g.setColor(PageRenderer.BORDER);
+            g.fillRect(lx, y + 46, pw - pad * 2, 1);
+
+            int ry = y + 64;
+            statRow(g, lx, vx, ry, "Player Level", String.valueOf(Profile.getLevel())); ry += rowH;
+            statRow(g, lx, vx, ry, "Total XP", String.valueOf(Profile.getTotalXp())); ry += rowH;
+            statRow(g, lx, vx, ry, "Total Games", String.valueOf(Profile.getTotalGames())); ry += rowH;
+            statRow(g, lx, vx, ry, "Total Deaths", String.valueOf(Profile.getTotalDeaths())); ry += rowH;
+            statRow(g, lx, vx, ry, "Total Time Played", Profile.getTotalTimePlayed()); ry += rowH;
+            statRow(g, lx, vx, ry, "Lifetime Score", String.valueOf(Profile.getTotalScore()));
+        }
+        y += overviewH + gap;
+
+        // ===== PER-DIFFICULTY PANEL =====
+        String[] diffNames = {"Normal", "Hard", "Insane"};
+        int diffRows = 3 * 4 + 3; // 3 diffs * 4 rows + 3 headers
+        int diffH = 52 + diffRows * rowH + pad;
+        if (y + diffH > contentTop - 20 && y < contentBottom + 20) {
+            PageRenderer.drawPanel(g, margin, y, pw, diffH);
+            g.setFont(PageRenderer.HEADING_FONT);
+            g.setColor(PageRenderer.ACCENT);
+            g.drawString("Per Difficulty", lx, y + 34);
+            g.setColor(PageRenderer.BORDER);
+            g.fillRect(lx, y + 46, pw - pad * 2, 1);
+
+            int ry = y + 64;
+            for (int d = 0; d < 3; d++) {
+                g.setFont(PageRenderer.LABEL_FONT);
+                g.setColor(d == 0 ? PageRenderer.ACCENT : d == 1 ? PageRenderer.WARNING : PageRenderer.DANGER);
+                g.drawString(diffNames[d].toUpperCase(), lx, ry);
+                ry += rowH;
+                statRow(g, lx + 12, vx, ry, "Attempts", String.valueOf(Profile.getAttempts(d))); ry += rowH;
+                statRow(g, lx + 12, vx, ry, "Best Score", String.valueOf(Profile.getHighScore(d))); ry += rowH;
+                statRow(g, lx + 12, vx, ry, "Best Level", String.valueOf(Profile.getHighLevel(d))); ry += rowH;
+                statRow(g, lx + 12, vx, ry, "Best Time", Profile.getBestTime(d)); ry += rowH;
+            }
+        }
+        y += diffH + gap;
+
+        // ===== COMBAT PANEL =====
+        int combatRows = 8;
+        int combatH = 52 + combatRows * rowH + pad;
+        if (y + combatH > contentTop - 20 && y < contentBottom + 20) {
+            PageRenderer.drawPanel(g, margin, y, pw, combatH);
+            g.setFont(PageRenderer.HEADING_FONT);
+            g.setColor(PageRenderer.ACCENT);
+            g.drawString("Combat", lx, y + 34);
+            g.setColor(PageRenderer.BORDER);
+            g.fillRect(lx, y + 46, pw - pad * 2, 1);
+
+            int ry = y + 64;
+            statRow(g, lx, vx, ry, "Total Damage Taken", String.valueOf(Profile.getTotalDamageTaken())); ry += rowH;
+            statRow(g, lx, vx, ry, "Longest No-Damage Streak", Profile.getLongestStreak() + "s"); ry += rowH;
+            statRow(g, lx, vx, ry, "Avg Survival Time", Profile.getAvgSurvivalSeconds() + "s"); ry += rowH;
+            statRow(g, lx, vx, ry, "Bosses Defeated", String.valueOf(Profile.getTotalBossesDefeated())); ry += rowH;
+            statRow(g, lx, vx, ry, "Favorite Difficulty", Profile.getDifficultyName(Profile.getFavoriteDifficulty())); ry += rowH;
+
+            g.setFont(PageRenderer.LABEL_FONT);
+            g.setColor(PageRenderer.TEXT_MUTED);
+            g.drawString("ENEMIES ENCOUNTERED", lx, ry);
+            ry += rowH;
+            statRow(g, lx + 12, vx, ry, "Basic / Fast / Smart / Hard",
+                    Profile.getEnemyBasic() + " / " + Profile.getEnemyFast()
+                    + " / " + Profile.getEnemySmart() + " / " + Profile.getEnemyHard()); ry += rowH;
+            statRow(g, lx + 12, vx, ry, "Bosses", String.valueOf(Profile.getEnemyBoss()));
+        }
+        y += combatH + gap;
+
+        // ===== UPGRADES PANEL =====
+        int upgradeRows = 4;
+        int upgradeH = 52 + upgradeRows * rowH + pad;
+        if (y + upgradeH > contentTop - 20 && y < contentBottom + 20) {
+            PageRenderer.drawPanel(g, margin, y, pw, upgradeH);
+            g.setFont(PageRenderer.HEADING_FONT);
+            g.setColor(PageRenderer.ACCENT);
+            g.drawString("Upgrades", lx, y + 34);
+            g.setColor(PageRenderer.BORDER);
+            g.fillRect(lx, y + 46, pw - pad * 2, 1);
+
+            int ry = y + 64;
+            statRow(g, lx, vx, ry, "Total Purchased", String.valueOf(Profile.getTotalUpgrades())); ry += rowH;
+            statRow(g, lx, vx, ry, "Health Upgrades", String.valueOf(Profile.getTotalHealthUps())); ry += rowH;
+            statRow(g, lx, vx, ry, "Speed Upgrades", String.valueOf(Profile.getTotalSpeedUps())); ry += rowH;
+            statRow(g, lx, vx, ry, "Health Refills", String.valueOf(Profile.getTotalRefills()));
+        }
+        y += upgradeH + gap;
+
+        // ===== RECENT RUNS PANEL =====
+        int histCount = Profile.getHistoryCount();
+        int recentRows = Math.max(histCount, 1) + 1; // +1 for header row
+        int recentH = 52 + recentRows * rowH + pad;
+        if (y + recentH > contentTop - 20 && y < contentBottom + 20) {
+            PageRenderer.drawPanel(g, margin, y, pw, recentH);
+            g.setFont(PageRenderer.HEADING_FONT);
+            g.setColor(PageRenderer.ACCENT);
+            g.drawString("Recent Runs", lx, y + 34);
+            g.setColor(PageRenderer.BORDER);
+            g.fillRect(lx, y + 46, pw - pad * 2, 1);
+
+            int ry = y + 64;
+
+            if (histCount == 0) {
+                g.setFont(PageRenderer.BODY_FONT);
+                g.setColor(PageRenderer.TEXT_MUTED);
+                g.drawString("No runs yet", lx, ry);
+            } else {
+                // Header
+                g.setFont(PageRenderer.LABEL_FONT);
+                g.setColor(PageRenderer.TEXT_MUTED);
+                g.drawString("#", lx, ry);
+                g.drawString("SCORE", lx + 40, ry);
+                g.drawString("LEVEL", lx + 160, ry);
+                g.drawString("DIFFICULTY", lx + 240, ry);
+                ry += rowH;
+
+                // Score chart — bar graph
+                int maxScore = 1;
+                for (int i = 0; i < histCount; i++) {
+                    int s = Profile.getRecentScore(i);
+                    if (s > maxScore) maxScore = s;
+                }
+
+                int chartX = lx + 340;
+                int chartW = pw - pad * 2 - 340;
+
+                for (int i = 0; i < histCount; i++) {
+                    int score = Profile.getRecentScore(i);
+                    int lvl = Profile.getRecentLevel(i);
+                    int diff = Profile.getRecentDifficulty(i);
+
+                    g.setFont(PageRenderer.SMALL_FONT);
+                    g.setColor(PageRenderer.TEXT_MUTED);
+                    g.drawString(String.valueOf(i + 1), lx, ry);
+
+                    g.setColor(PageRenderer.TEXT);
+                    g.drawString(String.valueOf(score), lx + 40, ry);
+                    g.drawString(String.valueOf(lvl), lx + 160, ry);
+
+                    Color diffCol = diff == 0 ? PageRenderer.ACCENT : diff == 1 ? PageRenderer.WARNING : PageRenderer.DANGER;
+                    g.setColor(diffCol);
+                    g.drawString(Profile.getDifficultyName(diff), lx + 240, ry);
+
+                    // Mini bar
+                    if (chartW > 20) {
+                        int barW = (int) ((float) score / maxScore * chartW);
+                        g.setColor(new Color(diffCol.getRed(), diffCol.getGreen(), diffCol.getBlue(), 60));
+                        g.fillRoundRect(chartX, ry - 10, barW, 12, 3, 3);
+                    }
+
+                    ry += rowH;
+                }
+            }
+        }
+        y += recentH + gap;
+
+        int totalHeight = y + (int) settingsScroll - contentTop;
+        int maxScroll = Math.max(0, totalHeight - (contentBottom - contentTop) + 20);
+        settingsScrollTarget = Math.min(settingsScrollTarget, maxScroll);
+
+        g.setClip(oldClip);
+
+        // Scroll indicator
+        if (maxScroll > 0) {
+            float scrollPct = (settingsScrollTarget > 0) ? settingsScroll / maxScroll : 0;
+            int trackH = contentBottom - contentTop - 20;
+            int thumbH = Math.max(30, (int) ((float) (contentBottom - contentTop) / totalHeight * trackH));
+            int thumbY = contentTop + 10 + (int) ((trackH - thumbH) * scrollPct);
+            g.setColor(new Color(40, 52, 70, 80));
+            g.fillRoundRect(Game.WIDTH - 22, contentTop + 10, 6, trackH, 3, 3);
+            g.setColor(new Color(78, 205, 196, 120));
+            g.fillRoundRect(Game.WIDTH - 22, thumbY, 6, thumbH, 3, 3);
+        }
+    }
+
+    private void statRow(Graphics2D g, int lx, int vx, int y, String label, String value) {
         g.setFont(PageRenderer.BODY_FONT);
         g.setColor(PageRenderer.TEXT_SEC);
-        g.drawString("Instagram:  @MauriceBoendermaker", 85, 220);
-        g.drawString("Email:  mauriceboendermaker@gmail.com", 85, 248);
+        g.drawString(label, lx, y);
+        g.setColor(PageRenderer.TEXT);
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(value, vx - fm.stringWidth(value), y);
+    }
+
+    // ---------- Coin Shop ----------
+
+    private static final int SHOP_CARD_W = 280;
+    private static final int SHOP_CARD_H = 80;
+    private static final int SHOP_COLS = 3;
+    private static final int SHOP_GAP = 14;
+    private static final Color COIN_GOLD = new Color(255, 210, 80);
+
+    private void handleCoinShopClick(int mx, int my) {
+        if (hitBack()) { Game.gameState = Game.STATE.Menu; resetHover(); return; }
+
+        int contentTop = 150;
+        int contentBottom = Game.HEIGHT - 30;
+        if (my < contentTop || my > contentBottom) return;
+
+        int totalW = SHOP_CARD_W * SHOP_COLS + SHOP_GAP * (SHOP_COLS - 1);
+        int gridX = (Game.WIDTH - totalW) / 2;
+        int gridY = contentTop - (int) settingsScroll;
+
+        int lastCat = -1;
+        int row = 0, col = 0;
+        for (int i = 0; i < CoinShop.ITEM_COUNT; i++) {
+            CoinShop.Item item = CoinShop.getItem(i);
+            if (item.category != lastCat) {
+                if (col > 0) { row++; col = 0; }
+                gridY += (lastCat >= 0 ? 10 : 0) + 36;
+                lastCat = item.category;
+            }
+            int cx = gridX + col * (SHOP_CARD_W + SHOP_GAP);
+            int cy = gridY + row * (SHOP_CARD_H + SHOP_GAP);
+
+            if (hit(mx, my, cx, cy, SHOP_CARD_W, SHOP_CARD_H) && !item.purchased && CoinShop.canAfford(i)) {
+                CoinShop.purchase(i);
+                return;
+            }
+
+            col++;
+            if (col >= SHOP_COLS) { col = 0; row++; }
+        }
+    }
+
+    private void renderCoinShop(Graphics2D g) {
+        PageRenderer.drawBackground(g);
+        PageRenderer.drawTitle(g, "Shop");
+        PageRenderer.drawBackButton(g, backH);
+
+        // Coin balance
+        g.setFont(PageRenderer.SUBTITLE_FONT);
+        g.setColor(COIN_GOLD);
+        String bal = Profile.getCoins() + " coins";
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(bal, (Game.WIDTH - fm.stringWidth(bal)) / 2, 125);
+
+        int contentTop = 150;
+        int contentBottom = Game.HEIGHT - 30;
+        int totalW = SHOP_CARD_W * SHOP_COLS + SHOP_GAP * (SHOP_COLS - 1);
+        int gridX = (Game.WIDTH - totalW) / 2;
+
+        java.awt.Shape oldClip = g.getClip();
+        g.clipRect(0, contentTop, Game.WIDTH, contentBottom - contentTop);
+
+        int gridY = contentTop - (int) settingsScroll;
+        int lastCat = -1;
+        int row = 0, col = 0;
+
+        for (int i = 0; i < CoinShop.ITEM_COUNT; i++) {
+            CoinShop.Item item = CoinShop.getItem(i);
+
+            // Category header
+            if (item.category != lastCat) {
+                if (col > 0) { row++; col = 0; }
+                int headerY = gridY + row * (SHOP_CARD_H + SHOP_GAP) + (lastCat >= 0 ? 10 : 0);
+                gridY += (lastCat >= 0 ? 10 : 0) + 36;
+                lastCat = item.category;
+
+                if (headerY > contentTop - 40 && headerY < contentBottom) {
+                    g.setFont(PageRenderer.HEADING_FONT);
+                    g.setColor(PageRenderer.ACCENT);
+                    g.drawString(CoinShop.CAT_NAMES[item.category], gridX, headerY + 24);
+                    g.setColor(PageRenderer.BORDER);
+                    g.fillRect(gridX, headerY + 30, totalW, 1);
+                }
+            }
+
+            int cx = gridX + col * (SHOP_CARD_W + SHOP_GAP);
+            int cy = gridY + row * (SHOP_CARD_H + SHOP_GAP);
+
+            if (cy + SHOP_CARD_H > contentTop - 10 && cy < contentBottom + 10) {
+                renderShopCard(g, cx, cy, item);
+            }
+
+            col++;
+            if (col >= SHOP_COLS) { col = 0; row++; }
+        }
+
+        int totalHeight = gridY + (row + 1) * (SHOP_CARD_H + SHOP_GAP) + (int) settingsScroll - contentTop;
+        int maxScroll = Math.max(0, totalHeight - (contentBottom - contentTop) + 20);
+        settingsScrollTarget = Math.min(settingsScrollTarget, maxScroll);
+
+        g.setClip(oldClip);
+
+        // Scroll indicator
+        if (maxScroll > 0) {
+            float scrollPct = (settingsScrollTarget > 0) ? settingsScroll / maxScroll : 0;
+            int trackH = contentBottom - contentTop - 20;
+            int thumbH = Math.max(30, (int) ((float) (contentBottom - contentTop) / totalHeight * trackH));
+            int thumbY = contentTop + 10 + (int) ((trackH - thumbH) * scrollPct);
+            g.setColor(new Color(40, 52, 70, 80));
+            g.fillRoundRect(Game.WIDTH - 22, contentTop + 10, 6, trackH, 3, 3);
+            g.setColor(new Color(78, 205, 196, 120));
+            g.fillRoundRect(Game.WIDTH - 22, thumbY, 6, thumbH, 3, 3);
+        }
+    }
+
+    private void renderShopCard(Graphics2D g, int x, int y, CoinShop.Item item) {
+        boolean purchased = item.purchased;
+        boolean canAfford = !purchased && Profile.getCoins() >= item.cost;
+        boolean hovered = hit(mouseX, mouseY, x, y, SHOP_CARD_W, SHOP_CARD_H);
+
+        // Background
+        Color bg = purchased ? new Color(22, 32, 28) :
+                (hovered && canAfford) ? new Color(30, 40, 56) : PageRenderer.SURFACE;
+        g.setColor(bg);
+        g.fillRoundRect(x, y, SHOP_CARD_W, SHOP_CARD_H, 8, 8);
+
+        // Border
+        Color border = purchased ? new Color(72, 199, 142, 80) :
+                (hovered && canAfford) ? COIN_GOLD : PageRenderer.BORDER;
+        g.setColor(border);
+        g.drawRoundRect(x, y, SHOP_CARD_W, SHOP_CARD_H, 8, 8);
+
+        // Name
+        g.setFont(PageRenderer.BUTTON_FONT);
+        g.setColor(purchased ? PageRenderer.TEXT_MUTED : PageRenderer.TEXT);
+        g.drawString(item.name, x + 12, y + 24);
+
+        // Description
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(purchased ? new Color(60, 70, 80) : PageRenderer.TEXT_SEC);
+        g.drawString(item.description, x + 12, y + 44);
+
+        if (purchased) {
+            g.setFont(PageRenderer.LABEL_FONT);
+            g.setColor(new Color(72, 199, 142));
+            g.drawString("OWNED", x + SHOP_CARD_W - 60, y + 24);
+        } else {
+            // Price
+            g.setFont(PageRenderer.LABEL_FONT);
+            g.setColor(canAfford ? COIN_GOLD : PageRenderer.TEXT_MUTED);
+            String price = item.cost + " coins";
+            g.drawString(price, x + 12, y + SHOP_CARD_H - 12);
+
+            // Buy button
+            if (canAfford && hovered) {
+                g.setColor(COIN_GOLD);
+                g.fillRoundRect(x + SHOP_CARD_W - 55, y + SHOP_CARD_H - 28, 44, 20, 4, 4);
+                g.setFont(PageRenderer.SMALL_FONT);
+                g.setColor(PageRenderer.BG_DARK);
+                g.drawString("Buy", x + SHOP_CARD_W - 45, y + SHOP_CARD_H - 13);
+            }
+        }
+    }
+
+    // ---------- Loadout ----------
+
+    private static final int PERK_CARD_W = 240;
+    private static final int PERK_CARD_H = 110;
+    private static final int PERK_GAP = 16;
+    private static final int PERK_COLS = 4;
+    private static final int START_BTN_W = 280;
+    private static final int START_BTN_H = 50;
+    private float loadoutStartH = 0;
+
+    private static int perkGridX() { return (Game.WIDTH - (PERK_CARD_W * PERK_COLS + PERK_GAP * (PERK_COLS - 1))) / 2; }
+
+    private void handleLoadoutClick(int mx, int my) {
+        // Back to select
+        if (hitBack()) { Game.gameState = Game.STATE.Select; resetHover(); return; }
+
+        // Start button
+        int startX = (Game.WIDTH - START_BTN_W) / 2;
+        int startY = Game.HEIGHT - 90;
+        if (hit(mx, my, startX, startY, START_BTN_W, START_BTN_H)) {
+            launchPendingGame();
+            return;
+        }
+
+        // Perk cards
+        int gridX = perkGridX();
+        int gridY = 200;
+        for (int i = 0; i < Perks.PERK_COUNT; i++) {
+            int col = i % PERK_COLS;
+            int row = i / PERK_COLS;
+            int cx = gridX + col * (PERK_CARD_W + PERK_GAP);
+            int cy = gridY + row * (PERK_CARD_H + PERK_GAP);
+            if (hit(mx, my, cx, cy, PERK_CARD_W, PERK_CARD_H)) {
+                Perks.toggleEquip(i);
+                return;
+            }
+        }
+    }
+
+    private void launchPendingGame() {
+        if (pendingDifficulty < 0) return;
+        GameObject firstEnemy;
+        if (pendingDifficulty == 0) {
+            firstEnemy = new BasicEnemy(Game.WIDTH - 50, Game.HEIGHT - 50, ID.BasicEnemy, handler);
+        } else {
+            firstEnemy = new HardEnemy(Game.WIDTH - 100, Game.HEIGHT - 100, ID.BasicEnemy, handler);
+        }
+        startGame(pendingDifficulty, firstEnemy);
+    }
+
+    private void renderLoadout(Graphics2D g) {
+        PageRenderer.drawBackground(g);
+        PageRenderer.drawTitle(g, "Loadout");
+        PageRenderer.drawBackButton(g, backH);
+
+        // Difficulty label
+        String diffName = pendingDifficulty == 0 ? "Normal" : pendingDifficulty == 1 ? "Hard" : "Insane";
+        Color diffCol = pendingDifficulty == 0 ? PageRenderer.ACCENT : pendingDifficulty == 1 ? PageRenderer.WARNING : PageRenderer.DANGER;
+        g.setFont(PageRenderer.SUBTITLE_FONT);
+        g.setColor(diffCol);
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(diffName, (Game.WIDTH - fm.stringWidth(diffName)) / 2, 122);
+
+        g.setFont(PageRenderer.BODY_FONT);
         g.setColor(PageRenderer.TEXT_MUTED);
-        g.drawString("Feedback:", 85, 290);
-        g.setColor(PageRenderer.TEXT_SEC);
-        g.drawString("dodgegamefeedback@gmail.com", 85, 316);
+        String hint = "Select up to 2 perks  (" + Perks.getEquippedCount() + "/2)";
+        fm = g.getFontMetrics();
+        g.drawString(hint, (Game.WIDTH - fm.stringWidth(hint)) / 2, 155);
+
+        // Perk grid
+        int gridX = perkGridX();
+        int gridY = 180;
+
+        for (int i = 0; i < Perks.PERK_COUNT; i++) {
+            int col = i % PERK_COLS;
+            int row = i / PERK_COLS;
+            int cx = gridX + col * (PERK_CARD_W + PERK_GAP);
+            int cy = gridY + row * (PERK_CARD_H + PERK_GAP);
+
+            boolean unlocked = Perks.isUnlocked(i);
+            boolean equipped = Perks.isEquipped(i);
+            boolean hovered = hit(mouseX, mouseY, cx, cy, PERK_CARD_W, PERK_CARD_H);
+
+            renderPerkCard(g, cx, cy, i, unlocked, equipped, hovered);
+        }
+
+        // Equipped summary
+        int sumY = gridY + ((Perks.PERK_COUNT + PERK_COLS - 1) / PERK_COLS) * (PERK_CARD_H + PERK_GAP) + 10;
+        renderEquippedSummary(g, sumY);
+
+        // Start button
+        int startX = (Game.WIDTH - START_BTN_W) / 2;
+        int startY = Game.HEIGHT - 90;
+        boolean startHovered = hit(mouseX, mouseY, startX, startY, START_BTN_W, START_BTN_H);
+        loadoutStartH += ((startHovered ? 1f : 0f) - loadoutStartH) * 0.14f;
+        PageRenderer.drawPrimaryButton(g, startX, startY, START_BTN_W, START_BTN_H, "Start Run", loadoutStartH);
+    }
+
+    private void renderPerkCard(Graphics2D g, int x, int y, int perkId,
+                                 boolean unlocked, boolean equipped, boolean hovered) {
+        // Card background
+        Color bg;
+        if (equipped) bg = new Color(25, 45, 55);
+        else if (hovered && unlocked) bg = new Color(30, 40, 56);
+        else bg = PageRenderer.SURFACE;
+        g.setColor(bg);
+        g.fillRoundRect(x, y, PERK_CARD_W, PERK_CARD_H, 10, 10);
+
+        // Border
+        Color border;
+        if (equipped) border = PageRenderer.ACCENT;
+        else if (hovered && unlocked) border = new Color(60, 80, 100);
+        else border = PageRenderer.BORDER;
+        g.setColor(border);
+        g.drawRoundRect(x, y, PERK_CARD_W, PERK_CARD_H, 10, 10);
+
+        // Accent top strip
+        if (equipped) {
+            g.setColor(PageRenderer.ACCENT);
+            g.fillRoundRect(x, y, PERK_CARD_W, 3, 3, 3);
+        }
+
+        if (unlocked) {
+            // Icon
+            g.setFont(new java.awt.Font("Arial", java.awt.Font.PLAIN, 22));
+            g.setColor(equipped ? PageRenderer.ACCENT : PageRenderer.TEXT_SEC);
+            g.drawString(Perks.ICONS[perkId], x + 14, y + 30);
+
+            // Name
+            g.setFont(PageRenderer.BUTTON_FONT);
+            g.setColor(equipped ? PageRenderer.TEXT : PageRenderer.TEXT_SEC);
+            g.drawString(Perks.NAMES[perkId], x + 44, y + 28);
+
+            // Description
+            g.setFont(PageRenderer.SMALL_FONT);
+            g.setColor(equipped ? PageRenderer.TEXT_SEC : PageRenderer.TEXT_MUTED);
+            // Word-wrap description into card width
+            drawCardDesc(g, Perks.DESCRIPTIONS[perkId], x + 14, y + 48, PERK_CARD_W - 28);
+
+            // Equipped badge
+            if (equipped) {
+                g.setFont(PageRenderer.LABEL_FONT);
+                g.setColor(PageRenderer.ACCENT);
+                g.drawString("EQUIPPED", x + PERK_CARD_W - 72, y + PERK_CARD_H - 10);
+            }
+        } else {
+            // Locked state
+            g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 20));
+            g.setColor(new Color(50, 58, 72));
+            g.drawString("\u25CB", x + 14, y + 30);
+
+            g.setFont(PageRenderer.BUTTON_FONT);
+            g.setColor(new Color(60, 70, 85));
+            g.drawString(Perks.NAMES[perkId], x + 44, y + 28);
+
+            g.setFont(PageRenderer.SMALL_FONT);
+            g.setColor(new Color(50, 60, 75));
+            g.drawString(Perks.getUnlockDesc(perkId), x + 14, y + 50);
+        }
+    }
+
+    private void drawCardDesc(Graphics2D g, String text, int x, int y, int maxW) {
+        FontMetrics fm = g.getFontMetrics();
+        String[] words = text.split(" ");
+        StringBuilder line = new StringBuilder();
+        int cy = y;
+        for (String word : words) {
+            String test = line.length() == 0 ? word : line + " " + word;
+            if (fm.stringWidth(test) > maxW && line.length() > 0) {
+                g.drawString(line.toString(), x, cy);
+                cy += 16;
+                line = new StringBuilder(word);
+            } else {
+                line = new StringBuilder(test);
+            }
+        }
+        if (line.length() > 0) g.drawString(line.toString(), x, cy);
+    }
+
+    private void renderEquippedSummary(Graphics2D g, int y) {
+        int cx = Game.WIDTH / 2;
+        g.setFont(PageRenderer.LABEL_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+
+        int slot1 = Perks.getEquipped(0);
+        int slot2 = Perks.getEquipped(1);
+
+        if (slot1 < 0 && slot2 < 0) {
+            String msg = "No perks selected \u2014 click a perk to equip it";
+            FontMetrics fm = g.getFontMetrics();
+            g.drawString(msg, cx - fm.stringWidth(msg) / 2, y);
+        } else {
+            StringBuilder sb = new StringBuilder("Active: ");
+            if (slot1 >= 0) sb.append(Perks.NAMES[slot1]);
+            if (slot1 >= 0 && slot2 >= 0) sb.append("  +  ");
+            if (slot2 >= 0) sb.append(Perks.NAMES[slot2]);
+            g.setColor(PageRenderer.ACCENT);
+            FontMetrics fm = g.getFontMetrics();
+            g.drawString(sb.toString(), cx - fm.stringWidth(sb.toString()) / 2, y);
+        }
+    }
+
+    // ---------- Customize ----------
+
+    // Layout
+    private static final int SKIN_CELL = 70;
+    private static final int SKIN_GAP = 12;
+    private static final int SKIN_COLS = 6;
+
+    private void handleCustomizeClick(int mx, int my) {
+        if (hitBack()) { Game.gameState = Game.STATE.Menu; resetHover(); return; }
+
+        int margin = 60;
+        int pad = 20;
+
+        // Shape grid — y starts at 190
+        int gridY = 190;
+        int gridX = margin + pad;
+        for (int i = 0; i < PlayerSkins.SHAPE_COUNT; i++) {
+            int col = i % SKIN_COLS;
+            int row = i / SKIN_COLS;
+            int cx = gridX + col * (SKIN_CELL + SKIN_GAP);
+            int cy = gridY + row * (SKIN_CELL + SKIN_GAP);
+            if (hit(mx, my, cx, cy, SKIN_CELL, SKIN_CELL)) {
+                if (PlayerSkins.isShapeUnlocked(i)) {
+                    PlayerSkins.setSelectedShape(i);
+                }
+                return;
+            }
+        }
+
+        // Color grid — y starts at 390
+        int colorY = 390;
+        for (int i = 0; i < PlayerSkins.COLOR_COUNT; i++) {
+            int col = i % SKIN_COLS;
+            int row = i / SKIN_COLS;
+            int cx = gridX + col * (SKIN_CELL + SKIN_GAP);
+            int cy = colorY + row * (SKIN_CELL + SKIN_GAP);
+            if (hit(mx, my, cx, cy, SKIN_CELL, SKIN_CELL)) {
+                if (PlayerSkins.isColorUnlocked(i)) {
+                    PlayerSkins.setSelectedColor(i);
+                }
+                return;
+            }
+        }
+    }
+
+    private void renderCustomize(Graphics2D g) {
+        PageRenderer.drawBackground(g);
+        PageRenderer.drawTitle(g, "Customize");
+        PageRenderer.drawBackButton(g, backH);
+
+        int margin = 60;
+        int pad = 20;
+        int pw = Game.WIDTH - margin * 2;
+
+        // ===== SHAPE SELECTOR =====
+        g.setFont(PageRenderer.HEADING_FONT);
+        g.setColor(PageRenderer.ACCENT);
+        g.drawString("Shape", margin + pad, 170);
+
+        int gridX = margin + pad;
+        int gridY = 190;
+
+        for (int i = 0; i < PlayerSkins.SHAPE_COUNT; i++) {
+            int col = i % SKIN_COLS;
+            int row = i / SKIN_COLS;
+            int cx = gridX + col * (SKIN_CELL + SKIN_GAP);
+            int cy = gridY + row * (SKIN_CELL + SKIN_GAP);
+
+            boolean unlocked = PlayerSkins.isShapeUnlocked(i);
+            boolean selected = (i == PlayerSkins.getSelectedShape());
+            boolean hovered = hit(mouseX, mouseY, cx, cy, SKIN_CELL, SKIN_CELL);
+
+            // Cell background
+            Color bg = selected ? new Color(30, 50, 60) : new Color(22, 30, 44);
+            if (hovered && unlocked) bg = new Color(35, 48, 64);
+            g.setColor(bg);
+            g.fillRoundRect(cx, cy, SKIN_CELL, SKIN_CELL, 8, 8);
+
+            // Border
+            Color border = selected ? PageRenderer.ACCENT : hovered ? new Color(60, 75, 95) : PageRenderer.BORDER;
+            g.setColor(border);
+            g.drawRoundRect(cx, cy, SKIN_CELL, SKIN_CELL, 8, 8);
+
+            if (unlocked) {
+                // Draw the shape preview
+                int previewSize = 30;
+                int px = cx + (SKIN_CELL - previewSize) / 2;
+                int py = cy + 6;
+                Color previewCol = selected ? PageRenderer.ACCENT : PageRenderer.TEXT_SEC;
+                PlayerSkins.drawShape(g, i, px, py, previewSize, 6, previewCol);
+
+                // Name
+                g.setFont(PageRenderer.SMALL_FONT);
+                g.setColor(selected ? PageRenderer.ACCENT : PageRenderer.TEXT_MUTED);
+                FontMetrics fm = g.getFontMetrics();
+                String name = PlayerSkins.SHAPE_NAMES[i];
+                g.drawString(name, cx + (SKIN_CELL - fm.stringWidth(name)) / 2, cy + SKIN_CELL - 8);
+            } else {
+                // Locked
+                g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 20));
+                g.setColor(new Color(50, 58, 72));
+                FontMetrics fm = g.getFontMetrics();
+                g.drawString("\u25CB", cx + (SKIN_CELL - fm.stringWidth("\u25CB")) / 2, cy + 34);
+
+                g.setFont(PageRenderer.SMALL_FONT);
+                g.setColor(new Color(55, 65, 80));
+                fm = g.getFontMetrics();
+                String lock = "Locked";
+                g.drawString(lock, cx + (SKIN_CELL - fm.stringWidth(lock)) / 2, cy + SKIN_CELL - 8);
+
+                // Tooltip on hover
+                if (hovered) {
+                    String desc = PlayerSkins.getShapeUnlockDesc(i);
+                    g.setFont(PageRenderer.SMALL_FONT);
+                    g.setColor(PageRenderer.TEXT_MUTED);
+                    fm = g.getFontMetrics();
+                    g.drawString(desc, cx, cy + SKIN_CELL + 14);
+                }
+            }
+        }
+
+        // ===== COLOR PALETTE SELECTOR =====
+        g.setFont(PageRenderer.HEADING_FONT);
+        g.setColor(PageRenderer.ACCENT);
+        g.drawString("Color", margin + pad, 370);
+
+        int colorY = 390;
+
+        for (int i = 0; i < PlayerSkins.COLOR_COUNT; i++) {
+            int col = i % SKIN_COLS;
+            int row = i / SKIN_COLS;
+            int cx = gridX + col * (SKIN_CELL + SKIN_GAP);
+            int cy = colorY + row * (SKIN_CELL + SKIN_GAP);
+
+            boolean unlocked = PlayerSkins.isColorUnlocked(i);
+            boolean selected = (i == PlayerSkins.getSelectedColor());
+            boolean hovered = hit(mouseX, mouseY, cx, cy, SKIN_CELL, SKIN_CELL);
+
+            // Cell background
+            Color bg = selected ? new Color(30, 50, 60) : new Color(22, 30, 44);
+            if (hovered && unlocked) bg = new Color(35, 48, 64);
+            g.setColor(bg);
+            g.fillRoundRect(cx, cy, SKIN_CELL, SKIN_CELL, 8, 8);
+
+            // Border
+            Color border = selected ? PageRenderer.ACCENT : hovered ? new Color(60, 75, 95) : PageRenderer.BORDER;
+            g.setColor(border);
+            g.drawRoundRect(cx, cy, SKIN_CELL, SKIN_CELL, 8, 8);
+
+            if (unlocked) {
+                // Color swatch
+                Color swatch = PlayerSkins.COLOR_FILLS[i];
+                int swatchSize = 24;
+                int sx = cx + (SKIN_CELL - swatchSize) / 2;
+                int sy = cy + 10;
+                g.setColor(swatch);
+                g.fillRoundRect(sx, sy, swatchSize, swatchSize, 6, 6);
+                if (selected) {
+                    g.setColor(new Color(255, 255, 255, 60));
+                    g.drawRoundRect(sx, sy, swatchSize, swatchSize, 6, 6);
+                }
+
+                // Name
+                g.setFont(PageRenderer.SMALL_FONT);
+                g.setColor(selected ? swatch : PageRenderer.TEXT_MUTED);
+                FontMetrics fm = g.getFontMetrics();
+                String name = PlayerSkins.COLOR_NAMES[i];
+                g.drawString(name, cx + (SKIN_CELL - fm.stringWidth(name)) / 2, cy + SKIN_CELL - 8);
+            } else {
+                // Locked
+                g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 20));
+                g.setColor(new Color(50, 58, 72));
+                FontMetrics fm = g.getFontMetrics();
+                g.drawString("\u25CB", cx + (SKIN_CELL - fm.stringWidth("\u25CB")) / 2, cy + 34);
+
+                g.setFont(PageRenderer.SMALL_FONT);
+                g.setColor(new Color(55, 65, 80));
+                fm = g.getFontMetrics();
+                String lock = "Locked";
+                g.drawString(lock, cx + (SKIN_CELL - fm.stringWidth(lock)) / 2, cy + SKIN_CELL - 8);
+
+                if (hovered) {
+                    String desc = PlayerSkins.getColorUnlockDesc(i);
+                    g.setFont(PageRenderer.SMALL_FONT);
+                    g.setColor(PageRenderer.TEXT_MUTED);
+                    fm = g.getFontMetrics();
+                    g.drawString(desc, cx, cy + SKIN_CELL + 14);
+                }
+            }
+        }
+
+        // ===== LIVE PREVIEW =====
+        int previewX = Game.WIDTH - margin - 200;
+        int previewY = 170;
+        PageRenderer.drawPanel(g, previewX, previewY, 180, 220);
+
+        g.setFont(PageRenderer.LABEL_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        g.drawString("PREVIEW", previewX + 60, previewY + 22);
+
+        // Draw player preview with selected skin
+        int pSize = 64;
+        int ppx = previewX + (180 - pSize) / 2;
+        int ppy = previewY + 50;
+
+        // Glow
+        Color skinFill = PlayerSkins.getSelectedFill();
+        g.setColor(new Color(skinFill.getRed(), skinFill.getGreen(), skinFill.getBlue(), 30));
+        PlayerSkins.drawShape(g, PlayerSkins.getSelectedShape(),
+                ppx - 6, ppy - 6, pSize + 12, 14, g.getColor());
+
+        // Main shape
+        PlayerSkins.drawShape(g, PlayerSkins.getSelectedShape(), ppx, ppy, pSize, 10, skinFill);
+
+        // Labels
+        g.setFont(PageRenderer.BODY_FONT);
+        g.setColor(PageRenderer.TEXT);
+        FontMetrics fm = g.getFontMetrics();
+        String shapeName = PlayerSkins.SHAPE_NAMES[PlayerSkins.getSelectedShape()];
+        g.drawString(shapeName, previewX + (180 - fm.stringWidth(shapeName)) / 2, ppy + pSize + 28);
+
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(skinFill);
+        fm = g.getFontMetrics();
+        String colorName = PlayerSkins.COLOR_NAMES[PlayerSkins.getSelectedColor()];
+        g.drawString(colorName, previewX + (180 - fm.stringWidth(colorName)) / 2, ppy + pSize + 48);
+
+        // Trail shape label
         g.setFont(PageRenderer.SMALL_FONT);
         g.setColor(PageRenderer.TEXT_MUTED);
-        g.drawString("Original design by Jeffrey", 85, 380);
+        String trailLabel = "Trail: " + getTrailName(PlayerSkins.getSelectedTrailShape());
+        fm = g.getFontMetrics();
+        g.drawString(trailLabel, previewX + (180 - fm.stringWidth(trailLabel)) / 2, ppy + pSize + 68);
+    }
 
-        PageRenderer.drawPanel(g, 690, 140, 530, 120);
-        g.setFont(PageRenderer.HEADING_FONT);
-        g.setColor(PageRenderer.ACCENT);
-        g.drawString("Quick Links", 715, 178);
-        g.setColor(PageRenderer.BORDER);
-        g.fillRect(715, 190, 480, 1);
-        g.setFont(PageRenderer.BODY_FONT);
+    private String getTrailName(int trailShape) {
+        switch (trailShape) {
+            case Trail.SHAPE_CIRCLE: return "Circle";
+            case Trail.SHAPE_DIAMOND: return "Diamond";
+            case Trail.SHAPE_TRIANGLE: return "Triangle";
+            default: return "Square";
+        }
+    }
+
+    // ---------- Achievements ----------
+
+    private static final Color ACH_GOLD = new Color(255, 210, 80);
+    private static final Color ACH_LOCKED = new Color(40, 48, 62);
+
+    private void renderAchievements(Graphics2D g) {
+        PageRenderer.drawBackground(g);
+        PageRenderer.drawTitle(g, "Achievements");
+        PageRenderer.drawBackButton(g, backH);
+
+        // Summary line
+        g.setFont(PageRenderer.SUBTITLE_FONT);
         g.setColor(PageRenderer.TEXT_SEC);
-        g.drawString("This game was originally created in 2016.", 715, 220);
-        g.drawString("Built with Java AWT/Swing.", 715, 244);
+        String summary = Achievements.getUnlockedCount() + " / " + Achievements.getCount() + " unlocked";
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(summary, (Game.WIDTH - fm.stringWidth(summary)) / 2, 120);
+
+        int contentTop = 140;
+        int contentBottom = Game.HEIGHT - 30;
+        int margin = 40;
+        int pw = Game.WIDTH - margin * 2;
+        int pad = 16;
+        int gap = 10;
+        int cardH = 54;
+        int cardGap = 6;
+
+        java.awt.Shape oldClip = g.getClip();
+        g.clipRect(0, contentTop, Game.WIDTH, contentBottom - contentTop);
+
+        int y = contentTop - (int) settingsScroll;
+
+        // Render by category
+        for (int cat = 0; cat < 4; cat++) {
+            java.util.List<Achievements.Achievement> inCat = new java.util.ArrayList<>();
+            for (Achievements.Achievement a : Achievements.getAll()) {
+                if (a.category == cat) inCat.add(a);
+            }
+            if (inCat.isEmpty()) continue;
+
+            int catUnlocked = Achievements.getUnlockedInCategory(cat);
+            int catTotal = Achievements.getTotalInCategory(cat);
+
+            // Category header
+            int headerH = 40;
+            if (y + headerH > contentTop - 20 && y < contentBottom + 20) {
+                g.setFont(PageRenderer.HEADING_FONT);
+                g.setColor(PageRenderer.ACCENT);
+                g.drawString(Achievements.CAT_NAMES[cat], margin + pad, y + 28);
+
+                g.setFont(PageRenderer.SMALL_FONT);
+                g.setColor(PageRenderer.TEXT_MUTED);
+                String catCount = catUnlocked + "/" + catTotal;
+                fm = g.getFontMetrics();
+                g.drawString(catCount, margin + pw - pad - fm.stringWidth(catCount), y + 28);
+
+                g.setColor(PageRenderer.BORDER);
+                g.fillRect(margin + pad, y + 34, pw - pad * 2, 1);
+            }
+            y += headerH;
+
+            // Achievement cards
+            for (Achievements.Achievement a : inCat) {
+                if (y + cardH > contentTop - 10 && y < contentBottom + 10) {
+                    renderAchievementCard(g, margin, y, pw, cardH, a);
+                }
+                y += cardH + cardGap;
+            }
+
+            y += gap;
+        }
+
+        int totalHeight = y + (int) settingsScroll - contentTop;
+        int maxScroll = Math.max(0, totalHeight - (contentBottom - contentTop) + 20);
+        settingsScrollTarget = Math.min(settingsScrollTarget, maxScroll);
+
+        g.setClip(oldClip);
+
+        // Scroll indicator
+        if (maxScroll > 0) {
+            float scrollPct = (settingsScrollTarget > 0) ? settingsScroll / maxScroll : 0;
+            int trackH = contentBottom - contentTop - 20;
+            int thumbH = Math.max(30, (int) ((float) (contentBottom - contentTop) / totalHeight * trackH));
+            int thumbY = contentTop + 10 + (int) ((trackH - thumbH) * scrollPct);
+            g.setColor(new Color(40, 52, 70, 80));
+            g.fillRoundRect(Game.WIDTH - 22, contentTop + 10, 6, trackH, 3, 3);
+            g.setColor(new Color(78, 205, 196, 120));
+            g.fillRoundRect(Game.WIDTH - 22, thumbY, 6, thumbH, 3, 3);
+        }
+    }
+
+    private void renderAchievementCard(Graphics2D g, int x, int y, int w, int h,
+                                        Achievements.Achievement a) {
+        boolean unlocked = a.unlocked;
+
+        // Card background
+        Color bg = unlocked ? new Color(28, 36, 50) : new Color(18, 22, 32);
+        g.setColor(bg);
+        g.fillRoundRect(x, y, w, h, 8, 8);
+
+        // Left accent strip
+        Color accent = unlocked ? ACH_GOLD : ACH_LOCKED;
+        g.setColor(accent);
+        g.fillRoundRect(x, y, 4, h, 4, 4);
+
+        // Trophy / lock icon
+        g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 18));
+        g.setColor(unlocked ? ACH_GOLD : new Color(50, 58, 72));
+        g.drawString(unlocked ? "\u2605" : "\u25CB", x + 16, y + h / 2 + 7);
+
+        // Name
+        g.setFont(PageRenderer.BUTTON_FONT);
+        g.setColor(unlocked ? PageRenderer.TEXT : new Color(80, 90, 105));
+        g.drawString(a.name, x + 44, y + 22);
+
+        // Description
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(unlocked ? PageRenderer.TEXT_SEC : new Color(55, 65, 80));
+        g.drawString(a.description, x + 44, y + 40);
+
+        // Progress bar (if applicable and not unlocked)
+        if (!unlocked) {
+            float progress = Achievements.getProgress(a.id);
+            if (progress >= 0 && progress < 1f) {
+                int barW = 100;
+                int barH2 = 4;
+                int barX = x + w - barW - 16;
+                int barY = y + h / 2 - barH2 / 2;
+                g.setColor(new Color(30, 38, 52));
+                g.fillRoundRect(barX, barY, barW, barH2, 2, 2);
+                int fillW = (int) (barW * Math.min(progress, 1f));
+                if (fillW > 0) {
+                    g.setColor(new Color(78, 205, 196, 120));
+                    g.fillRoundRect(barX, barY, fillW, barH2, 2, 2);
+                }
+                g.setFont(PageRenderer.SMALL_FONT);
+                g.setColor(PageRenderer.TEXT_MUTED);
+                String pctStr = (int) (progress * 100) + "%";
+                FontMetrics fm = g.getFontMetrics();
+                g.drawString(pctStr, barX + barW + 6, barY + 4);
+            }
+        } else {
+            // Unlocked checkmark
+            g.setFont(PageRenderer.LABEL_FONT);
+            g.setColor(ACH_GOLD);
+            FontMetrics fm = g.getFontMetrics();
+            String check = "UNLOCKED";
+            g.drawString(check, x + w - fm.stringWidth(check) - 16, y + h / 2 + 5);
+        }
+
+        // Border
+        g.setColor(unlocked ? new Color(255, 210, 80, 30) : new Color(40, 48, 62));
+        g.drawRoundRect(x, y, w, h, 8, 8);
     }
 
     // ---------- About ----------
@@ -1601,7 +2621,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         drawStatRow(g, leftX + 20, sy, panelW - 40, "Level reached", String.valueOf(game.lastLevel)); sy += 26;
         drawStatRow(g, leftX + 20, sy, panelW - 40, "Time survived", game.lastTime); sy += 26;
         drawStatRow(g, leftX + 20, sy, panelW - 40, "Enemies on screen", String.valueOf(game.lastEnemies)); sy += 26;
-        int bestScore = Stats.getHighScore(game.diff);
+        int bestScore = Profile.getHighScore(game.diff);
         drawStatRow(g, leftX + 20, sy, panelW - 40, "Best score", String.valueOf(bestScore));
 
         // Right — Upgrades
@@ -1616,11 +2636,66 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         drawStatRow(g, rightX + 20, sy, panelW - 40, "Health upgrades", String.valueOf(game.lastHealthUps)); sy += 26;
         drawStatRow(g, rightX + 20, sy, panelW - 40, "Speed upgrades", String.valueOf(game.lastSpeedUps)); sy += 26;
         drawStatRow(g, rightX + 20, sy, panelW - 40, "Health refills", String.valueOf(game.lastRefills)); sy += 26;
-        drawStatRow(g, rightX + 20, sy, panelW - 40, "Total purchases", String.valueOf(game.lastUpgrades));
+        drawStatRow(g, rightX + 20, sy, panelW - 40, "Total purchases", String.valueOf(game.lastUpgrades)); sy += 26;
+
+        // Perks used
+        int p1 = Perks.getEquipped(0), p2 = Perks.getEquipped(1);
+        String perksUsed = (p1 < 0 && p2 < 0) ? "None" :
+                (p1 >= 0 && p2 >= 0) ? Perks.NAMES[p1] + ", " + Perks.NAMES[p2] :
+                (p1 >= 0) ? Perks.NAMES[p1] : Perks.NAMES[p2];
+        drawStatRow(g, rightX + 20, sy, panelW - 40, "Perks", perksUsed);
+
+        // XP panel — below stats
+        int xpY = statsY + 210;
+        int xpW = Game.WIDTH - 120;
+        PageRenderer.drawPanel(g, 60, xpY, xpW, 52);
+
+        g.setFont(PageRenderer.HEADING_FONT);
+        g.setColor(PageRenderer.ACCENT);
+        g.drawString("+" + game.lastXpEarned + " XP", 80, xpY + 24);
+        // Coins earned
+        g.setColor(new Color(255, 210, 80));
+        String coinStr = "+" + game.lastCoinsEarned + " coins";
+        g.drawString(coinStr, 260, xpY + 24);
+
+        // Level + XP bar
+        g.setFont(PageRenderer.LABEL_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        String lvlStr = "LVL " + Profile.getLevel();
+        g.drawString(lvlStr, 80, xpY + 44);
+
+        int xpBarX = 140;
+        int xpBarW = xpW - 100;
+        int xpBarH = 8;
+        int xpBarY = xpY + 36;
+        g.setColor(new Color(22, 30, 44));
+        g.fillRoundRect(xpBarX, xpBarY, xpBarW, xpBarH, 4, 4);
+        float xpPct = Profile.levelProgress();
+        int xpFillW = (int) (xpBarW * xpPct);
+        if (xpFillW > 0) {
+            g.setColor(PageRenderer.ACCENT);
+            g.fillRoundRect(xpBarX, xpBarY, xpFillW, xpBarH, 4, 4);
+        }
+        g.setColor(PageRenderer.BORDER);
+        g.drawRoundRect(xpBarX, xpBarY, xpBarW, xpBarH, 4, 4);
+
+        // Level-up notification
+        if (game.lastLeveledUp) {
+            g.setFont(PageRenderer.BUTTON_FONT);
+            g.setColor(new Color(255, 210, 80));
+            String lupStr = "LEVEL UP!  LVL " + Profile.getLevel();
+            fm = g.getFontMetrics();
+            g.drawString(lupStr, 60 + xpW - fm.stringWidth(lupStr) - 20, xpY + 28);
+        }
+
+        // Achievement count
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        String achStr = Achievements.getUnlockedCount() + "/" + Achievements.getCount() + " achievements";
+        g.drawString(achStr, 80, xpY + 44 + 14);
 
         // Buttons
-        int btnY = 472;
-        PageRenderer.drawPrimaryButton(g, retryX(), btnY, RETRY_W, RETRY_H, "Try Again", retryH);
+        PageRenderer.drawPrimaryButton(g, retryX(), RETRY_Y, RETRY_W, RETRY_H, "Try Again", retryH);
         PageRenderer.drawBackButton(g, backH);
     }
 

@@ -36,12 +36,18 @@ public class KeyInput extends KeyAdapter {
                     Game.gameState = Game.pausedFrom;
                     break;
                 case Select:
-                case Info:
                 case About:
                 case Update_Notes:
                 case Credits:
                 case MusicPlayer:
+                case Statistics:
+                case AchievementsPage:
+                case Customize:
+                case CoinShopPage:
                     Game.gameState = Game.STATE.Menu;
+                    break;
+                case Loadout:
+                    Game.gameState = Game.STATE.Select;
                     break;
                 case Settings:
                     Game.gameState = (Menu.settingsReturnTo != null) ? Menu.settingsReturnTo : Game.STATE.Menu;

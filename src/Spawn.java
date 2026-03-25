@@ -121,6 +121,7 @@ public class Spawn {
 
     private void onBossDefeated() {
         bossActive = false;
+        Game.addBossDefeated();
         hud.triggerWaveAnnounce();
         spawnTelegraph(new BasicEnemy(rx(), ry(), ID.BasicEnemy, handler), C_BASIC);
         spawnTelegraph(new FastEnemy(rx(), ry(), ID.FastEnemy, handler), C_FAST);

@@ -63,6 +63,13 @@ public class HUD {
     private static final int MILESTONE_INTERVAL = 2500;
     private float scorePulse = 0;
     private int lastMilestone = 0;
+
+    // Achievement toast queue
+    private final java.util.LinkedList<String> toastQueue = new java.util.LinkedList<>();
+    private String currentToast = null;
+    private int toastTimer = 0;
+    private float toastSlide = 0; // 0=hidden, 1=visible
+    private static final int TOAST_DURATION = 180; // 3 seconds
     private static final Font FONT_SCORE_BIG = new Font("Arial", Font.BOLD, 42);
     private static final Color GOLD = new Color(255, 210, 80);
 
@@ -70,8 +77,8 @@ public class HUD {
         float maxHealth = 100 + (bounds / 2);
         HEALTH = Game.clamp(HEALTH, 0, maxHealth);
 
-        // Score multiplied by streak
-        int mult = getPlayerMultiplier();
+        // Score multiplied by streak + perk bonus
+        int mult = (int) (getPlayerMultiplier() * Perks.getScoreMultiplier());
         score += mult;
         points += mult;
         ticksSurvived++;
@@ -89,6 +96,27 @@ public class HUD {
         lastMilestone = currentMilestone;
         if (scorePulse > 0.01f) scorePulse *= 0.92f;
         else scorePulse = 0;
+
+        // Achievement toast tick
+        if (currentToast != null) {
+            toastTimer--;
+            float target = toastTimer > 30 ? 1f : 0f;
+            toastSlide += (target - toastSlide) * 0.12f;
+            if (toastTimer <= 0) {
+                currentToast = null;
+                toastSlide = 0;
+            }
+        } else if (!toastQueue.isEmpty()) {
+            currentToast = toastQueue.poll();
+            toastTimer = TOAST_DURATION;
+            toastSlide = 0;
+        }
+        // Check for new achievements
+        if (Achievements.hasNew()) {
+            for (Achievements.Achievement a : Achievements.popNewlyUnlocked()) {
+                toastQueue.add(a.name);
+            }
+        }
     }
 
     public void triggerLevelUpBanner() {
@@ -344,6 +372,45 @@ public class HUD {
                 g2.fillRect(0, progY, Game.WIDTH, progH);
             }
         }
+
+        // Achievement toast
+        if (currentToast != null && toastSlide > 0.01f) {
+            renderToast(g2);
+        }
+    }
+
+    private void renderToast(Graphics2D g) {
+        int toastW = 280;
+        int toastH = 48;
+        int toastX = Game.WIDTH - toastW - 20;
+        int baseY = 80;
+        int toastY = baseY - (int) ((1f - toastSlide) * 60); // slides down from above
+        int alpha = (int) (toastSlide * 255);
+
+        // Background
+        g.setColor(new Color(22, 30, 44, (int) (alpha * 0.9f)));
+        g.fillRoundRect(toastX, toastY, toastW, toastH, 8, 8);
+        // Accent left strip
+        g.setColor(new Color(255, 210, 80, alpha));
+        g.fillRoundRect(toastX, toastY, 4, toastH, 4, 4);
+        // Border
+        g.setColor(new Color(255, 210, 80, alpha / 3));
+        g.drawRoundRect(toastX, toastY, toastW, toastH, 8, 8);
+
+        // Trophy icon
+        g.setFont(new Font("Arial", Font.BOLD, 18));
+        g.setColor(new Color(255, 210, 80, alpha));
+        g.drawString("\u2605", toastX + 14, toastY + 31);
+
+        // Label
+        g.setFont(FONT_TIER);
+        g.setColor(new Color(255, 210, 80, alpha));
+        g.drawString("ACHIEVEMENT UNLOCKED", toastX + 38, toastY + 18);
+
+        // Name
+        g.setFont(FONT_STAT);
+        g.setColor(new Color(230, 234, 240, alpha));
+        g.drawString(currentToast, toastX + 38, toastY + 37);
     }
 
     private void drawTierBar(Graphics2D g, int x, int y, String label, int tier, Color color) {
@@ -395,6 +462,8 @@ public class HUD {
         // For simplicity, we'll make this work through a static reference
         return Game.getPlayerMultiplier();
     }
+
+    public int getWaveCount() { return waveCount; }
 
     public void setScore(int score) { this.score = score; }
     public int getScore() { return score; }

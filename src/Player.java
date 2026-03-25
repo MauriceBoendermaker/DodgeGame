@@ -49,6 +49,7 @@ public class Player extends GameObject {
     private static final float DASH_SPEED = DASH_DISTANCE / DASH_DURATION;
 
     // ===== SHIELD =====
+    private int shieldCharges = 1 + CoinShop.getExtraShieldCharges();
     private boolean shieldActive = true;
     private int shieldCooldown = 0;
     private float shieldBreakEffect = 0; // 1.0 on break, decays
@@ -59,7 +60,7 @@ public class Player extends GameObject {
 
     // ===== SLOW-MOTION =====
     public boolean slowmoInput = false;
-    private int slowmoCharges = 1; // start with 1
+    private int slowmoCharges = 1 + Perks.getExtraSlowmoCharges() + CoinShop.getExtraSlowmoCharges();
     private int slowmoTimer = 0;
     private static final int SLOWMO_DURATION = 150; // ticks at full speed (~2.5s)
 
@@ -78,10 +79,10 @@ public class Player extends GameObject {
     }
 
     // Ability getters for HUD
-    public float getDashCooldownPct() { return dashCooldown / (float) DASH_COOLDOWN; }
+    public float getDashCooldownPct() { return dashCooldown / (DASH_COOLDOWN * Perks.getDashCooldownMultiplier()); }
     public boolean isDashing() { return dashing; }
     public boolean isShieldActive() { return shieldActive; }
-    public float getShieldCooldownPct() { return shieldCooldown / (float) SHIELD_COOLDOWN; }
+    public float getShieldCooldownPct() { return shieldCooldown / (SHIELD_COOLDOWN * Perks.getShieldCooldownMultiplier()); }
     public float getShieldBreakEffect() { return shieldBreakEffect; }
     public int getSlowmoCharges() { return slowmoCharges; }
     public boolean isSlowmoActive() { return slowmoTimer > 0; }
@@ -90,6 +91,7 @@ public class Player extends GameObject {
     public void addShieldCharge() {
         shieldActive = true;
         shieldCooldown = 0;
+        shieldCharges = 1 + CoinShop.getExtraShieldCharges();
     }
 
     public void addSlowmoCharge() { slowmoCharges++; }
@@ -103,7 +105,10 @@ public class Player extends GameObject {
         if (dashCooldown > 0) dashCooldown--;
         if (shieldCooldown > 0) {
             shieldCooldown--;
-            if (shieldCooldown <= 0) shieldActive = true;
+            if (shieldCooldown <= 0) {
+                shieldActive = true;
+                shieldCharges = 1 + CoinShop.getExtraShieldCharges();
+            }
         }
         if (shieldBreakEffect > 0.01f) shieldBreakEffect *= 0.92f;
         else shieldBreakEffect = 0;
@@ -150,11 +155,11 @@ public class Player extends GameObject {
 
             // Afterimage trail — intense during dash
             Color dashCol = GamePalette.accent();
-            handler.addObject(new Trail(x, y, ID.Trail, dashCol, SIZE, SIZE, 0.06f, handler));
+            handler.addObject(new Trail(x, y, ID.Trail, dashCol, SIZE, SIZE, 0.06f, handler, PlayerSkins.getSelectedTrailShape()));
 
             if (dashTimer <= 0) {
                 dashing = false;
-                dashCooldown = DASH_COOLDOWN;
+                dashCooldown = (int) (DASH_COOLDOWN * Perks.getDashCooldownMultiplier());
                 velX = dashVelX * 0.3f; // carry some momentum
                 velY = dashVelY * 0.3f;
             }
@@ -209,7 +214,7 @@ public class Player extends GameObject {
         // Streak grows
         streakTicks++;
         float targetStreak = Math.min(streakTicks / (float) STREAK_MAX, 1f);
-        streakLevel += (targetStreak - streakLevel) * 0.04f;
+        streakLevel += (targetStreak - streakLevel) * 0.04f * Perks.getStreakSpeedMultiplier();
         auraPhase += 0.06f + streakLevel * 0.04f;
 
         if (hitPop > 0.01f) hitPop *= 0.9f;
@@ -223,7 +228,7 @@ public class Player extends GameObject {
                     GamePalette.accent(), streakLevel * 0.6f);
 
             if (++trailTick % trailRate == 0) {
-                handler.addObject(new Trail(x, y, ID.Trail, trailCol, SIZE, SIZE, Math.max(trailLife, 0.015f), handler));
+                handler.addObject(new Trail(x, y, ID.Trail, trailCol, SIZE, SIZE, Math.max(trailLife, 0.015f), handler, PlayerSkins.getSelectedTrailShape()));
             }
         }
 
@@ -285,8 +290,11 @@ public class Player extends GameObject {
                 if (getBounds().intersects(tempObject.getBounds())) {
                     // Shield absorbs the hit
                     if (shieldActive) {
-                        shieldActive = false;
-                        shieldCooldown = SHIELD_COOLDOWN;
+                        shieldCharges--;
+                        if (shieldCharges <= 0) {
+                            shieldActive = false;
+                            shieldCooldown = (int) (SHIELD_COOLDOWN * Perks.getShieldCooldownMultiplier());
+                        }
                         shieldBreakEffect = 1f;
                         spawnShieldParticles();
                         iFrames = I_FRAME_DURATION;
@@ -294,7 +302,9 @@ public class Player extends GameObject {
                         return;
                     }
 
-                    HUD.HEALTH -= getDamage(id);
+                    float dmg = getDamage(id) * Perks.getDamageMultiplier();
+                    HUD.HEALTH -= dmg;
+                    Game.addDamage(dmg);
                     iFrames = I_FRAME_DURATION;
                     Game.triggerHit();
 
@@ -403,39 +413,42 @@ public class Player extends GameObject {
         }
 
         if (visible) {
+            int skinShape = PlayerSkins.getSelectedShape();
+            Color skinFill = PlayerSkins.getSelectedFill();
+            Color skinGlow = PlayerSkins.getSelectedGlow();
+
             // Dash — bright afterglow during dash
             if (dashing) {
-                int dashGlow = SIZE / 2 + 14;
                 g2.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 60));
-                g2.fillRoundRect(ix - 8, iy - 8, SIZE + 16, SIZE + 16, R + 8, R + 8);
+                PlayerSkins.drawShape(g2, skinShape, ix - 8, iy - 8, SIZE + 16, R + 8,
+                        new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 60));
             }
 
             // Outer glow
             int glowAlpha = (int) ((30 + (int) (streakLevel * 60)) * iFrameAlpha);
             int glowSize = 5 + (int) (streakLevel * 6);
-            Color glowCol = lerpColor(new Color(230, 234, 240), accent, streakLevel * 0.5f);
-            g2.setColor(new Color(glowCol.getRed(), glowCol.getGreen(), glowCol.getBlue(),
-                    Math.min(glowAlpha, 255)));
-            g2.fillRoundRect(ix - glowSize, iy - glowSize, SIZE + glowSize * 2, SIZE + glowSize * 2,
-                    R + glowSize, R + glowSize);
+            Color glowCol = lerpColor(skinGlow, accent, streakLevel * 0.5f);
+            PlayerSkins.drawShape(g2, skinShape, ix - glowSize, iy - glowSize,
+                    SIZE + glowSize * 2, R + glowSize,
+                    new Color(glowCol.getRed(), glowCol.getGreen(), glowCol.getBlue(),
+                            Math.min(glowAlpha, 255)));
 
             // Inner glow
             int innerAlpha = (int) ((60 + (int) (streakLevel * 50)) * iFrameAlpha);
-            g2.setColor(new Color(glowCol.getRed(), glowCol.getGreen(), glowCol.getBlue(),
-                    Math.min(innerAlpha, 255)));
-            g2.fillRoundRect(ix - 2, iy - 2, SIZE + 4, SIZE + 4, R + 2, R + 2);
+            PlayerSkins.drawShape(g2, skinShape, ix - 2, iy - 2, SIZE + 4, R + 2,
+                    new Color(glowCol.getRed(), glowCol.getGreen(), glowCol.getBlue(),
+                            Math.min(innerAlpha, 255)));
 
             // Main shape
             Color fill;
             if (dashing) {
-                fill = lerpColor(FILL, accent, 0.6f);
+                fill = lerpColor(skinFill, accent, 0.6f);
             } else if (iFrames > 0) {
-                fill = lerpColor(FILL, new Color(255, 255, 255), (float) Math.abs(Math.sin(iFrames * 0.4)) * 0.5f);
+                fill = lerpColor(skinFill, new Color(255, 255, 255), (float) Math.abs(Math.sin(iFrames * 0.4)) * 0.5f);
             } else {
-                fill = lerpColor(FILL, accent, streakLevel * 0.25f);
+                fill = lerpColor(skinFill, accent, streakLevel * 0.25f);
             }
-            g2.setColor(fill);
-            g2.fillRoundRect(ix, iy, SIZE, SIZE, R, R);
+            PlayerSkins.drawShape(g2, skinShape, ix, iy, SIZE, R, fill);
         }
 
         // Multiplier text above player
