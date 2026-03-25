@@ -24,7 +24,6 @@ public class Game extends Canvas implements Runnable {
     private Thread thread;
     private boolean running = false;
 
-    public static boolean paused = false;
     // Stores which state we came from when pausing (Game or Shop)
     public static STATE pausedFrom = STATE.Game;
 
@@ -61,7 +60,8 @@ public class Game extends Canvas implements Runnable {
         Shop,
         Game,
         Credits,
-        End
+        End,
+        Paused
     }
 
     public static STATE gameState = STATE.Menu;
@@ -175,12 +175,14 @@ public class Game extends Canvas implements Runnable {
     }
 
     private void tick() {
+        if (gameState == STATE.Paused) {
+            menu.tick(); // for hover animations
+            return;
+        }
         if (gameState == STATE.Game) {
-            if (!paused) {
-                hud.tick();
-                spawner.tick();
-                handler.tick();
-            }
+            hud.tick();
+            spawner.tick();
+            handler.tick();
             if (HUD.HEALTH <= 0) {
                 // Capture score before resetting
                 lastScore = hud.getScore();
@@ -224,24 +226,22 @@ public class Game extends Canvas implements Runnable {
         g.setFont(FPS_FONT);
         g.drawString("FPS: " + fps, WIDTH - 120, 19);
 
-        if (gameState == STATE.Game || gameState == STATE.Shop) {
+        if (gameState == STATE.Game || gameState == STATE.Shop || gameState == STATE.Paused) {
             PageRenderer.drawGameBackground(g);
         }
 
-        if (gameState == STATE.Game) {
+        if (gameState == STATE.Paused) {
+            // Draw frozen game underneath
             handler.render(g);
             hud.render(g);
-            if (paused) {
-                // Dim overlay
-                g.setColor(new Color(8, 10, 16, 160));
-                g.fillRect(0, 0, WIDTH, HEIGHT);
-                g.setFont(PAUSED_FONT);
-                float pulse = (float) (Math.sin(System.nanoTime() / 400_000_000.0) * 0.3 + 0.7);
-                g.setColor(new Color(78, 205, 196, (int) (255 * pulse)));
-                java.awt.FontMetrics fm = g.getFontMetrics();
-                String p = "PAUSED";
-                g.drawString(p, (WIDTH - fm.stringWidth(p)) / 2, HEIGHT / 2);
-            }
+            // Dim overlay
+            g.setColor(new Color(8, 10, 16, 180));
+            g.fillRect(0, 0, WIDTH, HEIGHT);
+            // Pause menu rendered by Menu
+            menu.render(g);
+        } else if (gameState == STATE.Game) {
+            handler.render(g);
+            hud.render(g);
         } else if (gameState == STATE.Shop) {
             shop.render(g);
         } else if (gameState == STATE.MusicPlayer) {

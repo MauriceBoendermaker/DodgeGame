@@ -29,6 +29,13 @@ public class Menu extends MouseAdapter {
     private static final int INFO_Y = PLAY_Y + SP;
     private static final int HELP_Y = INFO_Y + SP;
 
+    // Pause menu layout
+    private static final int PAUSE_W = 260;
+    private static final int PAUSE_H = 46;
+    private static final int PAUSE_SP = 60;
+    private static final int PAUSE_Y0 = 310;
+    private static int pauseX() { return (Game.WIDTH - PAUSE_W) / 2; }
+
     // Dynamic X positions
     private static int btnX() { return PageRenderer.btnX(); }
     private static int langX() { return (Game.WIDTH - LANG_W) / 2; }
@@ -36,9 +43,10 @@ public class Menu extends MouseAdapter {
     private static int quitX() { return PageRenderer.backX(); }
     private static int retryX() { return (Game.WIDTH - RETRY_W) / 2; }
 
-    // Hover state: btn[0..2] = 3 main buttons, back, music, about, changelog, quit, retry
+    // Hover state
     private float[] btn = new float[3];
     private float backH, musicH, aboutH, changelogH, quitH, retryH;
+    private float[] pauseBtn = new float[3]; // Resume, Main Menu, Quit
     private int mouseX, mouseY;
     private static final float LERP = 0.14f;
 
@@ -90,6 +98,12 @@ public class Menu extends MouseAdapter {
                 retryTarget = hit(mouseX, mouseY, retryX(), RETRY_Y, RETRY_W, RETRY_H);
                 backTarget = hitBack();
                 break;
+            case Paused:
+                int px = pauseX();
+                btnTargets[0] = hit(mouseX, mouseY, px, PAUSE_Y0, PAUSE_W, PAUSE_H);
+                btnTargets[1] = hit(mouseX, mouseY, px, PAUSE_Y0 + PAUSE_SP, PAUSE_W, PAUSE_H);
+                btnTargets[2] = hit(mouseX, mouseY, px, PAUSE_Y0 + PAUSE_SP * 2, PAUSE_W, PAUSE_H);
+                break;
             default:
                 backTarget = hitBack();
                 break;
@@ -126,6 +140,26 @@ public class Menu extends MouseAdapter {
     public void mousePressed(MouseEvent e) {
         int mx = Game.toGameX(e.getX());
         int my = Game.toGameY(e.getY());
+
+        if (Game.gameState == Game.STATE.Paused) {
+            int px = pauseX();
+            // Resume
+            if (hit(mx, my, px, PAUSE_Y0, PAUSE_W, PAUSE_H)) {
+                Game.gameState = Game.pausedFrom;
+                resetHover(); return;
+            }
+            // Main Menu
+            if (hit(mx, my, px, PAUSE_Y0 + PAUSE_SP, PAUSE_W, PAUSE_H)) {
+                resetForMenu();
+                Game.gameState = Game.STATE.Menu;
+                return;
+            }
+            // Quit
+            if (hit(mx, my, px, PAUSE_Y0 + PAUSE_SP * 2, PAUSE_W, PAUSE_H)) {
+                System.exit(0);
+            }
+            return;
+        }
 
         if (Game.gameState == Game.STATE.Menu) {
             int bx = btnX();
@@ -198,6 +232,7 @@ public class Menu extends MouseAdapter {
 
     private void resetHover() {
         for (int i = 0; i < 3; i++) btn[i] = 0;
+        for (int i = 0; i < 3; i++) pauseBtn[i] = 0;
         backH = musicH = aboutH = changelogH = quitH = retryH = 0;
     }
 
@@ -237,17 +272,18 @@ public class Menu extends MouseAdapter {
             case Help:          renderHelp(g2); break;
             case HelpENG:       renderHelpLang(g2, "English", "General", "Controls",
                                     new String[]{"Use W, A, S, D to move the player,", "dodge enemies, and score points.", "", "Arrow keys also work."},
-                                    new String[]{"P  -  Pause", "Esc  -  Quit", "Space  -  Shop", "", "W / Up  -  Move up", "A / Left  -  Move left", "S / Down  -  Move down", "D / Right  -  Move right"}); break;
+                                    new String[]{"P  -  Pause", "Esc  -  Pause Menu", "Space  -  Shop", "", "W / Up  -  Move up", "A / Left  -  Move left", "S / Down  -  Move down", "D / Right  -  Move right"}); break;
             case HelpNLD:       renderHelpLang(g2, "Nederlands", "Algemeen", "Besturing",
                                     new String[]{"Gebruik W, A, S, D om te bewegen,", "ontwijk vijanden en scoor punten.", "", "Pijltjestoetsen werken ook."},
-                                    new String[]{"P  -  Pauze", "Esc  -  Afsluiten", "Spatie  -  Winkel", "", "W / Op  -  Omhoog", "A / Links  -  Links", "S / Neer  -  Omlaag", "D / Rechts  -  Rechts"}); break;
+                                    new String[]{"P  -  Pauze", "Esc  -  Pauzemenu", "Spatie  -  Winkel", "", "W / Op  -  Omhoog", "A / Links  -  Links", "S / Neer  -  Omlaag", "D / Rechts  -  Rechts"}); break;
             case HelpDEU:       renderHelpLang(g2, "Deutsch", "Allgemeines", "Steuerung",
                                     new String[]{"Verwende W, A, S, D um zu bewegen,", "weiche Feinden aus und sammle Punkte.", "", "Pfeiltasten funktionieren auch."},
-                                    new String[]{"P  -  Pause", "Esc  -  Verlassen", "Leertaste  -  Shop", "", "W / Hoch  -  Nach oben", "A / Links  -  Links", "S / Runter  -  Nach unten", "D / Rechts  -  Rechts"}); break;
+                                    new String[]{"P  -  Pause", "Esc  -  Pausenmen\u00FC", "Leertaste  -  Shop", "", "W / Hoch  -  Nach oben", "A / Links  -  Links", "S / Runter  -  Nach unten", "D / Rechts  -  Rechts"}); break;
             case Info:          renderInfo(g2); break;
             case About:         renderAbout(g2); break;
             case Update_Notes:  renderUpdates(g2); break;
             case End:           renderEnd(g2); break;
+            case Paused:        renderPauseMenu(g2); break;
             default: break;
         }
     }
@@ -550,5 +586,31 @@ public class Menu extends MouseAdapter {
 
         PageRenderer.drawPrimaryButton(g, retryX(), RETRY_Y, RETRY_W, RETRY_H, "Try Again", retryH);
         PageRenderer.drawBackButton(g, backH);
+    }
+
+    // ---------- Pause Menu ----------
+
+    private void renderPauseMenu(Graphics2D g) {
+        // Title
+        g.setFont(PageRenderer.TITLE_FONT);
+        g.setColor(PageRenderer.ACCENT);
+        float pulse = (float) (Math.sin(System.nanoTime() / 400_000_000.0) * 0.3 + 0.7);
+        g.setColor(new Color(78, 205, 196, (int) (255 * pulse)));
+        String title = "Paused";
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(title, (Game.WIDTH - fm.stringWidth(title)) / 2, 250);
+
+        // Buttons
+        int px = pauseX();
+        PageRenderer.drawPrimaryButton(g, px, PAUSE_Y0, PAUSE_W, PAUSE_H, "Resume", btn[0]);
+        PageRenderer.drawSecondaryButton(g, px, PAUSE_Y0 + PAUSE_SP, PAUSE_W, PAUSE_H, "Main Menu", btn[1]);
+        PageRenderer.drawDangerButton(g, px, PAUSE_Y0 + PAUSE_SP * 2, PAUSE_W, PAUSE_H, "Quit Game", btn[2]);
+
+        // Hint
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        String hint = "Press ESC to resume";
+        fm = g.getFontMetrics();
+        g.drawString(hint, (Game.WIDTH - fm.stringWidth(hint)) / 2, PAUSE_Y0 + PAUSE_SP * 2 + PAUSE_H + 30);
     }
 }
