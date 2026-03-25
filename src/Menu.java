@@ -21,6 +21,13 @@ public class Menu extends MouseAdapter {
     private static final Font FONT_SMALL = new Font("Arial", Font.BOLD, 20);
     private static final Font FONT_MEDIUM = new Font("Arial", Font.BOLD, 30);
     private static final Font FONT_LARGE = new Font("Arial", Font.BOLD, 50);
+    private static final Font FONT_MUSIC_BTN = new Font("Arial", Font.BOLD, 16);
+
+    // Music Player button on main menu
+    private static final int MUSIC_BTN_X = 1050;
+    private static final int MUSIC_BTN_Y = 665;
+    private static final int MUSIC_BTN_W = 200;
+    private static final int MUSIC_BTN_H = 40;
 
     public Menu(Game game, Handler handler, HUD hud) {
         this.game = game;
@@ -58,6 +65,10 @@ public class Menu extends MouseAdapter {
             }
             if (mouseOver(mx, my, 10, 665, 280, 64)) {
                 Game.gameState = Game.STATE.Update_Notes;
+                return;
+            }
+            if (mouseOver(mx, my, MUSIC_BTN_X, MUSIC_BTN_Y, MUSIC_BTN_W, MUSIC_BTN_H)) {
+                Game.gameState = Game.STATE.MusicPlayer;
                 return;
             }
             if (mouseOver(mx, my, 1145, 52, 100, 33)) {
@@ -174,7 +185,16 @@ public class Menu extends MouseAdapter {
         if (Game.gameState == Game.STATE.Menu) {
             g.setColor(Color.white);
             g.setFont(FONT_SMALL);
-            g.drawString("Current state of build: 25 Levels", 960, 680);
+            g.drawString("Current state of build: 25 Levels", 960, 650);
+
+            // Music Player button
+            g.setColor(new Color(29, 185, 84));
+            g.fillRoundRect(MUSIC_BTN_X, MUSIC_BTN_Y, MUSIC_BTN_W, MUSIC_BTN_H, 10, 10);
+            g.setColor(Color.white);
+            g.setFont(FONT_MUSIC_BTN);
+            String musicLabel = "\u266B  Music Player";
+            int labelW = g.getFontMetrics().stringWidth(musicLabel);
+            g.drawString(musicLabel, MUSIC_BTN_X + (MUSIC_BTN_W - labelW) / 2, MUSIC_BTN_Y + 26);
 
         } else if (Game.gameState == Game.STATE.Select) {
             g.drawImage(play_image, 0, 0, null);

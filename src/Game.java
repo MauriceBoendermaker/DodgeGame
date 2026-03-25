@@ -28,6 +28,7 @@ public class Game extends Canvas implements Runnable {
     private Spawn spawner;
     private Menu menu;
     private Shop shop;
+    private MusicPlayer musicPlayer;
 
     private BufferedImage main_image;
 
@@ -88,13 +89,15 @@ public class Game extends Canvas implements Runnable {
         shop = new Shop(handler, hud);
         menu = new Menu(this, handler, hud);
         this.addKeyListener(new KeyInput(handler, this));
+        musicPlayer = new MusicPlayer();
         this.addMouseListener(menu);
         this.addMouseListener(shop);
+        this.addMouseListener(musicPlayer);
 
         AudioPlayer.load();
-        AudioPlayer.getMusic("game_music").loop(1, 0.15f);
+        AudioPlayer.play();
 
-        new Window(WIDTH, HEIGHT, "Dotch. - v2.0", this);
+        new Window(WIDTH, HEIGHT, "Dotch. - v2.1", this);
 
         spawner = new Spawn(handler, hud, this);
         r = new Random();
@@ -173,6 +176,8 @@ public class Game extends Canvas implements Runnable {
             }
         } else if (gameState == STATE.Shop) {
             // shop handles its own input via mouse listener
+        } else if (gameState == STATE.MusicPlayer) {
+            musicPlayer.tick();
         } else {
             menu.tick();
             handler.tick();
@@ -211,6 +216,8 @@ public class Game extends Canvas implements Runnable {
             handler.render(g);
         } else if (gameState == STATE.Shop) {
             shop.render(g);
+        } else if (gameState == STATE.MusicPlayer) {
+            musicPlayer.render(g);
         } else if (gameState == STATE.Menu || gameState == STATE.End
                 || gameState == STATE.Select || gameState == STATE.Credits) {
             menu.render(g);
