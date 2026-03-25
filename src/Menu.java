@@ -339,6 +339,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         HUD.HEALTH = 100;
         handler.spd = 6;
         game.shop.reset();
+        Game.setTimeScale(1f);
         GamePalette.setDifficulty(difficulty);
         GamePalette.reset();
         Stats.newAttempt(difficulty);
@@ -358,6 +359,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         hud.setPoints(0);
         hud.bounds = 0;
         HUD.HEALTH = 100;
+        Game.setTimeScale(1f);
         resetHover();
     }
 
@@ -374,7 +376,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
             case Help:          renderHelp(g2); break;
             case HelpENG:       renderHelpPage(g2, "English", new String[][]{
                     {"How to Play", "Navigate your character through the arena while avoiding all enemies. Survive as long as possible to increase your score. Each level introduces new and tougher enemies. Boss battles occur at milestone levels. Earn points over time to spend on upgrades in the shop."},
-                    {"Controls", "W / \u2191  -  Move up\nA / \u2190  -  Move left\nS / \u2193  -  Move down\nD / \u2192  -  Move right\n\nSpace  -  Open shop\nP / Esc  -  Pause menu"},
+                    {"Controls", "W / \u2191  -  Move up\nA / \u2190  -  Move left\nS / \u2193  -  Move down\nD / \u2192  -  Move right\n\nShift  -  Dash (short burst with invincibility)\nE  -  Slow Motion (slows everything for 2.5s)\nSpace  -  Open shop\nP / Esc  -  Pause menu\n\nShield activates automatically and absorbs one hit."},
                     {"Enemy Types", "Red squares bounce in straight lines. Teal diamonds move at high speed. Purple circles track and follow the player. Yellow triangles change direction randomly. Red bosses are large and spawn bullets."},
                     {"Tips", "Keep moving \u2014 standing still is the fastest way to lose health. Upgrade speed early for better survivability. Save points for health upgrades at higher levels. Each enemy type has a unique shape and behavior. Learn their patterns to dodge effectively."}
                 }); break;
@@ -733,7 +735,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         if (row <= 10) return y + 52 + (row - 10) * SET_ROW_H + SET_ROW_H / 2;
 
         // Danger panel
-        int controlsH = 52 + 5 * 28 + SET_PAD;
+        int controlsH = 52 + 7 * 28 + SET_PAD;
         y += controlsH + gap;
         return y + 52 + (row - 11) * SET_ROW_H + SET_ROW_H / 2;
     }
@@ -808,7 +810,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         y += generalH + gap;
 
         // --- Controls panel (read-only) ---
-        int controlsH = 52 + 5 * 28 + SET_PAD;
+        int controlsH = 52 + 7 * 28 + SET_PAD;
         y += controlsH + gap;
 
         // --- Danger zone ---
@@ -933,7 +935,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         y += generalH + gap;
 
         // --- Controls (read-only) ---
-        int controlsH = 52 + 5 * 28 + SET_PAD;
+        int controlsH = 52 + 7 * 28 + SET_PAD;
         y += controlsH + gap;
 
         // --- Danger zone ---
@@ -1089,7 +1091,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
 
         // ===== CONTROLS PANEL =====
         int controlLineH = 28;
-        int controlsH = 52 + 5 * controlLineH + SET_PAD;
+        int controlsH = 52 + 7 * controlLineH + SET_PAD;
         if (y + controlsH > contentTop - 20 && y < contentBottom + 20) {
             PageRenderer.drawPanel(g, SET_MARGIN, y, pw, controlsH);
             g.setFont(PageRenderer.HEADING_FONT);
@@ -1102,6 +1104,8 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
             g.setFont(PageRenderer.BODY_FONT);
             String[][] controls = {
                 {"W / \u2191  A / \u2190  S / \u2193  D / \u2192", "Move"},
+                {"Shift", "Dash"},
+                {"E", "Slow Motion"},
                 {"Space", "Open Shop"},
                 {"P / Esc", "Pause"},
                 {"Esc", "Back (menus)"},

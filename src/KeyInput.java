@@ -19,6 +19,8 @@ public class KeyInput extends KeyAdapter {
                 if (key == KeyEvent.VK_S || key == KeyEvent.VK_DOWN) player.moveDown = true;
                 if (key == KeyEvent.VK_D || key == KeyEvent.VK_RIGHT) player.moveRight = true;
                 if (key == KeyEvent.VK_A || key == KeyEvent.VK_LEFT) player.moveLeft = true;
+                if (key == KeyEvent.VK_SHIFT) player.dashInput = true;
+                if (key == KeyEvent.VK_E) player.slowmoInput = true;
             }
         }
 

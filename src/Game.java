@@ -199,6 +199,23 @@ public class Game extends Canvas implements Runnable {
         flashAlpha = 0.6f;
     }
 
+    public static void triggerScreenShake(float intensity) {
+        shakeIntensity = Math.max(shakeIntensity, intensity);
+    }
+
+    // Time scale for slow-motion ability
+    private static float timeScale = 1f;
+    private static float timeScaleTarget = 1f;
+
+    public static void setTimeScale(float scale) {
+        timeScaleTarget = Math.max(0.1f, Math.min(1f, scale));
+    }
+
+    public static float getTimeScale() { return timeScale; }
+
+    public static Handler getHandler() { return handlerRef; }
+    private float slowmoAccum = 0;
+
     public static float getLevelProgress() {
         return spawnerRef != null ? spawnerRef.getLevelProgress() : 0;
     }
@@ -500,11 +517,35 @@ public class Game extends Canvas implements Runnable {
         }
         bounceParticleCount = bpAlive;
 
+        // Smooth time scale transition
+        timeScale += (timeScaleTarget - timeScale) * 0.15f;
+        if (Math.abs(timeScale - timeScaleTarget) < 0.01f) timeScale = timeScaleTarget;
+
         if (gameState == STATE.Game) {
             GamePalette.update(hud.getLevel());
-            hud.tick();
-            spawner.tick();
-            handler.tick();
+
+            // Player always ticks at full speed (responsive controls)
+            for (int i = 0; i < handler.getObjects().size(); i++) {
+                GameObject obj = handler.getObjects().get(i);
+                if (obj instanceof Player) {
+                    obj.tick();
+                }
+            }
+
+            // Everything else ticks at time scale rate
+            slowmoAccum += timeScale;
+            if (slowmoAccum >= 1f) {
+                slowmoAccum -= 1f;
+                hud.tick();
+                spawner.tick();
+                // Tick non-player objects
+                for (int i = 0; i < handler.getObjects().size(); i++) {
+                    GameObject obj = handler.getObjects().get(i);
+                    if (!(obj instanceof Player)) {
+                        obj.tick();
+                    }
+                }
+            }
 
             // Track player velocity for speed lines
             int enemyCount = 0;
@@ -885,6 +926,21 @@ public class Game extends Canvas implements Runnable {
         if (transitionAlpha > 0) {
             g.setColor(new Color(10, 12, 18, (int) (transitionAlpha * 255)));
             g.fillRect(0, 0, WIDTH, HEIGHT);
+        }
+
+        // Slow-motion visual effect — desaturated overlay + chromatic edge
+        if (timeScale < 0.9f && (gameState == STATE.Game || gameState == STATE.Paused)) {
+            float intensity = 1f - timeScale; // 0 at normal, ~0.7 at 0.3x
+            // Slight blue-tinted desaturation overlay
+            int alpha = (int) (intensity * 40);
+            g.setColor(new Color(10, 15, 30, alpha));
+            g.fillRect(0, 0, WIDTH, HEIGHT);
+            // Chromatic edge strips
+            int edgeAlpha = (int) (intensity * 30);
+            g.setColor(new Color(80, 160, 255, edgeAlpha));
+            g.fillRect(0, 0, 4, HEIGHT);
+            g.setColor(new Color(255, 80, 80, edgeAlpha));
+            g.fillRect(WIDTH - 4, 0, 4, HEIGHT);
         }
 
         // FPS counter — in-game only, bottom-left (togglable in settings)

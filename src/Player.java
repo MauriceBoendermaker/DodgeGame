@@ -27,16 +27,41 @@ public class Player extends GameObject {
     private static final int I_FRAME_DURATION = 45; // ~0.75 seconds
 
     // Streak system
-    private int streakTicks = 0;        // ticks without damage
-    private float streakLevel = 0;      // 0-1 smoothed intensity
-    private float hitPop = 0;           // flash on streak break
+    private int streakTicks = 0;
+    private float streakLevel = 0;
+    private float hitPop = 0;
     private float auraPhase = 0;
 
-    // Streak thresholds (in ticks, 60 = 1 second)
-    private static final int STREAK_T1 = 180;   // 3s — glow starts
-    private static final int STREAK_T2 = 480;   // 8s — trail intensifies
-    private static final int STREAK_T3 = 900;   // 15s — full aura + multiplier
-    private static final int STREAK_MAX = 1200;  // 20s — max intensity
+    private static final int STREAK_T1 = 180;
+    private static final int STREAK_T2 = 480;
+    private static final int STREAK_T3 = 900;
+    private static final int STREAK_MAX = 1200;
+
+    // ===== DASH =====
+    public boolean dashInput = false;
+    private boolean dashing = false;
+    private int dashTimer = 0;
+    private float dashVelX, dashVelY;
+    private int dashCooldown = 0;
+    private static final int DASH_DURATION = 8;    // ticks (~0.13s)
+    private static final int DASH_COOLDOWN = 90;   // ticks (~1.5s)
+    private static final float DASH_DISTANCE = 120f;
+    private static final float DASH_SPEED = DASH_DISTANCE / DASH_DURATION;
+
+    // ===== SHIELD =====
+    private boolean shieldActive = true;
+    private int shieldCooldown = 0;
+    private float shieldBreakEffect = 0; // 1.0 on break, decays
+    private float shieldPulse = 0;
+    private static final int SHIELD_COOLDOWN = 1800; // 30 seconds
+    // Shatter particles [x, y, vx, vy, life]
+    private float[][] shieldParticles;
+
+    // ===== SLOW-MOTION =====
+    public boolean slowmoInput = false;
+    private int slowmoCharges = 1; // start with 1
+    private int slowmoTimer = 0;
+    private static final int SLOWMO_DURATION = 150; // ticks at full speed (~2.5s)
 
     public Player(int x, int y, ID id, Handler handler) {
         super(x, y, id);
@@ -52,11 +77,109 @@ public class Player extends GameObject {
         return 1;
     }
 
+    // Ability getters for HUD
+    public float getDashCooldownPct() { return dashCooldown / (float) DASH_COOLDOWN; }
+    public boolean isDashing() { return dashing; }
+    public boolean isShieldActive() { return shieldActive; }
+    public float getShieldCooldownPct() { return shieldCooldown / (float) SHIELD_COOLDOWN; }
+    public float getShieldBreakEffect() { return shieldBreakEffect; }
+    public int getSlowmoCharges() { return slowmoCharges; }
+    public boolean isSlowmoActive() { return slowmoTimer > 0; }
+    public float getSlowmoTimerPct() { return slowmoTimer / (float) SLOWMO_DURATION; }
+
+    public void addShieldCharge() {
+        shieldActive = true;
+        shieldCooldown = 0;
+    }
+
+    public void addSlowmoCharge() { slowmoCharges++; }
+
     public Rectangle getBounds() {
         return new Rectangle((int) x, (int) y, SIZE, SIZE);
     }
 
     public void tick() {
+        // Dash cooldown always ticks (not affected by slow-mo from player perspective)
+        if (dashCooldown > 0) dashCooldown--;
+        if (shieldCooldown > 0) {
+            shieldCooldown--;
+            if (shieldCooldown <= 0) shieldActive = true;
+        }
+        if (shieldBreakEffect > 0.01f) shieldBreakEffect *= 0.92f;
+        else shieldBreakEffect = 0;
+        shieldPulse += 0.05f;
+
+        // Slow-motion timer
+        if (slowmoTimer > 0) {
+            slowmoTimer--;
+            if (slowmoTimer <= 0) {
+                Game.setTimeScale(1f);
+            }
+        }
+
+        // Update shield particles
+        if (shieldParticles != null) {
+            boolean anyAlive = false;
+            for (float[] p : shieldParticles) {
+                if (p[4] > 0) {
+                    p[0] += p[2];
+                    p[1] += p[3];
+                    p[2] *= 0.96f;
+                    p[3] *= 0.96f;
+                    p[4] -= 0.02f;
+                    anyAlive = true;
+                }
+            }
+            if (!anyAlive) shieldParticles = null;
+        }
+
+        // === DASH ===
+        if (dashInput && !dashing && dashCooldown <= 0) {
+            dashInput = false;
+            startDash();
+        } else {
+            dashInput = false;
+        }
+
+        if (dashing) {
+            x += dashVelX;
+            y += dashVelY;
+            x = Game.clamp(x, 0, Game.WIDTH - 37);
+            y = Game.clamp(y, 0, Game.HEIGHT - 60);
+            dashTimer--;
+
+            // Afterimage trail — intense during dash
+            Color dashCol = GamePalette.accent();
+            handler.addObject(new Trail(x, y, ID.Trail, dashCol, SIZE, SIZE, 0.06f, handler));
+
+            if (dashTimer <= 0) {
+                dashing = false;
+                dashCooldown = DASH_COOLDOWN;
+                velX = dashVelX * 0.3f; // carry some momentum
+                velY = dashVelY * 0.3f;
+            }
+            // Skip normal movement during dash, but still check streak and collision
+            streakTicks++;
+            float targetStreak = Math.min(streakTicks / (float) STREAK_MAX, 1f);
+            streakLevel += (targetStreak - streakLevel) * 0.04f;
+            auraPhase += 0.06f + streakLevel * 0.04f;
+            if (hitPop > 0.01f) hitPop *= 0.9f; else hitPop = 0;
+            if (iFrames > 0) iFrames--;
+            // No collision during dash — i-frames
+            return;
+        }
+
+        // === SLOW-MO ===
+        if (slowmoInput && slowmoCharges > 0 && slowmoTimer <= 0) {
+            slowmoInput = false;
+            slowmoCharges--;
+            slowmoTimer = SLOWMO_DURATION;
+            Game.setTimeScale(0.3f);
+        } else {
+            slowmoInput = false;
+        }
+
+        // Normal movement
         float speed = handler.spd;
 
         float targetVX = 0, targetVY = 0;
@@ -89,14 +212,13 @@ public class Player extends GameObject {
         streakLevel += (targetStreak - streakLevel) * 0.04f;
         auraPhase += 0.06f + streakLevel * 0.04f;
 
-        // Hit pop decay
         if (hitPop > 0.01f) hitPop *= 0.9f;
         else hitPop = 0;
 
-        // Trail — more frequent and brighter at high streak
+        // Trail
         if (Settings.getPlayerTrail()) {
             int trailRate = streakLevel > 0.5f ? 2 : 3;
-            float trailLife = 0.045f - streakLevel * 0.02f; // slower fade at high streak
+            float trailLife = 0.045f - streakLevel * 0.02f;
             Color trailCol = lerpColor(new Color(200, 210, 220),
                     GamePalette.accent(), streakLevel * 0.6f);
 
@@ -109,19 +231,50 @@ public class Player extends GameObject {
         collision();
     }
 
+    private void startDash() {
+        dashing = true;
+        dashTimer = DASH_DURATION;
+        iFrames = DASH_DURATION + 5; // i-frames during dash + tiny buffer
+
+        // Dash in movement direction, or facing direction if stationary
+        float dx = 0, dy = 0;
+        if (moveUp) dy -= 1;
+        if (moveDown) dy += 1;
+        if (moveLeft) dx -= 1;
+        if (moveRight) dx += 1;
+
+        // If no direction held, use current velocity
+        if (dx == 0 && dy == 0) {
+            dx = velX;
+            dy = velY;
+        }
+
+        float len = (float) Math.sqrt(dx * dx + dy * dy);
+        if (len > 0) {
+            dashVelX = (dx / len) * DASH_SPEED;
+            dashVelY = (dy / len) * DASH_SPEED;
+        } else {
+            // Default: dash right
+            dashVelX = DASH_SPEED;
+            dashVelY = 0;
+        }
+
+        Game.triggerScreenShake(3f);
+    }
+
     private float getDamage(ID id) {
         switch (id) {
-            case FastEnemy:    return 8;   // light — hard to avoid but low damage
-            case BasicEnemy:   return 12;  // standard
-            case HardEnemy:    return 15;  // unpredictable, punishing
-            case SmartEnemy:   return 20;  // tracks you, high threat
-            case EnemyBoss:    return 25;  // boss body slam, heavy
-            default:           return 12;  // boss bullets etc.
+            case FastEnemy:    return 8;
+            case BasicEnemy:   return 12;
+            case HardEnemy:    return 15;
+            case SmartEnemy:   return 20;
+            case EnemyBoss:    return 25;
+            default:           return 12;
         }
     }
 
     private void collision() {
-        if (iFrames > 0) return; // invincible
+        if (iFrames > 0) return;
 
         for (int i = 0; i < handler.getObjects().size(); i++) {
             GameObject tempObject = handler.getObjects().get(i);
@@ -130,19 +283,47 @@ public class Player extends GameObject {
                     || id == ID.SmartEnemy || id == ID.HardEnemy
                     || id == ID.EnemyBoss) {
                 if (getBounds().intersects(tempObject.getBounds())) {
+                    // Shield absorbs the hit
+                    if (shieldActive) {
+                        shieldActive = false;
+                        shieldCooldown = SHIELD_COOLDOWN;
+                        shieldBreakEffect = 1f;
+                        spawnShieldParticles();
+                        iFrames = I_FRAME_DURATION;
+                        Game.triggerScreenShake(5f);
+                        return;
+                    }
+
                     HUD.HEALTH -= getDamage(id);
                     iFrames = I_FRAME_DURATION;
                     Game.triggerHit();
 
-                    // Break streak
                     if (streakTicks > STREAK_T1) {
                         hitPop = 1f;
                     }
                     streakTicks = 0;
                     streakLevel = 0;
-                    return; // one hit per frame max
+                    return;
                 }
             }
+        }
+    }
+
+    private void spawnShieldParticles() {
+        shieldParticles = new float[24][5];
+        java.util.Random rng = new java.util.Random();
+        int cx = (int) x + SIZE / 2;
+        int cy = (int) y + SIZE / 2;
+        for (int i = 0; i < 24; i++) {
+            float angle = rng.nextFloat() * (float) (Math.PI * 2);
+            float speed = 2f + rng.nextFloat() * 5f;
+            shieldParticles[i] = new float[]{
+                    cx + (float) Math.cos(angle) * (SIZE / 2 + 8),
+                    cy + (float) Math.sin(angle) * (SIZE / 2 + 8),
+                    (float) Math.cos(angle) * speed,
+                    (float) Math.sin(angle) * speed,
+                    0.8f + rng.nextFloat() * 0.2f
+            };
         }
     }
 
@@ -153,12 +334,32 @@ public class Player extends GameObject {
 
         Color accent = GamePalette.accent();
 
+        // Shield shatter particles
+        if (shieldParticles != null) {
+            for (float[] p : shieldParticles) {
+                if (p[4] > 0) {
+                    int alpha = (int) (p[4] * 200);
+                    g2.setColor(new Color(140, 220, 255, Math.min(alpha, 255)));
+                    int sz = 3 + (int) (p[4] * 4);
+                    g2.fillRect((int) p[0] - sz / 2, (int) p[1] - sz / 2, sz, sz);
+                }
+            }
+        }
+
         // Hit pop — expanding white ring on streak break
         if (hitPop > 0) {
             int popRadius = (int) ((1f - hitPop) * 80);
             int popAlpha = (int) (hitPop * 200);
             g2.setColor(new Color(255, 255, 255, Math.min(popAlpha, 255)));
             g2.drawOval(cx - popRadius, cy - popRadius, popRadius * 2, popRadius * 2);
+        }
+
+        // Shield break flash
+        if (shieldBreakEffect > 0.05f) {
+            int flashR = (int) ((1f - shieldBreakEffect) * 60) + SIZE / 2;
+            int flashAlpha = (int) (shieldBreakEffect * 180);
+            g2.setColor(new Color(140, 220, 255, Math.min(flashAlpha, 255)));
+            g2.drawOval(cx - flashR, cy - flashR, flashR * 2, flashR * 2);
         }
 
         // Particle aura — orbiting dots at high streak
@@ -178,16 +379,38 @@ public class Player extends GameObject {
             }
         }
 
-        // I-frame blink — fast flicker, skip rendering on odd frames
+        // I-frame blink
         boolean visible = true;
         float iFrameAlpha = 1f;
-        if (iFrames > 0) {
-            visible = (iFrames / 3) % 2 == 0; // blink every 3 frames
+        if (iFrames > 0 && !dashing) {
+            visible = (iFrames / 3) % 2 == 0;
             iFrameAlpha = 0.5f + (float) Math.sin(iFrames * 0.5) * 0.3f;
         }
 
+        // Shield bubble (drawn before player)
+        if (shieldActive && visible) {
+            float sPulse = (float) (Math.sin(shieldPulse) * 0.5 + 0.5);
+            int shieldR = SIZE / 2 + 10 + (int) (sPulse * 3);
+            int sAlpha = 25 + (int) (sPulse * 20);
+            g2.setColor(new Color(140, 220, 255, sAlpha));
+            g2.fillOval(cx - shieldR, cy - shieldR, shieldR * 2, shieldR * 2);
+            g2.setColor(new Color(140, 220, 255, 50 + (int) (sPulse * 30)));
+            g2.drawOval(cx - shieldR, cy - shieldR, shieldR * 2, shieldR * 2);
+            // Inner ring
+            int innerR = shieldR - 4;
+            g2.setColor(new Color(200, 240, 255, 20 + (int) (sPulse * 15)));
+            g2.drawOval(cx - innerR, cy - innerR, innerR * 2, innerR * 2);
+        }
+
         if (visible) {
-            // Outer glow — intensifies with streak
+            // Dash — bright afterglow during dash
+            if (dashing) {
+                int dashGlow = SIZE / 2 + 14;
+                g2.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 60));
+                g2.fillRoundRect(ix - 8, iy - 8, SIZE + 16, SIZE + 16, R + 8, R + 8);
+            }
+
+            // Outer glow
             int glowAlpha = (int) ((30 + (int) (streakLevel * 60)) * iFrameAlpha);
             int glowSize = 5 + (int) (streakLevel * 6);
             Color glowCol = lerpColor(new Color(230, 234, 240), accent, streakLevel * 0.5f);
@@ -202,10 +425,15 @@ public class Player extends GameObject {
                     Math.min(innerAlpha, 255)));
             g2.fillRoundRect(ix - 2, iy - 2, SIZE + 4, SIZE + 4, R + 2, R + 2);
 
-            // Main shape — flashes white during i-frames
-            Color fill = iFrames > 0
-                    ? lerpColor(FILL, new Color(255, 255, 255), (float) Math.abs(Math.sin(iFrames * 0.4)) * 0.5f)
-                    : lerpColor(FILL, accent, streakLevel * 0.25f);
+            // Main shape
+            Color fill;
+            if (dashing) {
+                fill = lerpColor(FILL, accent, 0.6f);
+            } else if (iFrames > 0) {
+                fill = lerpColor(FILL, new Color(255, 255, 255), (float) Math.abs(Math.sin(iFrames * 0.4)) * 0.5f);
+            } else {
+                fill = lerpColor(FILL, accent, streakLevel * 0.25f);
+            }
             g2.setColor(fill);
             g2.fillRoundRect(ix, iy, SIZE, SIZE, R, R);
         }

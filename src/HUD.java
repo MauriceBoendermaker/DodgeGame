@@ -209,6 +209,9 @@ public class HUD {
         g2.drawString("W" + waveCount + " LVL " + getLevelInWave(), barX, barY + 34);
         g2.drawString("PTS " + points, barX + 80, barY + 34);
 
+        // Ability indicators below stats
+        renderAbilityBar(g2, barX, barY + 46);
+
         // Upgrade tiers — right side of top bar
         int tierX = Game.WIDTH - 220;
         int tierY = 16;
@@ -430,5 +433,84 @@ public class HUD {
         waveCount = 0;
         lastBossLevel = 0;
         isWaveAnnounce = false;
+    }
+
+    private static final Color ABILITY_READY = new Color(78, 205, 196);
+    private static final Color ABILITY_COOLDOWN = new Color(50, 60, 75);
+    private static final Color SHIELD_COLOR = new Color(140, 220, 255);
+    private static final Color SLOWMO_COLOR = new Color(180, 140, 255);
+    private static final Font FONT_ABILITY = new Font("Arial", Font.BOLD, 10);
+    private static final Font FONT_CHARGE = new Font("Arial", Font.BOLD, 12);
+
+    private void renderAbilityBar(Graphics2D g, int x, int y) {
+        // Find player
+        Player player = null;
+        for (int i = 0; i < Game.getHandler().getObjects().size(); i++) {
+            GameObject obj = Game.getHandler().getObjects().get(i);
+            if (obj instanceof Player) { player = (Player) obj; break; }
+        }
+        if (player == null) return;
+
+        int iconSize = 22;
+        int gap = 8;
+        int ix = x;
+
+        // === DASH ===
+        float dashPct = player.getDashCooldownPct();
+        boolean dashReady = dashPct <= 0;
+        drawAbilityIcon(g, ix, y, iconSize, "SHIFT", dashReady, dashPct, ABILITY_READY);
+        ix += iconSize + gap;
+
+        // === SHIELD ===
+        boolean shieldUp = player.isShieldActive();
+        float shieldPct = player.getShieldCooldownPct();
+        drawAbilityIcon(g, ix, y, iconSize, "SHD", shieldUp, shieldUp ? 0 : shieldPct, SHIELD_COLOR);
+        ix += iconSize + gap;
+
+        // === SLOW-MO ===
+        int charges = player.getSlowmoCharges();
+        boolean slowActive = player.isSlowmoActive();
+        float slowPct = player.getSlowmoTimerPct();
+        Color slowCol = slowActive ? new Color(220, 180, 255) : SLOWMO_COLOR;
+        g.setColor(ABILITY_COOLDOWN);
+        g.fillRoundRect(ix, y, iconSize, iconSize, 4, 4);
+        if (slowActive) {
+            // Active timer fill
+            int fillH = (int) (iconSize * slowPct);
+            g.setColor(new Color(slowCol.getRed(), slowCol.getGreen(), slowCol.getBlue(), 100));
+            g.fillRoundRect(ix, y + iconSize - fillH, iconSize, fillH, 4, 4);
+        }
+        g.setColor(charges > 0 || slowActive ? slowCol : new Color(60, 60, 80));
+        g.drawRoundRect(ix, y, iconSize, iconSize, 4, 4);
+        // Charge count
+        g.setFont(FONT_CHARGE);
+        g.setColor(charges > 0 || slowActive ? slowCol : new Color(80, 80, 100));
+        String chargeStr = slowActive ? "E" : String.valueOf(charges);
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(chargeStr, ix + (iconSize - fm.stringWidth(chargeStr)) / 2, y + iconSize / 2 + 5);
+    }
+
+    private void drawAbilityIcon(Graphics2D g, int x, int y, int size, String label,
+                                  boolean ready, float cooldownPct, Color readyColor) {
+        // Background
+        g.setColor(ABILITY_COOLDOWN);
+        g.fillRoundRect(x, y, size, size, 4, 4);
+
+        // Cooldown sweep (fill from bottom up)
+        if (!ready && cooldownPct > 0) {
+            int fillH = (int) (size * (1f - cooldownPct));
+            g.setColor(new Color(readyColor.getRed(), readyColor.getGreen(), readyColor.getBlue(), 40));
+            g.fillRoundRect(x, y + size - fillH, size, fillH, 4, 4);
+        }
+
+        // Border
+        g.setColor(ready ? readyColor : new Color(60, 60, 80));
+        g.drawRoundRect(x, y, size, size, 4, 4);
+
+        // Label
+        g.setFont(FONT_ABILITY);
+        g.setColor(ready ? readyColor : new Color(80, 80, 100));
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(label, x + (size - fm.stringWidth(label)) / 2, y + size / 2 + 4);
     }
 }
