@@ -60,6 +60,14 @@ public class Game extends Canvas implements Runnable {
     // Level-up pulse
     private static float levelUpFlash = 0;
 
+    // Speed lines + camera intensity
+    private float playerSpeed = 0;
+    private float playerVelX = 0, playerVelY = 0;
+    private float cameraZoom = 1f;
+    private float cameraZoomTarget = 1f;
+    private float[][] speedLines = new float[20][5]; // [x, y, angle, length, life]
+    private int speedLineTimer = 0;
+
     // Geometric background layers
     private float geoPhase = 0;
     private java.awt.image.BufferedImage geoCache;
@@ -258,6 +266,29 @@ public class Game extends Canvas implements Runnable {
             hud.tick();
             spawner.tick();
             handler.tick();
+
+            // Track player velocity for speed lines
+            int enemyCount = 0;
+            for (int i = 0; i < handler.getObjects().size(); i++) {
+                GameObject obj = handler.getObjects().get(i);
+                if (obj instanceof Player) {
+                    playerVelX = obj.getVelX();
+                    playerVelY = obj.getVelY();
+                    playerSpeed = (float) Math.sqrt(playerVelX * playerVelX + playerVelY * playerVelY);
+                }
+                ID id = obj.getId();
+                if (id == ID.BasicEnemy || id == ID.FastEnemy || id == ID.SmartEnemy
+                        || id == ID.HardEnemy || id == ID.EnemyBoss) {
+                    enemyCount++;
+                }
+            }
+
+            // Camera zoom — subtle zoom-out as enemies accumulate
+            cameraZoomTarget = 1f - Math.min(enemyCount, 8) * 0.008f; // max ~6.4% zoom out
+            cameraZoom += (cameraZoomTarget - cameraZoom) * 0.03f;
+
+            // Spawn speed lines based on player movement
+            updateSpeedLines();
             if (HUD.HEALTH <= 0) {
                 // Capture all run stats
                 lastScore = hud.getScore();
@@ -426,6 +457,14 @@ public class Game extends Canvas implements Runnable {
 
             hud.render(g);
         } else if (gameState == STATE.Game) {
+            // Camera zoom — subtle zoom-out with enemy count
+            if (cameraZoom != 1f) {
+                float zoomOffX = WIDTH * (1f - cameraZoom) / 2f;
+                float zoomOffY = HEIGHT * (1f - cameraZoom) / 2f;
+                g.translate(zoomOffX, zoomOffY);
+                g.scale(cameraZoom, cameraZoom);
+            }
+
             // Screen shake — offset the game world
             float sx = 0, sy = 0;
             if (shakeIntensity > 0) {
@@ -436,6 +475,17 @@ public class Game extends Canvas implements Runnable {
             handler.render(g);
             if (shakeIntensity > 0) {
                 g.translate(-sx, -sy);
+            }
+
+            // Speed lines
+            renderSpeedLines(g);
+
+            // Reset camera zoom transform
+            if (cameraZoom != 1f) {
+                g.scale(1.0 / cameraZoom, 1.0 / cameraZoom);
+                float zoomOffX = WIDTH * (1f - cameraZoom) / 2f;
+                float zoomOffY = HEIGHT * (1f - cameraZoom) / 2f;
+                g.translate(-zoomOffX, -zoomOffY);
             }
 
             // Damage flash — red border vignette
@@ -492,6 +542,61 @@ public class Game extends Canvas implements Runnable {
 
         g.dispose();
         bs.show();
+    }
+
+    private void updateSpeedLines() {
+        speedLineTimer++;
+
+        // Decay existing lines
+        for (float[] line : speedLines) {
+            if (line[4] > 0) line[4] -= 0.04f;
+        }
+
+        // Spawn new lines proportional to speed
+        float threshold = 2f;
+        if (playerSpeed > threshold && speedLineTimer % 2 == 0) {
+            float intensity = Math.min((playerSpeed - threshold) / 10f, 1f);
+            // Only spawn with probability based on intensity
+            if (r.nextFloat() < intensity) {
+                // Find a dead slot
+                for (float[] line : speedLines) {
+                    if (line[4] <= 0) {
+                        // Spawn from the edge opposite to movement direction
+                        float moveAngle = (float) Math.atan2(playerVelY, playerVelX);
+                        // Lines come from the edges ahead of movement
+                        float spread = (float) (r.nextFloat() * Math.PI - Math.PI / 2);
+                        float lineAngle = moveAngle + (float) Math.PI + spread;
+
+                        // Start position — at screen edge in the movement direction
+                        float edgeX = WIDTH / 2f + (float) Math.cos(moveAngle) * (WIDTH / 2f + 20);
+                        float edgeY = HEIGHT / 2f + (float) Math.sin(moveAngle) * (HEIGHT / 2f + 20);
+                        // Randomize along the perpendicular
+                        float perpX = (float) -Math.sin(moveAngle) * (r.nextFloat() - 0.5f) * WIDTH * 0.6f;
+                        float perpY = (float) Math.cos(moveAngle) * (r.nextFloat() - 0.5f) * HEIGHT * 0.6f;
+
+                        line[0] = edgeX + perpX;
+                        line[1] = edgeY + perpY;
+                        line[2] = lineAngle;
+                        line[3] = 40 + r.nextFloat() * 60 * intensity; // length
+                        line[4] = 0.6f + r.nextFloat() * 0.4f; // life
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    private void renderSpeedLines(Graphics2D g) {
+        for (float[] line : speedLines) {
+            if (line[4] <= 0) continue;
+            int alpha = (int) (line[4] * 40);
+            g.setColor(new Color(230, 234, 240, Math.min(alpha, 255)));
+            float x1 = line[0];
+            float y1 = line[1];
+            float x2 = x1 + (float) Math.cos(line[2]) * line[3];
+            float y2 = y1 + (float) Math.sin(line[2]) * line[3];
+            g.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
+        }
     }
 
     private void renderBeatVisuals(Graphics2D g) {
