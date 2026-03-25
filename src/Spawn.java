@@ -34,23 +34,7 @@ public class Spawn {
     public void tick() {
         // Check if boss has been defeated
         if (bossActive) {
-            boolean bossStillAlive = false;
-            for (int i = 0; i < handler.getObjects().size(); i++) {
-                GameObject obj = handler.getObjects().get(i);
-                if (obj instanceof EnemyBoss) {
-                    EnemyBoss boss = (EnemyBoss) obj;
-                    if (boss.isDefeated()) {
-                        handler.removeObject(boss);
-                        bossActive = false;
-                        hud.triggerWaveAnnounce();
-                        spawnTelegraph(new BasicEnemy(rx(), ry(), ID.BasicEnemy, handler), C_BASIC);
-                        spawnTelegraph(new FastEnemy(rx(), ry(), ID.FastEnemy, handler), C_FAST);
-                    } else {
-                        bossStillAlive = true;
-                    }
-                }
-            }
-            if (bossStillAlive) return;
+            if (checkBossDefeated()) return;
         }
 
         scoreKeep++;
@@ -83,6 +67,64 @@ public class Spawn {
 
     private int rx() { return r.nextInt(Game.WIDTH - 80) + 20; }
     private int ry() { return r.nextInt(Game.HEIGHT - 80) + 20; }
+
+    /** Check all boss types for defeat. Returns true if a boss is still alive. */
+    private boolean checkBossDefeated() {
+        boolean anyAlive = false;
+
+        for (int i = handler.getObjects().size() - 1; i >= 0; i--) {
+            GameObject obj = handler.getObjects().get(i);
+
+            if (obj instanceof EnemyBoss) {
+                EnemyBoss boss = (EnemyBoss) obj;
+                if (boss.isDefeated()) {
+                    handler.removeObject(boss);
+                    onBossDefeated();
+                    return false;
+                }
+                anyAlive = true;
+            } else if (obj instanceof BossLaser) {
+                BossLaser boss = (BossLaser) obj;
+                if (boss.isDefeated()) {
+                    handler.removeObject(boss);
+                    onBossDefeated();
+                    return false;
+                }
+                anyAlive = true;
+            } else if (obj instanceof BossSwarm) {
+                BossSwarm boss = (BossSwarm) obj;
+                if (boss.isDefeated()) {
+                    handler.removeObject(boss);
+                    onBossDefeated();
+                    return false;
+                }
+                anyAlive = true;
+            } else if (obj instanceof BossSplitter) {
+                BossSplitter bs = (BossSplitter) obj;
+                if (bs.isFragmentDead()) {
+                    handler.removeObject(bs);
+                } else if (!bs.isFragmentDead()) {
+                    anyAlive = true;
+                }
+            }
+        }
+
+        // Splitter special case: boss is defeated when ALL fragments are gone
+        if (!anyAlive && bossActive) {
+            // Check if there were splitter fragments that just finished dying
+            onBossDefeated();
+            return false;
+        }
+
+        return anyAlive;
+    }
+
+    private void onBossDefeated() {
+        bossActive = false;
+        hud.triggerWaveAnnounce();
+        spawnTelegraph(new BasicEnemy(rx(), ry(), ID.BasicEnemy, handler), C_BASIC);
+        spawnTelegraph(new FastEnemy(rx(), ry(), ID.FastEnemy, handler), C_FAST);
+    }
 
     private void triggerBossSpawn() {
         triggerBossSpawn(1200);
@@ -120,11 +162,59 @@ public class Spawn {
         float maxHealth = 100 + (hud.bounds / 2);
         HUD.HEALTH = Math.min(HUD.HEALTH + maxHealth * 0.2f, maxHealth);
 
-        // Boss enters off-screen — slides in during the intro
-        EnemyBoss boss = new EnemyBoss((Game.WIDTH / 2) - 48, -120, ID.EnemyBoss, handler);
-        boss.setMaxHp(bossHp);
+        // Pick boss type based on level and difficulty
+        int level = hud.getLevel();
+        GameObject boss = pickBoss(level, bossHp);
         handler.addObject(boss);
         bossActive = true;
+    }
+
+    /**
+     * Boss rotation:
+     * - Level 10: always classic EnemyBoss (first encounter, teach the mechanic)
+     * - Level 20: Splitter on Normal, Laser on Hard, Swarm on Insane
+     * - Level 30+: cycle through all 4 types
+     * The cycle is: Classic → Splitter → Laser → Swarm → repeat
+     */
+    private GameObject pickBoss(int level, float bossHp) {
+        int bossNum = level / 10; // 1, 2, 3, 4, ...
+
+        int type;
+        if (bossNum == 1) {
+            type = 0; // Always classic first
+        } else if (bossNum == 2) {
+            // Second boss depends on difficulty
+            type = game.diff == 0 ? 1 : game.diff == 1 ? 2 : 3;
+        } else {
+            // Cycle through all 4
+            type = (bossNum - 1) % 4;
+        }
+
+        int spawnX = (Game.WIDTH / 2) - 48;
+        int spawnY = -120;
+
+        switch (type) {
+            case 1: {
+                BossSplitter bs = new BossSplitter(spawnX, spawnY, ID.EnemyBoss, handler, 0);
+                bs.setMaxHp(bossHp * 0.75f); // Splitter total HP is spread across fragments
+                return bs;
+            }
+            case 2: {
+                BossLaser bl = new BossLaser(spawnX, spawnY, ID.EnemyBoss, handler);
+                bl.setMaxHp(bossHp * 1.15f); // Laser boss is stationary, so a bit more HP
+                return bl;
+            }
+            case 3: {
+                BossSwarm bw = new BossSwarm(spawnX, spawnY, ID.EnemyBoss, handler);
+                bw.setMaxHp(bossHp * 0.65f); // Swarm boss is fragile
+                return bw;
+            }
+            default: {
+                EnemyBoss eb = new EnemyBoss(spawnX, spawnY, ID.EnemyBoss, handler);
+                eb.setMaxHp(bossHp);
+                return eb;
+            }
+        }
     }
 
     private void spawnTelegraph(GameObject enemy, Color color) {

@@ -58,6 +58,11 @@ public class EnemyBoss extends GameObject {
         hp = maxHp;
     }
 
+    public void setMaxHp(float hp) {
+        this.maxHp = hp;
+        this.hp = hp;
+    }
+
     public boolean isDefeated() {
         return defeated && deathTimer > 60;
     }
