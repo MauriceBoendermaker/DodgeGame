@@ -65,8 +65,8 @@ public class Shop extends MouseAdapter {
     }
 
     public void mousePressed(MouseEvent e) {
-        int mx = e.getX();
-        int my = e.getY();
+        int mx = Game.toGameX(e.getX());
+        int my = Game.toGameY(e.getY());
 
         // Upgrade Health
         if (mx >= 1280 / 3 - 250 && mx <= 1280 / 3 - 250 + 175) {

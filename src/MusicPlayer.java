@@ -253,8 +253,8 @@ public class MusicPlayer extends MouseAdapter {
     public void mousePressed(MouseEvent e) {
         if (Game.gameState != Game.STATE.MusicPlayer) return;
 
-        int mx = e.getX();
-        int my = e.getY();
+        int mx = Game.toGameX(e.getX());
+        int my = Game.toGameY(e.getY());
 
         // Back button
         if (mx >= BACK_X && mx <= BACK_X + BACK_W && my >= BACK_Y && my <= BACK_Y + BACK_H) {

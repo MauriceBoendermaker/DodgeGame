@@ -43,8 +43,8 @@ public class Menu extends MouseAdapter {
     }
 
     public void mousePressed(MouseEvent e) {
-        int mx = e.getX();
-        int my = e.getY();
+        int mx = Game.toGameX(e.getX());
+        int my = Game.toGameY(e.getY());
 
         if (Game.gameState == Game.STATE.Menu) {
             if (mouseOver(mx, my, 47, 344, 232, 66)) {

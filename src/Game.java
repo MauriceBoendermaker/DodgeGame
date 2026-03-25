@@ -1,7 +1,10 @@
 import java.awt.Canvas;
 import java.awt.Color;
 import java.awt.Font;
-import java.awt.Graphics;
+import java.awt.GraphicsEnvironment;
+import java.awt.Graphics2D;
+import java.awt.Rectangle;
+import java.awt.RenderingHints;
 import java.awt.image.BufferStrategy;
 import java.awt.image.BufferedImage;
 import java.util.Random;
@@ -10,8 +13,14 @@ public class Game extends Canvas implements Runnable {
 
     private static final long serialVersionUID = -4241816582633136533L;
 
+    // Base (logical) resolution — all game logic uses these
     public static final int WIDTH = 1280;
     public static final int HEIGHT = 720;
+
+    // Scaling
+    private static double scale = 1.0;
+    private static int windowWidth = WIDTH;
+    private static int windowHeight = HEIGHT;
 
     private Thread thread;
     private boolean running = false;
@@ -84,12 +93,15 @@ public class Game extends Canvas implements Runnable {
         System.out.println("Loading game...");
         System.out.println("Game loaded!");
 
+        // Calculate display size — largest 16:9 that fits the screen
+        calculateWindowSize();
+
         handler = new Handler();
         hud = new HUD();
         shop = new Shop(handler, hud);
         menu = new Menu(this, handler, hud);
-        this.addKeyListener(new KeyInput(handler, this));
         musicPlayer = new MusicPlayer();
+        this.addKeyListener(new KeyInput(handler, this));
         this.addMouseListener(menu);
         this.addMouseListener(shop);
         this.addMouseListener(musicPlayer);
@@ -97,7 +109,7 @@ public class Game extends Canvas implements Runnable {
         AudioPlayer.load();
         AudioPlayer.play();
 
-        new Window(WIDTH, HEIGHT, "Dotch. - v2.1", this);
+        new Window(windowWidth, windowHeight, "Dotch. - v2.0", this);
 
         spawner = new Spawn(handler, hud, this);
         r = new Random();
@@ -108,6 +120,38 @@ public class Game extends Canvas implements Runnable {
             handler.addObject(new Player(WIDTH / 2 - 32, HEIGHT / 2 - 32, ID.Player, handler));
             handler.addObject(new BasicEnemy(r.nextInt(WIDTH - 50), r.nextInt(HEIGHT - 50), ID.BasicEnemy, handler));
         }
+    }
+
+    private void calculateWindowSize() {
+        Rectangle screenBounds = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        int availW = screenBounds.width;
+        int availH = screenBounds.height;
+
+        // Largest 16:9 that fits
+        if (availW * 9 <= availH * 16) {
+            windowWidth = availW;
+            windowHeight = availW * 9 / 16;
+        } else {
+            windowHeight = availH;
+            windowWidth = availH * 16 / 9;
+        }
+
+        scale = windowWidth / (double) WIDTH;
+        System.out.println("Display: " + windowWidth + "x" + windowHeight + " (scale: " + String.format("%.2f", scale) + ")");
+    }
+
+    /** Convert screen pixel X to game coordinate */
+    public static int toGameX(int screenX) {
+        return (int) (screenX / scale);
+    }
+
+    /** Convert screen pixel Y to game coordinate */
+    public static int toGameY(int screenY) {
+        return (int) (screenY / scale);
+    }
+
+    public static double getScale() {
+        return scale;
     }
 
     public synchronized void start() {
@@ -191,10 +235,15 @@ public class Game extends Canvas implements Runnable {
             return;
         }
 
-        Graphics g = bs.getDrawGraphics();
+        Graphics2D g = (Graphics2D) bs.getDrawGraphics();
 
+        // Clear at native resolution before scaling
         g.setColor(Color.black);
-        g.fillRect(0, 0, WIDTH, HEIGHT);
+        g.fillRect(0, 0, getWidth(), getHeight());
+
+        // Apply scaling — everything below is in base 1280x720 coordinates
+        g.scale(scale, scale);
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 
         if (gameState == STATE.Menu) {
             g.drawImage(main_image, 0, 0, null);
@@ -222,7 +271,6 @@ public class Game extends Canvas implements Runnable {
                 || gameState == STATE.Select || gameState == STATE.Credits) {
             menu.render(g);
         } else {
-            // Help pages, Info, About, Update_Notes — all render menu + handler
             menu.render(g);
             handler.render(g);
         }
