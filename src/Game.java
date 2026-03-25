@@ -61,6 +61,25 @@ public class Game extends Canvas implements Runnable {
     // Level-up pulse
     private static float levelUpFlash = 0;
 
+    // Boss intro cinematic
+    private static int bossIntroTimer = 0;
+    private static boolean bossIntroActive = false;
+    private static float[][] enemyExplosions; // [x, y, vx, vy, size, r, g, b, life]
+
+    public static void triggerBossIntro() {
+        bossIntroActive = true;
+        bossIntroTimer = 0;
+        shakeIntensity = 4f;
+    }
+
+    public static boolean isBossIntroActive() {
+        return bossIntroActive;
+    }
+
+    public static void setEnemyExplosions(float[][] particles) {
+        enemyExplosions = particles;
+    }
+
     // Speed lines + camera intensity
     private float playerSpeed = 0;
     private float playerVelX = 0, playerVelY = 0;
@@ -256,6 +275,36 @@ public class Game extends Canvas implements Runnable {
         else flashAlpha = 0;
         if (levelUpFlash > 0.01f) levelUpFlash *= 0.93f;
         else levelUpFlash = 0;
+
+        // Boss intro cinematic
+        if (bossIntroActive) {
+            bossIntroTimer++;
+            // Shake escalates during warning
+            if (bossIntroTimer < 100) {
+                shakeIntensity = Math.max(shakeIntensity, 2f + bossIntroTimer * 0.06f);
+            }
+            // Big shake on boss crash (frame 100)
+            if (bossIntroTimer == 100) {
+                shakeIntensity = 16f;
+            }
+            // Animate enemy explosion particles
+            if (enemyExplosions != null) {
+                for (float[] p : enemyExplosions) {
+                    if (p[8] > 0) {
+                        p[0] += p[2];
+                        p[1] += p[3];
+                        p[3] += 0.12f; // gravity
+                        p[2] *= 0.97f;
+                        p[8] -= 0.015f;
+                    }
+                }
+            }
+            // End intro
+            if (bossIntroTimer >= 130) {
+                bossIntroActive = false;
+                enemyExplosions = null;
+            }
+        }
 
         // Geometric layer animation
         geoPhase += 0.008f;
@@ -517,6 +566,11 @@ public class Game extends Canvas implements Runnable {
                 g.fillRect(WIDTH - border, 0, border, HEIGHT);
             }
 
+            // Boss intro cinematic overlay
+            if (bossIntroActive) {
+                renderBossIntro(g);
+            }
+
             // Level-up flash — teal border pulse
             if (levelUpFlash > 0) {
                 int border = 80;
@@ -553,6 +607,65 @@ public class Game extends Canvas implements Runnable {
 
         g.dispose();
         bs.show();
+    }
+
+    private void renderBossIntro(Graphics2D g) {
+        // Dim overlay — builds up during warning
+        float dimProgress = Math.min(bossIntroTimer / 80f, 1f);
+        if (bossIntroTimer < 100) {
+            g.setColor(new Color(10, 5, 5, (int) (dimProgress * 120)));
+            g.fillRect(0, 0, WIDTH, HEIGHT);
+        } else {
+            // Flash on crash then fade
+            float crashFade = Math.max(0, 1f - (bossIntroTimer - 100) / 30f);
+            g.setColor(new Color(10, 5, 5, (int) (crashFade * 80)));
+            g.fillRect(0, 0, WIDTH, HEIGHT);
+        }
+
+        // Enemy explosion particles
+        if (enemyExplosions != null) {
+            for (float[] p : enemyExplosions) {
+                if (p[8] <= 0) continue;
+                int alpha = (int) (p[8] * 255);
+                g.setColor(new Color((int) p[5], (int) p[6], (int) p[7], Math.min(alpha, 255)));
+                int s = (int) p[4];
+                g.fillRoundRect((int) p[0] - s / 2, (int) p[1] - s / 2, s, s, 3, 3);
+            }
+        }
+
+        // WARNING text — pulsing red
+        if (bossIntroTimer < 100) {
+            float pulse = (float) (Math.sin(bossIntroTimer * 0.2) * 0.4 + 0.6);
+            int textAlpha = (int) (pulse * 255 * dimProgress);
+
+            g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 72));
+            g.setColor(new Color(235, 60, 60, Math.min(textAlpha, 255)));
+            java.awt.FontMetrics fm = g.getFontMetrics();
+            String warn = "WARNING";
+            g.drawString(warn, (WIDTH - fm.stringWidth(warn)) / 2, HEIGHT / 2 - 10);
+
+            // Subtitle
+            g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 22));
+            g.setColor(new Color(235, 60, 60, Math.min((int) (textAlpha * 0.6f), 255)));
+            fm = g.getFontMetrics();
+            String sub = "BOSS INCOMING";
+            g.drawString(sub, (WIDTH - fm.stringWidth(sub)) / 2, HEIGHT / 2 + 30);
+
+            // Red border lines pulse
+            int lineAlpha = (int) (pulse * 100 * dimProgress);
+            g.setColor(new Color(235, 60, 60, Math.min(lineAlpha, 255)));
+            g.fillRect(0, 0, WIDTH, 3);
+            g.fillRect(0, HEIGHT - 3, WIDTH, 3);
+            g.fillRect(0, 0, 3, HEIGHT);
+            g.fillRect(WIDTH - 3, 0, 3, HEIGHT);
+        }
+
+        // White flash on boss crash
+        if (bossIntroTimer >= 98 && bossIntroTimer <= 110) {
+            float flashT = 1f - (bossIntroTimer - 98) / 12f;
+            g.setColor(new Color(255, 255, 255, (int) (flashT * 180)));
+            g.fillRect(0, 0, WIDTH, HEIGHT);
+        }
     }
 
     private void updateSpeedLines() {

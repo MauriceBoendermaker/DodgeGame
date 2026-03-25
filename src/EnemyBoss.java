@@ -17,9 +17,9 @@ public class EnemyBoss extends GameObject {
     private Random r = new Random();
     private float pulsePhase = 0;
 
-    // Entry animation
-    private int entryTimer = 80;
-    private int warmupTimer = 50;
+    // Entry animation — syncs with boss intro cinematic
+    private int entryTimer = 100; // matches Game.bossIntroTimer crash point
+    private int warmupTimer = 30;
 
     // Health — drains over time (survival-based), boss dies when empty
     private float maxHp;
@@ -74,7 +74,7 @@ public class EnemyBoss extends GameObject {
     }
 
     public Rectangle getBounds() {
-        if (defeated) return new Rectangle(0, 0, 0, 0);
+        if (defeated || entryTimer > 0) return new Rectangle(0, 0, 0, 0);
         return new Rectangle((int) x, (int) y, SIZE, SIZE);
     }
 
