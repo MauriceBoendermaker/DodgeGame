@@ -25,10 +25,13 @@ public class Game extends Canvas implements Runnable {
     private boolean running = false;
 
     public static boolean paused = false;
+    // Stores which state we came from when pausing (Game or Shop)
+    public static STATE pausedFrom = STATE.Game;
 
     public int diff = 1;
 
     private int fps = 0;
+    public int lastScore = 0;
 
     private Random r;
     private Handler handler;
@@ -179,12 +182,12 @@ public class Game extends Canvas implements Runnable {
                 handler.tick();
             }
             if (HUD.HEALTH <= 0) {
+                // Capture score before resetting
+                lastScore = hud.getScore();
                 HUD.HEALTH = 100;
                 hud.bounds = 0;
-                hud.setLevel(1);
-                hud.setPoints(0);
                 gameState = STATE.End;
-                handler.clearEnemys();
+                handler.getObjects().clear();
                 for (int i = 0; i < 15; i++) {
                     handler.addObject(new MenuParticle(r.nextInt(WIDTH), r.nextInt(HEIGHT), ID.MenuParticle, handler));
                 }

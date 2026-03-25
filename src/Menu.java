@@ -176,10 +176,14 @@ public class Menu extends MouseAdapter {
 
         if (Game.gameState == Game.STATE.End) {
             if (hit(mx, my, retryX(), RETRY_Y, RETRY_W, RETRY_H)) {
-                Game.gameState = Game.STATE.Select; hud.setLevel(1); hud.setScore(0); hud.bounds = 0; resetHover(); return;
+                resetForMenu();
+                Game.gameState = Game.STATE.Select;
+                return;
             }
             if (hitBack()) {
-                Game.gameState = Game.STATE.Menu; hud.setLevel(1); hud.setScore(0); hud.bounds = 0; resetHover(); return;
+                resetForMenu();
+                Game.gameState = Game.STATE.Menu;
+                return;
             }
         }
     }
@@ -198,11 +202,26 @@ public class Menu extends MouseAdapter {
     }
 
     private void startGame(int difficulty, GameObject firstEnemy) {
+        handler.getObjects().clear();
+        hud.setLevel(1);
+        hud.setScore(0);
+        hud.setPoints(0);
+        hud.bounds = 0;
+        HUD.HEALTH = 100;
         Game.gameState = Game.STATE.Game;
         handler.addObject(new Player(Game.WIDTH / 2 - 32, Game.HEIGHT / 2 - 32, ID.Player, handler));
-        handler.clearEnemys();
         handler.addObject(firstEnemy);
         game.diff = difficulty;
+    }
+
+    private void resetForMenu() {
+        handler.getObjects().clear();
+        hud.setLevel(1);
+        hud.setScore(0);
+        hud.setPoints(0);
+        hud.bounds = 0;
+        HUD.HEALTH = 100;
+        resetHover();
     }
 
     // ==================== Rendering ====================
@@ -525,7 +544,7 @@ public class Menu extends MouseAdapter {
 
         g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 64));
         g.setColor(PageRenderer.TEXT);
-        String score = String.valueOf(hud.getScore());
+        String score = String.valueOf(game.lastScore);
         fm = g.getFontMetrics();
         g.drawString(score, (Game.WIDTH - fm.stringWidth(score)) / 2, 345);
 
