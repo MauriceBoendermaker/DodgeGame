@@ -666,15 +666,6 @@ public class Game extends Canvas implements Runnable {
                 }
             }
 
-            // Reset look-ahead + camera zoom transforms
-            g.translate(camOffsetX, camOffsetY);
-            if (cameraZoom != 1f) {
-                g.scale(1.0 / cameraZoom, 1.0 / cameraZoom);
-                float zoomOffX = WIDTH * (1f - cameraZoom) / 2f;
-                float zoomOffY = HEIGHT * (1f - cameraZoom) / 2f;
-                g.translate(-zoomOffX, -zoomOffY);
-            }
-
             // Damage flash — red border vignette
             if (flashAlpha > 0) {
                 int border = 60;
@@ -730,6 +721,15 @@ public class Game extends Canvas implements Runnable {
                 String aNum = "#" + currentAttempt;
                 afm = g.getFontMetrics();
                 g.drawString(aNum, (WIDTH - afm.stringWidth(aNum)) / 2, HEIGHT / 2 + 90 + (int) drift);
+            }
+
+            // Reset look-ahead + camera zoom transforms
+            g.translate(camOffsetX, camOffsetY);
+            if (cameraZoom != 1f) {
+                g.scale(1.0 / cameraZoom, 1.0 / cameraZoom);
+                float zoomOffX = WIDTH * (1f - cameraZoom) / 2f;
+                float zoomOffY = HEIGHT * (1f - cameraZoom) / 2f;
+                g.translate(-zoomOffX, -zoomOffY);
             }
         } else if (gameState == STATE.Shop) {
             shop.render(g);
