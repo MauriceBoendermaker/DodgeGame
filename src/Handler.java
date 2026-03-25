@@ -1,46 +1,38 @@
 import java.awt.Graphics;
-import java.util.LinkedList;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Handler {
 
-    LinkedList<GameObject> object = new LinkedList<GameObject>();
+    private ArrayList<GameObject> objects = new ArrayList<>();
 
     public int spd = 6;
 
     public void tick() {
-        for (int i = 0; i < object.size(); i++) {
-            GameObject tempObject = object.get(i);
-
-            tempObject.tick();
+        for (int i = 0; i < objects.size(); i++) {
+            objects.get(i).tick();
         }
     }
 
     public void render(Graphics g) {
-        for (int i = 0; i < object.size(); i++) {
-            GameObject tempObject = object.get(i);
-
-            tempObject.render(g);
+        for (int i = 0; i < objects.size(); i++) {
+            objects.get(i).render(g);
         }
     }
 
     public void clearEnemys() {
-        for (int i = 0; i < object.size(); i++) {
-            GameObject tempObject = object.get(i);
-
-            if (tempObject.getId() == ID.Player) {
-                object.clear();
-                if (Game.gameState != Game.STATE.End)
-                    addObject(new Player((int) tempObject.getX(), (int) tempObject.getY(), ID.Player, this));
-            }
-        }
+        objects.removeIf(obj -> obj.getId() != ID.Player);
     }
 
     public void addObject(GameObject object) {
-        this.object.add(object);
+        objects.add(object);
     }
 
     public void removeObject(GameObject object) {
-        this.object.remove(object);
+        objects.remove(object);
     }
 
+    public List<GameObject> getObjects() {
+        return objects;
+    }
 }

@@ -3,20 +3,14 @@ import java.io.IOException;
 
 import javax.imageio.ImageIO;
 
-public class BufferedImageLoader
-{
-	
-	private BufferedImage image;
-	
-	public BufferedImage loadImage(String path)
-	{
-		try {
-			image = ImageIO.read(getClass().getResource(path));
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		return image;
-	}
-	
+public class BufferedImageLoader {
+
+    public BufferedImage loadImage(String path) {
+        try {
+            return ImageIO.read(getClass().getResource(path));
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
 }
-//MainPage
