@@ -254,6 +254,7 @@ public class Game extends Canvas implements Runnable {
         wallFlareCount = alive;
 
         if (gameState == STATE.Game) {
+            GamePalette.update(hud.getLevel());
             hud.tick();
             spawner.tick();
             handler.tick();
@@ -459,13 +460,13 @@ public class Game extends Canvas implements Runnable {
             if (levelUpFlash > 0) {
                 int border = 80;
                 int alpha = (int) (levelUpFlash * 150);
-                g.setPaint(new java.awt.GradientPaint(0, 0, new Color(78, 205, 196, alpha), 0, border, new Color(78, 205, 196, 0)));
+                g.setPaint(new java.awt.GradientPaint(0, 0, GamePalette.accent(alpha), 0, border, GamePalette.accent(0)));
                 g.fillRect(0, 0, WIDTH, border);
-                g.setPaint(new java.awt.GradientPaint(0, HEIGHT - border, new Color(78, 205, 196, 0), 0, HEIGHT, new Color(78, 205, 196, alpha)));
+                g.setPaint(new java.awt.GradientPaint(0, HEIGHT - border, GamePalette.accent(0), 0, HEIGHT, GamePalette.accent(alpha)));
                 g.fillRect(0, HEIGHT - border, WIDTH, border);
-                g.setPaint(new java.awt.GradientPaint(0, 0, new Color(78, 205, 196, alpha), border, 0, new Color(78, 205, 196, 0)));
+                g.setPaint(new java.awt.GradientPaint(0, 0, GamePalette.accent(alpha), border, 0, GamePalette.accent(0)));
                 g.fillRect(0, 0, border, HEIGHT);
-                g.setPaint(new java.awt.GradientPaint(WIDTH - border, 0, new Color(78, 205, 196, 0), WIDTH, 0, new Color(78, 205, 196, alpha)));
+                g.setPaint(new java.awt.GradientPaint(WIDTH - border, 0, GamePalette.accent(0), WIDTH, 0, GamePalette.accent(alpha)));
                 g.fillRect(WIDTH - border, 0, border, HEIGHT);
             }
 
@@ -496,11 +497,15 @@ public class Game extends Canvas implements Runnable {
     private void renderBeatVisuals(Graphics2D g) {
         float beat = AudioPlayer.getBeatPulse();
 
+        // Background color tint — subtle wash from palette
+        g.setColor(GamePalette.bgTint(12));
+        g.fillRect(0, 0, WIDTH, HEIGHT);
+
         // Grid dots — expand on beat
         int baseDotSize = 2;
         int beatDotSize = baseDotSize + (int) (beat * 3);
         int baseAlpha = 22 + (int) (beat * 35);
-        g.setColor(new Color(78, 205, 196, Math.min(baseAlpha, 255)));
+        g.setColor(GamePalette.accent(Math.min(baseAlpha, 255)));
         for (int x = 20; x < WIDTH; x += 40) {
             for (int y = 20; y < HEIGHT; y += 40) {
                 g.fillOval(x - beatDotSize / 2, y - beatDotSize / 2, beatDotSize, beatDotSize);
@@ -510,7 +515,7 @@ public class Game extends Canvas implements Runnable {
         // Edge pulse — vignette throbs on beat
         if (beat > 0.1f) {
             int vigAlpha = (int) (beat * 25);
-            g.setColor(new Color(78, 205, 196, vigAlpha));
+            g.setColor(GamePalette.accent(vigAlpha));
             g.fillRect(0, 0, WIDTH, 4);
             g.fillRect(0, HEIGHT - 4, WIDTH, 4);
             g.fillRect(0, 0, 4, HEIGHT);
@@ -536,7 +541,7 @@ public class Game extends Canvas implements Runnable {
 
             // Layer 1 — Large slow-rotating triangles
             g2.setStroke(new java.awt.BasicStroke(1.5f));
-            g2.setColor(new Color(78, 205, 196, 10));
+            g2.setColor(GamePalette.accent(10));
             for (int i = 0; i < 3; i++) {
                 float angle = t * 0.4f + i * (float) (Math.PI * 2 / 3);
                 float ox = (float) Math.cos(t * 0.15f + i) * 80;
@@ -545,7 +550,7 @@ public class Game extends Canvas implements Runnable {
             }
 
             // Layer 2 — Hexagon ring
-            g2.setColor(new Color(78, 205, 196, 8));
+            g2.setColor(GamePalette.accent(8));
             g2.setStroke(new java.awt.BasicStroke(1f));
             float hexAngle = t * -0.25f;
             for (int i = 0; i < 6; i++) {
@@ -553,7 +558,7 @@ public class Game extends Canvas implements Runnable {
                 drawHexagon(g2, cx + (int) (Math.cos(a) * 280), cy + (int) (Math.sin(a) * 280),
                         50 + (int) (Math.sin(t + i) * 10), a * 0.5f);
             }
-            g2.setColor(new Color(78, 205, 196, 12));
+            g2.setColor(GamePalette.accent(12));
             drawHexagon(g2, cx, cy, 160, t * 0.15f);
 
             // Layer 3 — Diagonal grid lines
@@ -603,14 +608,14 @@ public class Game extends Canvas implements Runnable {
         baseAlpha = Math.min(baseAlpha, 80);
 
         // Thin border lines
-        g.setColor(new Color(78, 205, 196, baseAlpha));
+        g.setColor(GamePalette.accent(baseAlpha));
         g.fillRect(0, 0, WIDTH, 2);
         g.fillRect(0, HEIGHT - 2, WIDTH, 2);
         g.fillRect(0, 0, 2, HEIGHT);
         g.fillRect(WIDTH - 2, 0, 2, HEIGHT);
 
         // Subtle edge glow (single layer, no GradientPaint)
-        g.setColor(new Color(78, 205, 196, baseAlpha / 4));
+        g.setColor(GamePalette.accent(baseAlpha / 4));
         g.fillRect(0, 0, WIDTH, 8);
         g.fillRect(0, HEIGHT - 8, WIDTH, 8);
         g.fillRect(0, 0, 8, HEIGHT);
@@ -625,14 +630,14 @@ public class Game extends Canvas implements Runnable {
             int a = Math.min(255, (int) (intensity * 160));
             int aw = Math.min(255, (int) (intensity * 50));
 
-            g.setColor(new Color(78, 205, 196, a));
+            g.setColor(GamePalette.accent(a));
             if (side == 0)      g.fillRect((int) fx - 40, 0, 80, 4);
             else if (side == 1) g.fillRect((int) fx - 40, HEIGHT - 4, 80, 4);
             else if (side == 2) g.fillRect(0, (int) fy - 40, 4, 80);
             else                g.fillRect(WIDTH - 4, (int) fy - 40, 4, 80);
 
             // Wider faint glow
-            g.setColor(new Color(78, 205, 196, aw));
+            g.setColor(GamePalette.accent(aw));
             if (side == 0)      g.fillRect((int) fx - 60, 0, 120, 10);
             else if (side == 1) g.fillRect((int) fx - 60, HEIGHT - 10, 120, 10);
             else if (side == 2) g.fillRect(0, (int) fy - 60, 10, 120);

@@ -35,12 +35,12 @@ public class HUD {
     private static final Color BAR_BORDER = new Color(40, 52, 70);
     private static final Color TEXT = new Color(230, 234, 240);
     private static final Color TEXT_DIM = new Color(100, 112, 128);
-    private static final Color ACCENT = new Color(78, 205, 196);
+    // ACCENT is now dynamic — use GamePalette.accent() for in-game elements
     private static final Color HEALTH_HIGH = new Color(72, 199, 142);
     private static final Color HEALTH_MID = new Color(245, 195, 68);
     private static final Color HEALTH_LOW = new Color(235, 87, 87);
     private static final Color TIER_HEALTH = new Color(72, 199, 142);
-    private static final Color TIER_SPEED = new Color(78, 205, 196);
+    private static final Color TIER_SPEED = new Color(100, 180, 220);
     private static final Color TIER_REFILL = new Color(245, 195, 68);
     private static final Color TIER_BG = new Color(30, 38, 52);
 
@@ -126,7 +126,7 @@ public class HUD {
         // Large level watermark in background — flashes on level-up
         g2.setFont(FONT_LEVEL_BG);
         int watermarkAlpha = 20 + (int) (levelUpBanner * 60);
-        g2.setColor(new Color(78, 205, 196, Math.min(watermarkAlpha, 255)));
+        g2.setColor(GamePalette.accent(Math.min(watermarkAlpha, 255)));
         String levelStr = level <= 9 ? "0" + level : "" + level;
         fm = g2.getFontMetrics();
         g2.drawString(levelStr, (Game.WIDTH - fm.stringWidth(levelStr)) / 2, Game.HEIGHT - 80);
@@ -135,7 +135,7 @@ public class HUD {
         if (levelUpBanner > 0.05f) {
             g2.setFont(FONT_LEVEL_UP);
             int alpha = (int) (levelUpBanner * 255);
-            g2.setColor(new Color(78, 205, 196, alpha));
+            g2.setColor(GamePalette.accent(alpha));
             String lvlUp = "LEVEL " + level;
             fm = g2.getFontMetrics();
             int bannerY = Game.HEIGHT / 2 - 30 - (int) ((1f - levelUpBanner) * 20);
