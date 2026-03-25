@@ -30,7 +30,17 @@ public class Game extends Canvas implements Runnable {
     public int diff = 1;
 
     private int fps = 0;
+
+    // End-of-run stats
     public int lastScore = 0;
+    public int lastLevel = 0;
+    public String lastTime = "";
+    public int lastEnemies = 0;
+    public int lastUpgrades = 0;
+    public int lastHealthUps = 0;
+    public int lastSpeedUps = 0;
+    public int lastRefills = 0;
+    public String lastDifficulty = "";
 
     private Random r;
     private Handler handler;
@@ -200,8 +210,26 @@ public class Game extends Canvas implements Runnable {
             spawner.tick();
             handler.tick();
             if (HUD.HEALTH <= 0) {
-                // Capture score before resetting
+                // Capture all run stats before resetting
                 lastScore = hud.getScore();
+                lastLevel = hud.getLevel();
+                lastTime = hud.getTimeSurvived();
+                lastUpgrades = hud.getTotalUpgrades();
+                lastHealthUps = hud.getHealthUpgrades();
+                lastSpeedUps = hud.getSpeedUpgrades();
+                lastRefills = hud.getRefills();
+                lastDifficulty = diff == 0 ? "Normal" : diff == 1 ? "Hard" : "Insane";
+
+                // Count enemies on screen (exclude player and trails)
+                lastEnemies = 0;
+                for (int i = 0; i < handler.getObjects().size(); i++) {
+                    ID id = handler.getObjects().get(i).getId();
+                    if (id == ID.BasicEnemy || id == ID.FastEnemy || id == ID.SmartEnemy
+                            || id == ID.HardEnemy || id == ID.EnemyBoss) {
+                        lastEnemies++;
+                    }
+                }
+
                 HUD.HEALTH = 100;
                 hud.bounds = 0;
                 gameState = STATE.End;

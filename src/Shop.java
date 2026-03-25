@@ -146,18 +146,21 @@ public class Shop extends MouseAdapter {
             healthUpgradeCost += 250;
             hud.bounds += 20;
             HUD.HEALTH = 100 + (hud.bounds / 2);
+            hud.addHealthUpgrade();
         }
 
         if (hitCard(mx, my, card2X()) && hud.getPoints() >= speedUpgradeCost) {
             hud.setPoints(hud.getPoints() - speedUpgradeCost);
             speedUpgradeCost += 250;
             handler.spd++;
+            hud.addSpeedUpgrade();
         }
 
         if (hitCard(mx, my, card3X()) && hud.getPoints() >= refillHealthCost) {
             hud.setPoints(hud.getPoints() - refillHealthCost);
             refillHealthCost += 250;
             HUD.HEALTH = 100 + (hud.bounds / 2);
+            hud.addRefill();
         }
     }
 

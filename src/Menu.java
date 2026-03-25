@@ -24,7 +24,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
     private static final int MUSIC_Y = 668;
     private static final int RETRY_W = 300;
     private static final int RETRY_H = 50;
-    private static final int RETRY_Y = 440;
+    private static final int RETRY_Y = 448;
 
     // Y positions
     private static final int PLAY_Y = 300;
@@ -266,6 +266,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         hud.setScore(0);
         hud.setPoints(0);
         hud.bounds = 0;
+        hud.resetStats();
         HUD.HEALTH = 100;
         Game.gameState = Game.STATE.Game;
         handler.addObject(new Player(Game.WIDTH / 2 - 32, Game.HEIGHT / 2 - 32, ID.Player, handler));
@@ -825,27 +826,95 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
     private void renderEnd(Graphics2D g) {
         PageRenderer.drawBackground(g);
 
+        int cx = Game.WIDTH / 2;
+
+        // Title
         g.setFont(PageRenderer.TITLE_FONT);
         g.setColor(PageRenderer.DANGER);
         String go = "Game Over";
         FontMetrics fm = g.getFontMetrics();
-        g.drawString(go, (Game.WIDTH - fm.stringWidth(go)) / 2, 180);
+        g.drawString(go, cx - fm.stringWidth(go) / 2, 72);
 
-        PageRenderer.drawPanel(g, (Game.WIDTH - 400) / 2, 230, 400, 140);
+        // Performance rating
+        String rating = getRating(game.lastScore, game.lastLevel);
+        g.setFont(PageRenderer.SUBTITLE_FONT);
+        g.setColor(PageRenderer.ACCENT);
+        fm = g.getFontMetrics();
+        g.drawString(rating, cx - fm.stringWidth(rating) / 2, 105);
+
+        // Score panel — centered
+        int scoreW = 320;
+        int scoreX = cx - scoreW / 2;
+        PageRenderer.drawPanel(g, scoreX, 125, scoreW, 110);
         g.setFont(PageRenderer.LABEL_FONT);
         g.setColor(PageRenderer.TEXT_MUTED);
-        String label = "FINAL SCORE";
+        String sl = "FINAL SCORE";
         fm = g.getFontMetrics();
-        g.drawString(label, (Game.WIDTH - fm.stringWidth(label)) / 2, 268);
-
-        g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 64));
+        g.drawString(sl, cx - fm.stringWidth(sl) / 2, 155);
+        g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 52));
         g.setColor(PageRenderer.TEXT);
-        String score = String.valueOf(game.lastScore);
+        String scoreStr = String.valueOf(game.lastScore);
         fm = g.getFontMetrics();
-        g.drawString(score, (Game.WIDTH - fm.stringWidth(score)) / 2, 345);
+        g.drawString(scoreStr, cx - fm.stringWidth(scoreStr) / 2, 218);
 
-        PageRenderer.drawPrimaryButton(g, retryX(), RETRY_Y, RETRY_W, RETRY_H, "Try Again", retryH);
+        // Stats panels — two columns
+        int gap = 14;
+        int panelW = (Game.WIDTH - 120 - gap) / 2;
+        int leftX = 60;
+        int rightX = leftX + panelW + gap;
+        int statsY = 252;
+
+        // Left — Run Stats
+        PageRenderer.drawPanel(g, leftX, statsY, panelW, 170);
+        g.setFont(PageRenderer.HEADING_FONT);
+        g.setColor(PageRenderer.ACCENT);
+        g.drawString("Run Stats", leftX + 20, statsY + 32);
+        g.setColor(PageRenderer.BORDER);
+        g.fillRect(leftX + 20, statsY + 44, panelW - 40, 1);
+
+        int sy = statsY + 70;
+        drawStatRow(g, leftX + 20, sy, panelW - 40, "Difficulty", game.lastDifficulty); sy += 26;
+        drawStatRow(g, leftX + 20, sy, panelW - 40, "Level reached", String.valueOf(game.lastLevel)); sy += 26;
+        drawStatRow(g, leftX + 20, sy, panelW - 40, "Time survived", game.lastTime); sy += 26;
+        drawStatRow(g, leftX + 20, sy, panelW - 40, "Enemies on screen", String.valueOf(game.lastEnemies));
+
+        // Right — Upgrades
+        PageRenderer.drawPanel(g, rightX, statsY, panelW, 170);
+        g.setFont(PageRenderer.HEADING_FONT);
+        g.setColor(PageRenderer.ACCENT);
+        g.drawString("Upgrades", rightX + 20, statsY + 32);
+        g.setColor(PageRenderer.BORDER);
+        g.fillRect(rightX + 20, statsY + 44, panelW - 40, 1);
+
+        sy = statsY + 70;
+        drawStatRow(g, rightX + 20, sy, panelW - 40, "Health upgrades", String.valueOf(game.lastHealthUps)); sy += 26;
+        drawStatRow(g, rightX + 20, sy, panelW - 40, "Speed upgrades", String.valueOf(game.lastSpeedUps)); sy += 26;
+        drawStatRow(g, rightX + 20, sy, panelW - 40, "Health refills", String.valueOf(game.lastRefills)); sy += 26;
+        drawStatRow(g, rightX + 20, sy, panelW - 40, "Total purchases", String.valueOf(game.lastUpgrades));
+
+        // Buttons
+        int btnY = 448;
+        PageRenderer.drawPrimaryButton(g, retryX(), btnY, RETRY_W, RETRY_H, "Try Again", retryH);
         PageRenderer.drawBackButton(g, backH);
+    }
+
+    private void drawStatRow(Graphics2D g, int x, int y, int w, String label, String value) {
+        g.setFont(PageRenderer.BODY_FONT);
+        g.setColor(PageRenderer.TEXT_SEC);
+        g.drawString(label, x, y);
+        FontMetrics fm = g.getFontMetrics();
+        g.setColor(PageRenderer.TEXT);
+        g.drawString(value, x + w - fm.stringWidth(value), y);
+    }
+
+    private String getRating(int score, int level) {
+        if (level >= 20) return "\"Legendary\"";
+        if (level >= 15) return "\"Untouchable\"";
+        if (level >= 10) return "\"Veteran\"";
+        if (level >= 7) return "\"Survivor\"";
+        if (level >= 5) return "\"Fighter\"";
+        if (level >= 3) return "\"Rookie\"";
+        return "\"Beginner\"";
     }
 
     // ---------- Pause Menu ----------

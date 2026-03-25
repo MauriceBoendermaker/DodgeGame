@@ -15,6 +15,12 @@ public class HUD {
     private int level = 1;
     private int points = 0;
 
+    // Run stats
+    private int ticksSurvived = 0;
+    private int healthUpgrades = 0;
+    private int speedUpgrades = 0;
+    private int refills = 0;
+
     private static final Font FONT_SCORE = new Font("Arial", Font.BOLD, 32);
     private static final Font FONT_LABEL = new Font("Arial", Font.BOLD, 13);
     private static final Font FONT_STAT = new Font("Arial", Font.PLAIN, 16);
@@ -34,6 +40,7 @@ public class HUD {
         HEALTH = Game.clamp(HEALTH, 0, maxHealth);
         score++;
         points++;
+        ticksSurvived++;
     }
 
     public void render(Graphics g) {
@@ -126,4 +133,29 @@ public class HUD {
     public void setLevel(int level) { this.level = level; }
     public int getPoints() { return points; }
     public void setPoints(int points) { this.points = points; }
+
+    // Stats tracking
+    public int getTicksSurvived() { return ticksSurvived; }
+    public int getHealthUpgrades() { return healthUpgrades; }
+    public int getSpeedUpgrades() { return speedUpgrades; }
+    public int getRefills() { return refills; }
+    public void addHealthUpgrade() { healthUpgrades++; }
+    public void addSpeedUpgrade() { speedUpgrades++; }
+    public void addRefill() { refills++; }
+    public int getTotalUpgrades() { return healthUpgrades + speedUpgrades + refills; }
+
+    public String getTimeSurvived() {
+        int totalSec = ticksSurvived / 60;
+        int min = totalSec / 60;
+        int sec = totalSec % 60;
+        if (min > 0) return min + "m " + sec + "s";
+        return sec + "s";
+    }
+
+    public void resetStats() {
+        ticksSurvived = 0;
+        healthUpgrades = 0;
+        speedUpgrades = 0;
+        refills = 0;
+    }
 }
