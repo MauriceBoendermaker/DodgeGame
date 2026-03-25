@@ -666,30 +666,35 @@ public class Game extends Canvas implements Runnable {
                 }
             }
 
-            // Damage flash — red border vignette
+            // --- Temporarily undo camera transforms for screen-edge effects ---
+            g.translate(camOffsetX, camOffsetY);
+            if (cameraZoom != 1f) {
+                g.scale(1.0 / cameraZoom, 1.0 / cameraZoom);
+                float uzx = WIDTH * (1f - cameraZoom) / 2f;
+                float uzy = HEIGHT * (1f - cameraZoom) / 2f;
+                g.translate(-uzx, -uzy);
+            }
+
+            // Damage flash — red border vignette (screen-space)
             if (flashAlpha > 0) {
                 int border = 60;
                 int alpha = (int) (flashAlpha * 255);
-                // Top
                 g.setPaint(new java.awt.GradientPaint(0, 0, new Color(235, 50, 50, alpha), 0, border, new Color(235, 50, 50, 0)));
                 g.fillRect(0, 0, WIDTH, border);
-                // Bottom
                 g.setPaint(new java.awt.GradientPaint(0, HEIGHT - border, new Color(235, 50, 50, 0), 0, HEIGHT, new Color(235, 50, 50, alpha)));
                 g.fillRect(0, HEIGHT - border, WIDTH, border);
-                // Left
                 g.setPaint(new java.awt.GradientPaint(0, 0, new Color(235, 50, 50, alpha), border, 0, new Color(235, 50, 50, 0)));
                 g.fillRect(0, 0, border, HEIGHT);
-                // Right
                 g.setPaint(new java.awt.GradientPaint(WIDTH - border, 0, new Color(235, 50, 50, 0), WIDTH, 0, new Color(235, 50, 50, alpha)));
                 g.fillRect(WIDTH - border, 0, border, HEIGHT);
             }
 
-            // Boss intro cinematic overlay
+            // Boss intro cinematic overlay (screen-space)
             if (bossIntroActive) {
                 renderBossIntro(g);
             }
 
-            // Level-up flash — teal border pulse
+            // Level-up flash — teal border pulse (screen-space)
             if (levelUpFlash > 0) {
                 int border = 80;
                 int alpha = (int) (levelUpFlash * 150);
@@ -702,6 +707,15 @@ public class Game extends Canvas implements Runnable {
                 g.setPaint(new java.awt.GradientPaint(WIDTH - border, 0, GamePalette.accent(0), WIDTH, 0, GamePalette.accent(alpha)));
                 g.fillRect(WIDTH - border, 0, border, HEIGHT);
             }
+
+            // --- Re-apply camera transforms for HUD ---
+            if (cameraZoom != 1f) {
+                float rzx = WIDTH * (1f - cameraZoom) / 2f;
+                float rzy = HEIGHT * (1f - cameraZoom) / 2f;
+                g.translate(rzx, rzy);
+                g.scale(cameraZoom, cameraZoom);
+            }
+            g.translate(-camOffsetX, -camOffsetY);
 
             hud.render(g);
 
