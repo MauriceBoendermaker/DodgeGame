@@ -323,7 +323,7 @@ public class Game extends Canvas implements Runnable {
         Settings.getMusicVolume(); // Force settings load & volume sync
         AudioPlayer.play();
 
-        new Window(windowWidth, windowHeight, "Dotch. - v3.0", this);
+        new Window(windowWidth, windowHeight, "Dotch. - v4.0", this);
 
         spawner = new Spawn(handler, hud, this);
         spawnerRef = spawner;
