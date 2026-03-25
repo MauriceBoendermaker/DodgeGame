@@ -1,9 +1,16 @@
 import java.awt.Color;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.util.Random;
 
 public class HardEnemy extends GameObject {
+
+    private static final int SIZE = 32;
+    private static final Color FILL = new Color(245, 195, 68);
+    private static final Color GLOW = new Color(245, 195, 68, 35);
+    private static final Color TRAIL_COLOR = new Color(245, 195, 68);
 
     private Handler handler;
     private Random r = new Random();
@@ -11,31 +18,43 @@ public class HardEnemy extends GameObject {
     public HardEnemy(int x, int y, ID id, Handler handler) {
         super(x, y, id);
         this.handler = handler;
-
         velX = 5;
         velY = 5;
     }
 
     public Rectangle getBounds() {
-        return new Rectangle((int) x, (int) y, 32, 32);
+        return new Rectangle((int) x, (int) y, SIZE, SIZE);
     }
 
     public void tick() {
         x += velX;
         y += velY;
-
-        if (y <= 0 || y >= Game.HEIGHT - 32) {
+        if (y <= 0 || y >= Game.HEIGHT - SIZE) {
             velY = (y <= 0) ? (r.nextInt(7) + 1) : -(r.nextInt(7) + 1);
         }
-        if (x <= 0 || x >= Game.WIDTH - 16) {
+        if (x <= 0 || x >= Game.WIDTH - SIZE) {
             velX = (x <= 0) ? (r.nextInt(7) + 1) : -(r.nextInt(7) + 1);
         }
-
-        handler.addObject(new Trail(x, y, ID.Trail, Color.yellow, 32, 32, 0.02f, handler));
+        handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.02f, handler));
     }
 
     public void render(Graphics g) {
-        g.setColor(Color.yellow);
-        g.fillRect((int) x, (int) y, 32, 32);
+        Graphics2D g2 = (Graphics2D) g;
+        int cx = (int) x + SIZE / 2;
+        int cy = (int) y + SIZE / 2;
+        int half = SIZE / 2;
+
+        // Triangle shape — points upward
+        Polygon glowTri = new Polygon(
+                new int[]{cx, cx + half + 4, cx - half - 4},
+                new int[]{cy - half - 4, cy + half + 2, cy + half + 2}, 3);
+        g2.setColor(GLOW);
+        g2.fillPolygon(glowTri);
+
+        Polygon tri = new Polygon(
+                new int[]{cx, cx + half, cx - half},
+                new int[]{cy - half, cy + half, cy + half}, 3);
+        g2.setColor(FILL);
+        g2.fillPolygon(tri);
     }
 }

@@ -1,8 +1,14 @@
 import java.awt.Color;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Rectangle;
 
 public class SmartEnemy extends GameObject {
+
+    private static final int SIZE = 32;
+    private static final Color FILL = new Color(199, 125, 255);
+    private static final Color GLOW = new Color(199, 125, 255, 35);
+    private static final Color TRAIL_COLOR = new Color(199, 125, 255);
 
     private Handler handler;
     private GameObject player;
@@ -18,7 +24,7 @@ public class SmartEnemy extends GameObject {
     }
 
     public Rectangle getBounds() {
-        return new Rectangle((int) x, (int) y, 32, 32);
+        return new Rectangle((int) x, (int) y, SIZE, SIZE);
     }
 
     public void tick() {
@@ -30,11 +36,18 @@ public class SmartEnemy extends GameObject {
                 + (y - player.getY()) * (y - player.getY()));
         velX = ((-2 / distance) * diffX);
         velY = ((-2 / distance) * diffY);
-        handler.addObject(new Trail(x, y, ID.Trail, Color.magenta, 32, 32, 0.02f, handler));
+        handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.02f, handler));
     }
 
     public void render(Graphics g) {
-        g.setColor(Color.magenta);
-        g.fillRect((int) x, (int) y, 32, 32);
+        Graphics2D g2 = (Graphics2D) g;
+        int ix = (int) x, iy = (int) y;
+        int cx = ix + SIZE / 2, cy = iy + SIZE / 2;
+
+        // Circle with glow
+        g2.setColor(GLOW);
+        g2.fillOval(cx - SIZE / 2 - 4, cy - SIZE / 2 - 4, SIZE + 8, SIZE + 8);
+        g2.setColor(FILL);
+        g2.fillOval(ix, iy, SIZE, SIZE);
     }
 }

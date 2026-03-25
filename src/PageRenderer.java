@@ -52,6 +52,7 @@ public class PageRenderer {
     public static int backX() { return Game.WIDTH - 125; }
 
     private static BufferedImage bgCache;
+    private static BufferedImage gameBgCache;
 
     // ===== Background =====
 
@@ -60,6 +61,51 @@ public class PageRenderer {
             bgCache = createBackground();
         }
         g.drawImage(bgCache, 0, 0, null);
+    }
+
+    public static void drawGameBackground(Graphics2D g) {
+        if (gameBgCache == null) {
+            gameBgCache = createGameBackground();
+        }
+        g.drawImage(gameBgCache, 0, 0, null);
+    }
+
+    private static BufferedImage createGameBackground() {
+        BufferedImage img = new BufferedImage(Game.WIDTH, Game.HEIGHT, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // Dark base
+        g.setColor(new Color(8, 10, 16));
+        g.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
+
+        // Subtle center glow
+        g.setPaint(new RadialGradientPaint(
+                new Point2D.Float(Game.WIDTH / 2f, Game.HEIGHT / 2f), 500,
+                new float[]{0f, 1f},
+                new Color[]{new Color(20, 28, 40), new Color(8, 10, 16)}
+        ));
+        g.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
+
+        // Grid dots
+        g.setColor(new Color(30, 38, 52));
+        for (int x = 20; x < Game.WIDTH; x += 40) {
+            for (int y = 20; y < Game.HEIGHT; y += 40) {
+                g.fillOval(x, y, 2, 2);
+            }
+        }
+
+        // Subtle edge vignette
+        g.setPaint(new RadialGradientPaint(
+                new Point2D.Float(Game.WIDTH / 2f, Game.HEIGHT / 2f),
+                Math.max(Game.WIDTH, Game.HEIGHT) * 0.6f,
+                new float[]{0f, 0.7f, 1f},
+                new Color[]{new Color(0, 0, 0, 0), new Color(0, 0, 0, 0), new Color(0, 0, 0, 60)}
+        ));
+        g.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
+
+        g.dispose();
+        return img;
     }
 
     private static BufferedImage createBackground() {

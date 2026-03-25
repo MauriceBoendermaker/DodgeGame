@@ -1,35 +1,43 @@
 import java.awt.Color;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Rectangle;
 
 public class BasicEnemy extends GameObject {
+
+    private static final int SIZE = 32;
+    private static final int R = 8;
+    private static final Color FILL = new Color(235, 87, 87);
+    private static final Color GLOW = new Color(235, 87, 87, 35);
+    private static final Color TRAIL_COLOR = new Color(235, 87, 87);
 
     private Handler handler;
 
     public BasicEnemy(int x, int y, ID id, Handler handler) {
         super(x, y, id);
         this.handler = handler;
-
         velX = 5;
         velY = 5;
     }
 
     public Rectangle getBounds() {
-        return new Rectangle((int) x, (int) y, 32, 32);
+        return new Rectangle((int) x, (int) y, SIZE, SIZE);
     }
 
     public void tick() {
         x += velX;
         y += velY;
-
-        if (y <= 0 || y >= Game.HEIGHT - 32) velY *= -1;
-        if (x <= 0 || x >= Game.WIDTH - 16) velX *= -1;
-
-        handler.addObject(new Trail(x, y, ID.Trail, Color.red, 32, 32, 0.02f, handler));
+        if (y <= 0 || y >= Game.HEIGHT - SIZE) velY *= -1;
+        if (x <= 0 || x >= Game.WIDTH - SIZE) velX *= -1;
+        handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.02f, handler));
     }
 
     public void render(Graphics g) {
-        g.setColor(Color.red);
-        g.fillRect((int) x, (int) y, 32, 32);
+        Graphics2D g2 = (Graphics2D) g;
+        int ix = (int) x, iy = (int) y;
+        g2.setColor(GLOW);
+        g2.fillRoundRect(ix - 4, iy - 4, SIZE + 8, SIZE + 8, R + 4, R + 4);
+        g2.setColor(FILL);
+        g2.fillRoundRect(ix, iy, SIZE, SIZE, R, R);
     }
 }

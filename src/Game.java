@@ -221,15 +221,24 @@ public class Game extends Canvas implements Runnable {
         g.setFont(FPS_FONT);
         g.drawString("FPS: " + fps, WIDTH - 120, 19);
 
-        if (paused) {
-            g.setFont(PAUSED_FONT);
-            g.setColor(Color.orange);
-            g.drawString("PAUSED", WIDTH / 2 - 225, HEIGHT / 2);
+        if (gameState == STATE.Game || gameState == STATE.Shop) {
+            PageRenderer.drawGameBackground(g);
         }
 
         if (gameState == STATE.Game) {
-            hud.render(g);
             handler.render(g);
+            hud.render(g);
+            if (paused) {
+                // Dim overlay
+                g.setColor(new Color(8, 10, 16, 160));
+                g.fillRect(0, 0, WIDTH, HEIGHT);
+                g.setFont(PAUSED_FONT);
+                float pulse = (float) (Math.sin(System.nanoTime() / 400_000_000.0) * 0.3 + 0.7);
+                g.setColor(new Color(78, 205, 196, (int) (255 * pulse)));
+                java.awt.FontMetrics fm = g.getFontMetrics();
+                String p = "PAUSED";
+                g.drawString(p, (WIDTH - fm.stringWidth(p)) / 2, HEIGHT / 2);
+            }
         } else if (gameState == STATE.Shop) {
             shop.render(g);
         } else if (gameState == STATE.MusicPlayer) {
