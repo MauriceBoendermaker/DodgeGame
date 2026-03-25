@@ -2444,7 +2444,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         drawCreditLine(g, x, y, "Development", "Maurice Boendermaker"); y += spacing;
         drawCreditLine(g, x, y, "Original Visual Graphic Design", "Jeffrey Persoon"); y += spacing;
         drawCreditLine(g, x, y, "Built With", "Java AWT / Swing"); y += spacing;
-        drawCreditLine(g, x, y, "Audio", "Virtual Riot  /  MDK  /  Desmeon  /  Pegboard Nerds"); y += spacing;
+        drawCreditLine(g, x, y, "Audio", "Virtual Riot  /  MDK  /  Desmeon  /  Pegboard Nerds  /  Avicii  /  Skrillex"); y += spacing;
         drawCreditLine(g, x, y, "Version", "v3.0  \u2014  March 2026"); y += spacing;
 
         g.setFont(PageRenderer.SMALL_FONT);

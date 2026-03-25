@@ -29,6 +29,7 @@ public class AudioPlayer implements MusicListener {
 
             addTrack("fingerbang", "MDK - Fingerbang", "MDK - Fingerbang.ogg", 228f, 150f);
             addTrack("disconnected", "Pegboard Nerds - Disconnected", "Pegboard Nerds - Disconnected.ogg", 242f, 128f);
+            addTrack("levels", "Avicii - Levels (Skrillex Remix)", "Avicii - Levels (Skrillex remix).mp3", 210f, 128f);
 
             // Register listener on all tracks
             for (Track t : tracks) {
@@ -55,7 +56,7 @@ public class AudioPlayer implements MusicListener {
 
     private static void buildPlaylist() {
         Random r = new Random();
-        Track opener = tracks.get(r.nextInt(3));
+        Track opener = tracks.get(r.nextInt(Math.min(4, tracks.size())));
         Collections.shuffle(tracks, r);
         tracks.remove(opener);
         tracks.add(0, opener);
