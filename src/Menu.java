@@ -629,7 +629,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         // Version — bottom-left
         g.setFont(PageRenderer.SMALL_FONT);
         g.setColor(PageRenderer.TEXT_MUTED);
-        g.drawString("v4.0", 24, 700);
+        g.drawString("v4.1", 24, 700);
 
         // About | Changelog | Credits — centered bottom
         drawBottomLinks(g);
@@ -2614,7 +2614,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         drawCreditLine(g, x, y, "Original Visual Graphic Design", "Jeffrey Persoon"); y += spacing;
         drawCreditLine(g, x, y, "Built With", "Java AWT / Swing"); y += spacing;
         drawCreditLine(g, x, y, "Audio", "Virtual Riot  /  MDK  /  Desmeon  /  Pegboard Nerds  /  Avicii  /  Skrillex"); y += spacing;
-        drawCreditLine(g, x, y, "Version", "v4.0  \u2014  March 2026"); y += spacing;
+        drawCreditLine(g, x, y, "Version", "v4.1  \u2014  March 2026"); y += spacing;
 
         g.setFont(PageRenderer.SMALL_FONT);
         g.setColor(PageRenderer.TEXT_MUTED);
@@ -2688,6 +2688,38 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
 
         int y = contentTop - (int) settingsScroll;
 
+        // ===== v4.1 =====
+        String[] v41lines = {
+                "- New main menu layout: Play, Profile, Shop, Settings, Help.",
+                "- New Profile page with Customize, Statistics, and Achievements.",
+                "- Ability icons: shield shape, double chevrons for dash, hourglass for slow-mo.",
+                "- Slow-motion charges now regenerate over time instead of being one-time use.",
+                "- Chrome/white time warp visual effect when slow-motion is active.",
+                "- Quit button replaced with icon. Music player moved to compact icon.",
+                "- Daily streak and now playing info repositioned in menu.",
+                "- Score milestone blink now triggers every 1000 points.",
+                "- Dynamic spacing for wave/level/points HUD to prevent text overlap.",
+                "- Improved score label padding and HP/SPD/REF bar alignment.",
+                "- Button padding added to menu and profile page.",
+                "- Performance: render loop capped at 60fps (was uncapped).",
+                "- Performance: deferred object removal eliminates O(n) mid-tick scans.",
+                "- Performance: cached Rectangles, Colors, and AlphaComposites in hot paths.",
+                "- Temporarily disabled SFX volume slider and language options."
+        };
+        int v41h = 52 + v41lines.length * lineH + 16;
+        if (y + v41h > contentTop - 20 && y < contentBottom + 20) {
+            PageRenderer.drawPanel(g, margin, y, pw, v41h);
+            g.setFont(PageRenderer.HEADING_FONT); g.setColor(PageRenderer.ACCENT);
+            g.drawString("v4.1", 85, y + 32);
+            g.setFont(PageRenderer.SMALL_FONT); g.setColor(PageRenderer.TEXT_MUTED);
+            g.drawString("26.03.2026", 140, y + 32);
+            g.setColor(PageRenderer.BORDER); g.fillRect(85, y + 44, pw - 50, 1);
+            g.setFont(PageRenderer.BODY_FONT); g.setColor(PageRenderer.TEXT_SEC);
+            int ly = y + 66;
+            for (String line : v41lines) { g.drawString(line, 85, ly); ly += lineH; }
+        }
+        y += v41h + gap;
+
         // ===== v4.0 =====
         String[] v4lines = {
                 "- Player abilities: Dash (Shift), Shield (auto), Slow-Motion (E).",
@@ -2708,7 +2740,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         int v4h = 52 + v4lines.length * lineH + 16;
         if (y + v4h > contentTop - 20 && y < contentBottom + 20) {
             PageRenderer.drawPanel(g, margin, y, pw, v4h);
-            g.setFont(PageRenderer.HEADING_FONT); g.setColor(PageRenderer.ACCENT);
+            g.setFont(PageRenderer.HEADING_FONT); g.setColor(PageRenderer.TEXT);
             g.drawString("v4.0", 85, y + 32);
             g.setFont(PageRenderer.SMALL_FONT); g.setColor(PageRenderer.TEXT_MUTED);
             g.drawString("25.03.2026", 140, y + 32);
