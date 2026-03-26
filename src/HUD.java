@@ -4,6 +4,8 @@ import java.awt.FontMetrics;
 import java.awt.GradientPaint;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.BasicStroke;
+import java.awt.Stroke;
 import java.awt.RenderingHints;
 
 public class HUD {
@@ -60,7 +62,7 @@ public class HUD {
     private static final Font FONT_ANNOUNCE_SUB = new Font("Arial", Font.BOLD, 20);
 
     // Score milestone pulse
-    private static final int MILESTONE_INTERVAL = 2500;
+    private static final int MILESTONE_INTERVAL = 1000;
     private float scorePulse = 0;
     private int lastMilestone = 0;
 
@@ -234,14 +236,16 @@ public class HUD {
         // Stats below health bar
         g2.setFont(FONT_STAT);
         g2.setColor(TEXT_DIM);
-        g2.drawString("W" + waveCount + " LVL " + getLevelInWave(), barX, barY + 34);
-        g2.drawString("PTS " + points, barX + 80, barY + 34);
+        String waveStr = "W" + waveCount + " LVL " + getLevelInWave();
+        g2.drawString(waveStr, barX, barY + 34);
+        int waveWidth = g2.getFontMetrics().stringWidth(waveStr);
+        g2.drawString("PTS " + points, barX + waveWidth + 10, barY + 34);
 
         // Ability indicators below stats
         renderAbilityBar(g2, barX, barY + 46);
 
         // Upgrade tiers — right side of top bar
-        int tierX = Game.WIDTH - 220;
+        int tierX = Game.WIDTH - 200;
         int tierY = 16;
         drawTierBar(g2, tierX, tierY, "HP", healthUpgrades, TIER_HEALTH);
         drawTierBar(g2, tierX, tierY + 18, "SPD", speedUpgrades, TIER_SPEED);
@@ -249,7 +253,7 @@ public class HUD {
 
         // Score — top center with milestone pulse
         int scoreCX = Game.WIDTH / 2;
-        int scoreY = 42;
+        int scoreY = 46;
 
         // Radial pulse ring on milestone
         if (scorePulse > 0.05f) {
@@ -540,23 +544,41 @@ public class HUD {
         int charges = player.getSlowmoCharges();
         boolean slowActive = player.isSlowmoActive();
         float slowPct = player.getSlowmoTimerPct();
+        float regenPct = player.getSlowmoRegenPct();
+        boolean recharging = !slowActive && charges < player.getSlowmoMaxCharges();
         Color slowCol = slowActive ? new Color(220, 180, 255) : SLOWMO_COLOR;
+
+        // Background
         g.setColor(ABILITY_COOLDOWN);
         g.fillRoundRect(ix, y, iconSize, iconSize, 4, 4);
+
         if (slowActive) {
-            // Active timer fill
+            // Active timer fill (draining)
             int fillH = (int) (iconSize * slowPct);
             g.setColor(new Color(slowCol.getRed(), slowCol.getGreen(), slowCol.getBlue(), 100));
             g.fillRoundRect(ix, y + iconSize - fillH, iconSize, fillH, 4, 4);
+        } else if (recharging) {
+            // Regen progress fill (building up)
+            int fillH = (int) (iconSize * regenPct);
+            g.setColor(new Color(slowCol.getRed(), slowCol.getGreen(), slowCol.getBlue(), 40));
+            g.fillRoundRect(ix, y + iconSize - fillH, iconSize, fillH, 4, 4);
         }
+
+        // Border
         g.setColor(charges > 0 || slowActive ? slowCol : new Color(60, 60, 80));
         g.drawRoundRect(ix, y, iconSize, iconSize, 4, 4);
-        // Charge count
-        g.setFont(FONT_CHARGE);
-        g.setColor(charges > 0 || slowActive ? slowCol : new Color(80, 80, 100));
-        String chargeStr = slowActive ? "E" : String.valueOf(charges);
-        FontMetrics fm = g.getFontMetrics();
-        g.drawString(chargeStr, ix + (iconSize - fm.stringWidth(chargeStr)) / 2, y + iconSize / 2 + 5);
+
+        // Hourglass icon
+        Color iconColor = charges > 0 || slowActive ? slowCol : new Color(80, 80, 100);
+        g.setColor(iconColor);
+        int cx = ix + iconSize / 2;
+        int cy = y + iconSize / 2;
+        g.drawLine(cx - 5, cy - 6, cx + 5, cy - 6);
+        g.drawLine(cx - 5, cy - 6, cx, cy);
+        g.drawLine(cx + 5, cy - 6, cx, cy);
+        g.drawLine(cx - 5, cy + 6, cx + 5, cy + 6);
+        g.drawLine(cx - 5, cy + 6, cx, cy);
+        g.drawLine(cx + 5, cy + 6, cx, cy);
     }
 
     private void drawAbilityIcon(Graphics2D g, int x, int y, int size, String label,
@@ -576,10 +598,31 @@ public class HUD {
         g.setColor(ready ? readyColor : new Color(60, 60, 80));
         g.drawRoundRect(x, y, size, size, 4, 4);
 
-        // Label
-        g.setFont(FONT_ABILITY);
-        g.setColor(ready ? readyColor : new Color(80, 80, 100));
-        FontMetrics fm = g.getFontMetrics();
-        g.drawString(label, x + (size - fm.stringWidth(label)) / 2, y + size / 2 + 4);
+        // Icon
+        Color iconColor = ready ? readyColor : new Color(80, 80, 100);
+        g.setColor(iconColor);
+        int cx = x + size / 2;
+        int cy = y + size / 2;
+
+        if ("SHD".equals(label)) {
+            // Shield shape
+            int[] sx = {cx - 5, cx + 5, cx + 5, cx, cx - 5};
+            int[] sy = {cy - 5, cy - 5, cy + 1, cy + 6, cy + 1};
+            g.drawPolygon(sx, sy, 5);
+        } else if ("SHIFT".equals(label)) {
+            // Double chevron >> (speed)
+            Stroke oldStroke = g.getStroke();
+            g.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g.drawLine(cx - 4, cy - 4, cx - 1, cy);
+            g.drawLine(cx - 1, cy, cx - 4, cy + 4);
+            g.drawLine(cx, cy - 4, cx + 3, cy);
+            g.drawLine(cx + 3, cy, cx, cy + 4);
+            g.setStroke(oldStroke);
+        } else {
+            // Fallback: text
+            g.setFont(FONT_ABILITY);
+            FontMetrics fm = g.getFontMetrics();
+            g.drawString(label, x + (size - fm.stringWidth(label)) / 2, y + size / 2 + 4);
+        }
     }
 }

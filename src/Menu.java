@@ -1,8 +1,10 @@
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.Stroke;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
@@ -26,14 +28,22 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
     private static final int RETRY_H = 50;
     private static final int RETRY_Y = 530;
 
-    // Y positions — 6 main menu buttons
-    private static final int MENU_SP = 50;
-    private static final int PLAY_Y = 274;
-    private static final int CUSTOM_MENU_Y = PLAY_Y + MENU_SP;
-    private static final int STATS_MENU_Y = CUSTOM_MENU_Y + MENU_SP;
-    private static final int ACH_MENU_Y = STATS_MENU_Y + MENU_SP;
-    private static final int SETTINGS_MENU_Y = ACH_MENU_Y + MENU_SP;
+    // Y positions — 5 main menu buttons
+    private static final int MENU_SP = 58;
+    private static final int PLAY_Y = 260;
+    private static final int PROFILE_MENU_Y = PLAY_Y + MENU_SP;
+    private static final int SHOP_MENU_Y = PROFILE_MENU_Y + MENU_SP;
+    private static final int SETTINGS_MENU_Y = SHOP_MENU_Y + MENU_SP;
     private static final int HELP_MENU_Y = SETTINGS_MENU_Y + MENU_SP;
+
+    // Quit icon (top-right)
+    private static final int QUIT_SIZE = 34;
+    private static final int QUIT_Y = 24;
+    private static int quitIconX() { return Game.WIDTH - QUIT_SIZE - 24; }
+
+    // Music icon (bottom-left)
+    private static final int MUSIC_ICON_SIZE = 26;
+    private static final int MUSIC_ICON_Y = 632;
 
     // Legacy aliases — used by Select/Help sub-screens (3-button layouts)
     private static final int INFO_Y = PLAY_Y + SP;
@@ -121,19 +131,24 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
             case Menu:
                 int bx = btnX();
                 btnTargets[0] = hit(mouseX, mouseY, bx, PLAY_Y, BW, BH);
-                btnTargets[1] = hit(mouseX, mouseY, bx, CUSTOM_MENU_Y, BW, BH);
-                btnTargets[2] = hit(mouseX, mouseY, bx, STATS_MENU_Y, BW, BH);
-                btnTargets[3] = hit(mouseX, mouseY, bx, ACH_MENU_Y, BW, BH);
-                btnTargets[4] = hit(mouseX, mouseY, bx, SETTINGS_MENU_Y, BW, BH);
-                btnTargets[5] = hit(mouseX, mouseY, bx, HELP_MENU_Y, BW, BH);
-                quitTarget = hit(mouseX, mouseY, quitX(), PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H);
-                musicTarget = hit(mouseX, mouseY, musicX(), MUSIC_Y, MUSIC_W, MUSIC_H);
-                shopTarget = hit(mouseX, mouseY, 30, SHOP_BTN_Y, SHOP_BTN_W, SHOP_BTN_H);
-                dailyTarget = hit(mouseX, mouseY, dailyBtnX(), DAILY_BTN_Y, DAILY_BTN_W, DAILY_BTN_H);
+                btnTargets[1] = hit(mouseX, mouseY, bx, PROFILE_MENU_Y, BW, BH);
+                btnTargets[2] = hit(mouseX, mouseY, bx, SHOP_MENU_Y, BW, BH);
+                btnTargets[3] = hit(mouseX, mouseY, bx, SETTINGS_MENU_Y, BW, BH);
+                btnTargets[4] = hit(mouseX, mouseY, bx, HELP_MENU_Y, BW, BH);
+                quitTarget = hit(mouseX, mouseY, quitIconX(), QUIT_Y, QUIT_SIZE, QUIT_SIZE);
+                musicTarget = hit(mouseX, mouseY, 24, 20, MUSIC_ICON_SIZE, MUSIC_ICON_SIZE);
+                dailyTarget = hit(mouseX, mouseY, Game.WIDTH - 204, 688, 180, 18);
                 int[] linkXs = getBottomLinkXs();
                 aboutTarget = hit(mouseX, mouseY, linkXs[0], 666, linkXs[1] - linkXs[0], 20);
                 changelogTarget = hit(mouseX, mouseY, linkXs[1], 666, linkXs[2] - linkXs[1], 20);
                 creditsLinkTarget = hit(mouseX, mouseY, linkXs[2], 666, linkXs[3] - linkXs[2], 20);
+                break;
+            case Profile:
+                bx = btnX();
+                btnTargets[0] = hit(mouseX, mouseY, bx, 200, BW, BH);
+                btnTargets[1] = hit(mouseX, mouseY, bx, 258, BW, BH);
+                btnTargets[2] = hit(mouseX, mouseY, bx, 316, BW, BH);
+                backTarget = hitBack();
                 break;
             case Select:
                 bx = btnX();
@@ -267,14 +282,12 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         if (Game.gameState == Game.STATE.Menu) {
             int bx = btnX();
             if (hit(mx, my, bx, PLAY_Y, BW, BH)) { Game.gameState = Game.STATE.Select; resetHover(); return; }
-            if (hit(mx, my, bx, CUSTOM_MENU_Y, BW, BH)) { Game.gameState = Game.STATE.Customize; resetHover(); return; }
-            if (hit(mx, my, bx, STATS_MENU_Y, BW, BH)) { Game.gameState = Game.STATE.Statistics; resetHover(); return; }
-            if (hit(mx, my, bx, ACH_MENU_Y, BW, BH)) { Game.gameState = Game.STATE.AchievementsPage; resetHover(); return; }
+            if (hit(mx, my, bx, PROFILE_MENU_Y, BW, BH)) { Game.gameState = Game.STATE.Profile; resetHover(); return; }
+            if (hit(mx, my, bx, SHOP_MENU_Y, BW, BH)) { Game.gameState = Game.STATE.CoinShopPage; resetHover(); return; }
             if (hit(mx, my, bx, SETTINGS_MENU_Y, BW, BH)) { Game.gameState = Game.STATE.Settings; resetHover(); return; }
             if (hit(mx, my, bx, HELP_MENU_Y, BW, BH)) { Game.gameState = Game.STATE.Help; resetHover(); return; }
-            if (hit(mx, my, musicX(), MUSIC_Y, MUSIC_W, MUSIC_H)) { Game.gameState = Game.STATE.MusicPlayer; resetHover(); return; }
-            if (hit(mx, my, 30, SHOP_BTN_Y, SHOP_BTN_W, SHOP_BTN_H)) { Game.gameState = Game.STATE.CoinShopPage; resetHover(); return; }
-            if (hit(mx, my, dailyBtnX(), DAILY_BTN_Y, DAILY_BTN_W, DAILY_BTN_H)) { Game.gameState = Game.STATE.DailyPage; resetHover(); return; }
+            if (hit(mx, my, 24, 20, MUSIC_ICON_SIZE, MUSIC_ICON_SIZE)) { Game.gameState = Game.STATE.MusicPlayer; resetHover(); return; }
+            if (hit(mx, my, Game.WIDTH - 204, 688, 180, 18)) { Game.gameState = Game.STATE.DailyPage; resetHover(); return; }
             int[] linkXs = getBottomLinkXs();
             if (hit(mx, my, linkXs[0], 666, linkXs[1] - linkXs[0], 20)) {
                 Game.gameState = Game.STATE.About; resetHover(); return;
@@ -285,7 +298,16 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
             if (hit(mx, my, linkXs[2], 666, linkXs[3] - linkXs[2], 20)) {
                 Game.gameState = Game.STATE.Credits; resetHover(); return;
             }
-            if (hit(mx, my, quitX(), PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H)) { System.exit(0); }
+            if (hit(mx, my, quitIconX(), QUIT_Y, QUIT_SIZE, QUIT_SIZE)) { System.exit(0); }
+            return;
+        }
+
+        if (Game.gameState == Game.STATE.Profile) {
+            int bx = btnX();
+            if (hit(mx, my, bx, 200, BW, BH)) { Game.gameState = Game.STATE.Customize; resetHover(); return; }
+            if (hit(mx, my, bx, 258, BW, BH)) { Game.gameState = Game.STATE.Statistics; resetHover(); return; }
+            if (hit(mx, my, bx, 316, BW, BH)) { Game.gameState = Game.STATE.AchievementsPage; resetHover(); return; }
+            if (hitBack()) { Game.gameState = Game.STATE.Menu; resetHover(); return; }
             return;
         }
 
@@ -320,7 +342,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         }
 
         if (Game.gameState == Game.STATE.Statistics || Game.gameState == Game.STATE.AchievementsPage) {
-            if (hitBack()) { Game.gameState = Game.STATE.Menu; resetHover(); }
+            if (hitBack()) { Game.gameState = Game.STATE.Profile; resetHover(); }
             return;
         }
 
@@ -493,6 +515,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
 
         switch (Game.gameState) {
             case Menu:          renderMainMenu(g2); break;
+            case Profile:       renderProfile(g2); break;
             case Select:        renderSelect(g2); break;
             case Help:          renderHelp(g2); break;
             case HelpENG:       renderHelpPage(g2, "English", new String[][]{
@@ -535,93 +558,114 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         PageRenderer.drawBackground(g);
         PageRenderer.drawLogo(g, 180);
 
-        // Player level + XP bar — below logo
+        // Level + XP — top center
         int lvlCx = Game.WIDTH / 2;
         g.setFont(PageRenderer.LABEL_FONT);
-        g.setColor(PageRenderer.TEXT_MUTED);
+        g.setColor(PageRenderer.ACCENT);
         String lvlLabel = "LEVEL " + Profile.getLevel();
         FontMetrics lfm = g.getFontMetrics();
-        g.drawString(lvlLabel, lvlCx - lfm.stringWidth(lvlLabel) / 2, 228);
-        int xpBarW = 160;
-        int xpBarH = 4;
+        g.drawString(lvlLabel, lvlCx - lfm.stringWidth(lvlLabel) / 2, 34);
+        int xpBarW = 120;
+        int xpBarH = 3;
         int xpBarX = lvlCx - xpBarW / 2;
-        int xpBarY = 234;
         g.setColor(PageRenderer.SURFACE);
-        g.fillRoundRect(xpBarX, xpBarY, xpBarW, xpBarH, 2, 2);
+        g.fillRoundRect(xpBarX, 40, xpBarW, xpBarH, 2, 2);
         int xpFillW = (int) (xpBarW * Profile.levelProgress());
         if (xpFillW > 0) {
             g.setColor(PageRenderer.ACCENT);
-            g.fillRoundRect(xpBarX, xpBarY, xpFillW, xpBarH, 2, 2);
+            g.fillRoundRect(xpBarX, 40, xpFillW, xpBarH, 2, 2);
         }
 
-        // 6 centered buttons
+        // 5 centered buttons
         int bx = btnX();
         PageRenderer.drawPrimaryButton(g, bx, PLAY_Y, BW, BH, "Play", btn[0]);
-        PageRenderer.drawSecondaryButton(g, bx, CUSTOM_MENU_Y, BW, BH, "Customize", btn[1]);
-        PageRenderer.drawSecondaryButton(g, bx, STATS_MENU_Y, BW, BH, "Statistics", btn[2]);
-        PageRenderer.drawSecondaryButton(g, bx, ACH_MENU_Y, BW, BH,
-                "Achievements  " + Achievements.getUnlockedCount() + "/" + Achievements.getCount(), btn[3]);
-        PageRenderer.drawSecondaryButton(g, bx, SETTINGS_MENU_Y, BW, BH, "Settings", btn[4]);
-        PageRenderer.drawSecondaryButton(g, bx, HELP_MENU_Y, BW, BH, "Help", btn[5]);
+        PageRenderer.drawSecondaryButton(g, bx, PROFILE_MENU_Y, BW, BH, "Profile", btn[1]);
+        PageRenderer.drawSecondaryButton(g, bx, SHOP_MENU_Y, BW, BH, "Shop", btn[2]);
+        PageRenderer.drawSecondaryButton(g, bx, SETTINGS_MENU_Y, BW, BH, "Settings", btn[3]);
+        PageRenderer.drawSecondaryButton(g, bx, HELP_MENU_Y, BW, BH, "Help", btn[4]);
 
-        // Quit (top-right)
-        int qx = quitX();
-        g.setColor(PageRenderer.lerp(PageRenderer.SURFACE, new Color(38, 50, 68), quitH));
-        g.fillRoundRect(qx, PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H, 8, 8);
-        g.setColor(PageRenderer.lerp(PageRenderer.BORDER, PageRenderer.ACCENT, quitH * 0.4f));
-        g.drawRoundRect(qx, PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H, 8, 8);
-        g.setFont(PageRenderer.SMALL_FONT);
-        g.setColor(PageRenderer.lerp(PageRenderer.TEXT_SEC, PageRenderer.TEXT, quitH));
-        PageRenderer.drawCenteredString(g, "Quit", qx, PageRenderer.BACK_Y, PageRenderer.BACK_W, PageRenderer.BACK_H);
+        // Quit icon (top-right) — X button
+        int qx = quitIconX();
+        g.setColor(PageRenderer.lerp(PageRenderer.SURFACE, new Color(60, 30, 30), quitH));
+        g.fillRoundRect(qx, QUIT_Y, QUIT_SIZE, QUIT_SIZE, 8, 8);
+        g.setColor(PageRenderer.lerp(PageRenderer.BORDER, PageRenderer.DANGER, quitH * 0.6f));
+        g.drawRoundRect(qx, QUIT_Y, QUIT_SIZE, QUIT_SIZE, 8, 8);
+        g.setColor(PageRenderer.lerp(PageRenderer.TEXT_SEC, PageRenderer.DANGER, quitH));
+        Stroke oldStroke = g.getStroke();
+        g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        int xc = qx + QUIT_SIZE / 2, yc = QUIT_Y + QUIT_SIZE / 2, xr = 6;
+        g.drawLine(xc - xr, yc - xr, xc + xr, yc + xr);
+        g.drawLine(xc + xr, yc - xr, xc - xr, yc + xr);
+        g.setStroke(oldStroke);
 
-        // Bottom bar
-        g.setFont(PageRenderer.SMALL_FONT);
-        g.setColor(PageRenderer.TEXT_MUTED);
-        g.drawString("v4.0", 30, 700);
-
-        // Now playing — top left
+        // Top-left: Now playing + music icon
         if (AudioPlayer.getTrackCount() > 0) {
+            // Music icon
+            g.setColor(PageRenderer.lerp(PageRenderer.SURFACE, new Color(25, 45, 55), musicH));
+            g.fillRoundRect(24, 20, MUSIC_ICON_SIZE, MUSIC_ICON_SIZE, 6, 6);
+            g.setColor(PageRenderer.lerp(PageRenderer.BORDER, PageRenderer.ACCENT, musicH * 0.5f));
+            g.drawRoundRect(24, 20, MUSIC_ICON_SIZE, MUSIC_ICON_SIZE, 6, 6);
             g.setFont(PageRenderer.SMALL_FONT);
+            g.setColor(PageRenderer.lerp(PageRenderer.TEXT_SEC, PageRenderer.ACCENT, musicH));
+            PageRenderer.drawCenteredString(g, "\u266B", 24, 20, MUSIC_ICON_SIZE, MUSIC_ICON_SIZE);
+            // Now playing text
             g.setColor(PageRenderer.TEXT_MUTED);
-            g.drawString("Now playing", 24, 28);
+            g.drawString("Now playing", 24 + MUSIC_ICON_SIZE + 8, 28);
             g.setColor(PageRenderer.TEXT_SEC);
-            g.drawString(AudioPlayer.getCurrentTrack().displayName, 24, 46);
+            g.drawString(AudioPlayer.getCurrentTrack().displayName, 24 + MUSIC_ICON_SIZE + 8, 44);
         }
 
-        // About | Changelog | Credits links — centered bottom
-        drawBottomLinks(g);
-
-        // Music Player button (bottom right)
-        int mx = musicX();
-        g.setColor(PageRenderer.lerp(PageRenderer.ACCENT, new Color(110, 225, 218), musicH));
-        g.fillRoundRect(mx, MUSIC_Y, MUSIC_W, MUSIC_H, 8, 8);
-        g.setFont(PageRenderer.SMALL_FONT);
-        g.setColor(PageRenderer.BG_DARK);
-        PageRenderer.drawCenteredString(g, "Music Player", mx, MUSIC_Y, MUSIC_W, MUSIC_H);
-
-        // Coin Shop button (bottom left)
-        g.setColor(PageRenderer.lerp(new Color(50, 42, 20), new Color(70, 58, 28), shopH));
-        g.fillRoundRect(30, SHOP_BTN_Y, SHOP_BTN_W, SHOP_BTN_H, 8, 8);
-        g.setColor(PageRenderer.lerp(new Color(180, 150, 50), new Color(255, 210, 80), shopH));
-        g.drawRoundRect(30, SHOP_BTN_Y, SHOP_BTN_W, SHOP_BTN_H, 8, 8);
-        g.setFont(PageRenderer.SMALL_FONT);
-        g.setColor(PageRenderer.lerp(new Color(200, 180, 100), new Color(255, 220, 100), shopH));
-        PageRenderer.drawCenteredString(g, "Shop  \u00B7  " + Profile.getCoins(), 30, SHOP_BTN_Y, SHOP_BTN_W, SHOP_BTN_H);
-
-        // Daily Challenge button (next to Shop)
-        int dbx = dailyBtnX();
+        // Bottom-right: Daily streak
         boolean canPlayDaily = DailyChallenge.canPlay();
         Color dailyCol = canPlayDaily ? new Color(120, 200, 255) : PageRenderer.TEXT_MUTED;
-        g.setColor(PageRenderer.lerp(PageRenderer.SURFACE, new Color(25, 38, 55), dailyH));
-        g.fillRoundRect(dbx, DAILY_BTN_Y, DAILY_BTN_W, DAILY_BTN_H, 8, 8);
-        g.setColor(PageRenderer.lerp(new Color(60, 100, 140), dailyCol, dailyH * 0.5f));
-        g.drawRoundRect(dbx, DAILY_BTN_Y, DAILY_BTN_W, DAILY_BTN_H, 8, 8);
         g.setFont(PageRenderer.SMALL_FONT);
         g.setColor(PageRenderer.lerp(canPlayDaily ? new Color(140, 190, 230) : PageRenderer.TEXT_MUTED,
                 dailyCol, dailyH));
         String dailyLabel = canPlayDaily ? "Daily  \u00B7  " + DailyChallenge.getCurrentStreak() + " streak"
                 : "Daily  \u00B7  Done";
-        PageRenderer.drawCenteredString(g, dailyLabel, dbx, DAILY_BTN_Y, DAILY_BTN_W, DAILY_BTN_H);
+        FontMetrics dfm = g.getFontMetrics();
+        g.drawString(dailyLabel, Game.WIDTH - dfm.stringWidth(dailyLabel) - 24, 700);
+
+        // Version — bottom-left
+        g.setFont(PageRenderer.SMALL_FONT);
+        g.setColor(PageRenderer.TEXT_MUTED);
+        g.drawString("v4.0", 24, 700);
+
+        // About | Changelog | Credits — centered bottom
+        drawBottomLinks(g);
+    }
+
+    // ---------- Profile ----------
+
+    private void renderProfile(Graphics2D g) {
+        PageRenderer.drawBackground(g);
+        PageRenderer.drawTitle(g, "Profile");
+        PageRenderer.drawBackButton(g, backH);
+
+        // Level + XP
+        int cx = Game.WIDTH / 2;
+        g.setFont(PageRenderer.LABEL_FONT);
+        g.setColor(PageRenderer.ACCENT);
+        String lvlLabel = "LEVEL " + Profile.getLevel();
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(lvlLabel, cx - fm.stringWidth(lvlLabel) / 2, 140);
+        int xpBarW = 160;
+        int xpBarH = 4;
+        int xpBarX = cx - xpBarW / 2;
+        g.setColor(PageRenderer.SURFACE);
+        g.fillRoundRect(xpBarX, 150, xpBarW, xpBarH, 2, 2);
+        int xpFillW = (int) (xpBarW * Profile.levelProgress());
+        if (xpFillW > 0) {
+            g.setColor(PageRenderer.ACCENT);
+            g.fillRoundRect(xpBarX, 150, xpFillW, xpBarH, 2, 2);
+        }
+
+        // 3 buttons
+        int bx = btnX();
+        PageRenderer.drawSecondaryButton(g, bx, 200, BW, BH, "Customize", btn[0]);
+        PageRenderer.drawSecondaryButton(g, bx, 258, BW, BH, "Statistics", btn[1]);
+        PageRenderer.drawSecondaryButton(g, bx, 316, BW, BH,
+                "Achievements  " + Achievements.getUnlockedCount() + "/" + Achievements.getCount(), btn[2]);
     }
 
     // ---------- Select Difficulty ----------
@@ -850,10 +894,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         // Slider bar hovers
         boolean onMusic = settingsDrag == SettingsDrag.MUSIC_VOL
                 || hitSlider(mouseX, mouseY, getSettingsRowY(0));
-        boolean onSfx = settingsDrag == SettingsDrag.SFX_VOL
-                || hitSlider(mouseX, mouseY, getSettingsRowY(1));
         setMusicBarH += ((onMusic ? 1f : 0f) - setMusicBarH) * LERP;
-        setSfxBarH += ((onSfx ? 1f : 0f) - setSfxBarH) * LERP;
 
         // Option button hovers
         boolean[] targets = getSettingsHoverTargets();
@@ -879,23 +920,17 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         int y = contentTop - (int) settingsScroll;
         int gap = 12;
 
-        // Audio panel: rows 0,1
-        if (row <= 1) return y + 52 + row * SET_ROW_H + SET_ROW_H / 2;
+        // Audio panel: row 0 (music only)
+        if (row <= 0) return y + 52 + row * SET_ROW_H + SET_ROW_H / 2;
 
         // Visual panel: starts after audio
-        int audioH = 52 + 2 * SET_ROW_H + SET_PAD;
+        int audioH = 52 + 1 * SET_ROW_H + SET_PAD;
         y += audioH + gap;
-        // rows 2-7 are visual (shake=0-2, particle=3-5 within visual, but mapped as global indices 2-7)
         if (row <= 7) return y + 52 + (row - 2) * SET_ROW_H + SET_ROW_H / 2;
 
-        // General panel
+        // Controls panel (general panel removed)
         int visualH = 52 + 6 * SET_ROW_H + SET_PAD;
         y += visualH + gap;
-        if (row <= 9) return y + 52 + (row - 8) * SET_ROW_H + SET_ROW_H / 2;
-
-        // Controls panel
-        int generalH = 52 + 2 * SET_ROW_H + SET_PAD;
-        y += generalH + gap;
         if (row <= 10) return y + 52 + (row - 10) * SET_ROW_H + SET_ROW_H / 2;
 
         // Danger panel
@@ -914,9 +949,8 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         int cx = setControlX();
         int y = contentTop - (int) settingsScroll;
 
-        // --- Audio panel ---
-        int audioH = 52 + 2 * SET_ROW_H + SET_PAD;
-        // Sliders handled separately via bar hover
+        // --- Audio panel (music only) ---
+        int audioH = 52 + 1 * SET_ROW_H + SET_PAD;
         y += audioH + gap;
 
         // --- Visual panel ---
@@ -959,19 +993,6 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
 
         int visualH = 52 + 6 * SET_ROW_H + SET_PAD;
         y += visualH + gap;
-
-        // --- General panel ---
-        // Language buttons (row 0)
-        rowY = y + 52 + SET_ROW_H / 2 - SET_LANG_H / 2;
-        for (int i = 0; i < 3; i++) {
-            int lx = cx + i * (SET_LANG_W / 2 + SET_LANG_GAP);
-            int lw = SET_LANG_W / 2;
-            t[12 + i] = hit(mouseX, mouseY, lx, rowY, lw, SET_LANG_H)
-                    && mouseY > contentTop && mouseY < contentBottom;
-        }
-
-        int generalH = 52 + 2 * SET_ROW_H + SET_PAD;
-        y += generalH + gap;
 
         // --- Controls panel (read-only) ---
         int controlsH = 52 + 7 * 28 + SET_PAD;
@@ -1019,19 +1040,13 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         int cx2 = setControlX();
         int y = contentTop - (int) settingsScroll;
 
-        // --- Audio: sliders ---
-        int audioH = 52 + 2 * SET_ROW_H + SET_PAD;
+        // --- Audio: music slider only ---
+        int audioH = 52 + 1 * SET_ROW_H + SET_PAD;
         int sliderY0 = y + 52 + SET_ROW_H / 2 - SET_SLIDER_H / 2;
-        int sliderY1 = y + 52 + SET_ROW_H + SET_ROW_H / 2 - SET_SLIDER_H / 2;
 
         if (hitSlider(mx, my, sliderY0)) {
             settingsDrag = SettingsDrag.MUSIC_VOL;
             Settings.setMusicVolume(settingsSliderRatio(mx));
-            return;
-        }
-        if (hitSlider(mx, my, sliderY1)) {
-            settingsDrag = SettingsDrag.SFX_VOL;
-            Settings.setSfxVolume(settingsSliderRatio(mx));
             return;
         }
 
@@ -1085,19 +1100,6 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         int visualH = 52 + 6 * SET_ROW_H + SET_PAD;
         y += visualH + gap;
 
-        // --- General: language ---
-        rowY = y + 52 + SET_ROW_H / 2 - SET_LANG_H / 2;
-        for (int i = 0; i < 3; i++) {
-            int lx = cx2 + i * (SET_LANG_W / 2 + SET_LANG_GAP);
-            int lw = SET_LANG_W / 2;
-            if (hit(mx, my, lx, rowY, lw, SET_LANG_H)) {
-                Settings.setLanguage(i); return;
-            }
-        }
-
-        int generalH = 52 + 2 * SET_ROW_H + SET_PAD;
-        y += generalH + gap;
-
         // --- Controls (read-only) ---
         int controlsH = 52 + 7 * 28 + SET_PAD;
         y += controlsH + gap;
@@ -1132,7 +1134,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         int y = contentTop - (int) settingsScroll;
 
         // ===== AUDIO PANEL =====
-        int audioH = 52 + 2 * SET_ROW_H + SET_PAD;
+        int audioH = 52 + 1 * SET_ROW_H + SET_PAD;
         if (y + audioH > contentTop - 20 && y < contentBottom + 20) {
             PageRenderer.drawPanel(g, SET_MARGIN, y, pw, audioH);
             g.setFont(PageRenderer.HEADING_FONT);
@@ -1147,12 +1149,6 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
             g.setColor(PageRenderer.TEXT_SEC);
             g.drawString("Music Volume", lx, rowY + 5);
             renderSlider(g, cx, rowY - SET_SLIDER_H / 2, Settings.getMusicVolume(), setMusicBarH);
-
-            // SFX volume
-            rowY = y + 52 + SET_ROW_H + SET_ROW_H / 2;
-            g.setColor(PageRenderer.TEXT_SEC);
-            g.drawString("SFX Volume", lx, rowY + 5);
-            renderSlider(g, cx, rowY - SET_SLIDER_H / 2, Settings.getSfxVolume(), setSfxBarH);
         }
         y += audioH + gap;
 
@@ -1206,52 +1202,6 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
             renderToggle(g, cx, rowY - SET_TOGGLE_H / 2, Settings.getColorblindMode(), setH[11]);
         }
         y += visualH + gap;
-
-        // ===== GENERAL PANEL =====
-        int generalH = 52 + 2 * SET_ROW_H + SET_PAD;
-        if (y + generalH > contentTop - 20 && y < contentBottom + 20) {
-            PageRenderer.drawPanel(g, SET_MARGIN, y, pw, generalH);
-            g.setFont(PageRenderer.HEADING_FONT);
-            g.setColor(PageRenderer.ACCENT);
-            g.drawString("General", lx, y + 34);
-            g.setColor(PageRenderer.BORDER);
-            g.fillRect(lx, y + 46, pw - SET_PAD * 2, 1);
-
-            // Language
-            int rowY = y + 52 + SET_ROW_H / 2;
-            g.setFont(PageRenderer.BODY_FONT);
-            g.setColor(PageRenderer.TEXT_SEC);
-            g.drawString("Language", lx, rowY + 5);
-            String[] langLabels = {"ENG", "NLD", "DEU"};
-            int curLang = Settings.getLanguage();
-            for (int i = 0; i < 3; i++) {
-                int lbx = cx + i * (SET_LANG_W / 2 + SET_LANG_GAP);
-                int lbw = SET_LANG_W / 2;
-                int lby = rowY - SET_LANG_H / 2;
-                boolean active = (i == curLang);
-                if (active) {
-                    g.setColor(PageRenderer.ACCENT);
-                    g.fillRoundRect(lbx, lby, lbw, SET_LANG_H, 6, 6);
-                    g.setFont(PageRenderer.LABEL_FONT);
-                    g.setColor(PageRenderer.BG_DARK);
-                } else {
-                    g.setColor(PageRenderer.lerp(PageRenderer.SURFACE, new Color(38, 50, 68), setH[12 + i]));
-                    g.fillRoundRect(lbx, lby, lbw, SET_LANG_H, 6, 6);
-                    g.setColor(PageRenderer.lerp(PageRenderer.BORDER, PageRenderer.ACCENT, setH[12 + i] * 0.4f));
-                    g.drawRoundRect(lbx, lby, lbw, SET_LANG_H, 6, 6);
-                    g.setFont(PageRenderer.LABEL_FONT);
-                    g.setColor(PageRenderer.lerp(PageRenderer.TEXT_SEC, PageRenderer.TEXT, setH[12 + i]));
-                }
-                PageRenderer.drawCenteredString(g, langLabels[i], lbx, lby, lbw, SET_LANG_H);
-            }
-
-            // Help redirect note
-            rowY = y + 52 + SET_ROW_H + SET_ROW_H / 2;
-            g.setFont(PageRenderer.SMALL_FONT);
-            g.setColor(PageRenderer.TEXT_MUTED);
-            g.drawString("Help pages will open in the selected language", lx, rowY + 5);
-        }
-        y += generalH + gap;
 
         // ===== CONTROLS PANEL =====
         int controlLineH = 28;
@@ -2159,7 +2109,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
     private static final int SKIN_COLS = 6;
 
     private void handleCustomizeClick(int mx, int my) {
-        if (hitBack()) { Game.gameState = Game.STATE.Menu; resetHover(); return; }
+        if (hitBack()) { Game.gameState = Game.STATE.Profile; resetHover(); return; }
 
         int margin = 60;
         int pad = 20;

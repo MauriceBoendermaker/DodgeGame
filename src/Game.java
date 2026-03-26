@@ -2,6 +2,7 @@ import java.awt.Canvas;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.GraphicsEnvironment;
+import java.awt.GradientPaint;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
@@ -269,6 +270,7 @@ public class Game extends Canvas implements Runnable {
 
     public enum STATE {
         Menu,
+        Profile,
         MusicPlayer,
         Settings,
         Statistics,
@@ -1010,19 +1012,27 @@ public class Game extends Canvas implements Runnable {
             g.fillRect(0, 0, WIDTH, HEIGHT);
         }
 
-        // Slow-motion visual effect — desaturated overlay + chromatic edge
+        // Slow-motion visual effect — chrome/white time warp
         if (timeScale < 0.9f && (gameState == STATE.Game || gameState == STATE.Paused)) {
-            float intensity = 1f - timeScale; // 0 at normal, ~0.7 at 0.3x
-            // Slight blue-tinted desaturation overlay
-            int alpha = (int) (intensity * 40);
-            g.setColor(new Color(10, 15, 30, alpha));
+            float intensity = 1f - timeScale; // ~0.7 at 0.3x speed
+
+            // Chrome desaturation wash — white overlay
+            int whiteAlpha = (int) (intensity * 90);
+            g.setColor(new Color(230, 235, 250, whiteAlpha));
             g.fillRect(0, 0, WIDTH, HEIGHT);
-            // Chromatic edge strips
-            int edgeAlpha = (int) (intensity * 30);
-            g.setColor(new Color(80, 160, 255, edgeAlpha));
-            g.fillRect(0, 0, 4, HEIGHT);
-            g.setColor(new Color(255, 80, 80, edgeAlpha));
-            g.fillRect(WIDTH - 4, 0, 4, HEIGHT);
+
+            // White vignette edges for time-warp feel
+            int edgeAlpha = (int) (intensity * 50);
+            int edgeSize = 80;
+            g.setPaint(new GradientPaint(0, 0, new Color(255, 255, 255, edgeAlpha), edgeSize, 0, new Color(255, 255, 255, 0)));
+            g.fillRect(0, 0, edgeSize, HEIGHT);
+            g.setPaint(new GradientPaint(WIDTH - edgeSize, 0, new Color(255, 255, 255, 0), WIDTH, 0, new Color(255, 255, 255, edgeAlpha)));
+            g.fillRect(WIDTH - edgeSize, 0, edgeSize, HEIGHT);
+            g.setPaint(new GradientPaint(0, 0, new Color(255, 255, 255, edgeAlpha), 0, edgeSize, new Color(255, 255, 255, 0)));
+            g.fillRect(0, 0, WIDTH, edgeSize);
+            g.setPaint(new GradientPaint(0, HEIGHT - edgeSize, new Color(255, 255, 255, 0), 0, HEIGHT, new Color(255, 255, 255, edgeAlpha)));
+            g.fillRect(0, HEIGHT - edgeSize, WIDTH, edgeSize);
+            g.setColor(Color.WHITE); // reset paint to solid color mode
         }
 
         // FPS counter — in-game only, bottom-left (togglable in settings)
