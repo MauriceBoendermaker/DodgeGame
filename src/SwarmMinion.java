@@ -18,6 +18,7 @@ public class SwarmMinion extends GameObject {
     private Handler handler;
     private Random r = new Random();
     private int trailTick = 0;
+    private final Rectangle boundsRect = new Rectangle();
     private boolean canShoot;
     private int shootCooldown;
     private float rotation = 0;
@@ -36,7 +37,8 @@ public class SwarmMinion extends GameObject {
     }
 
     public Rectangle getBounds() {
-        return new Rectangle((int) x, (int) y, SIZE, SIZE);
+        boundsRect.setBounds((int) x, (int) y, SIZE, SIZE);
+        return boundsRect;
     }
 
     public void tick() {

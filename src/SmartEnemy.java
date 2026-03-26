@@ -14,19 +14,22 @@ public class SmartEnemy extends GameObject {
     private GameObject player;
     private int trailTick = 0;
     private float pulsePhase = 0;
+    private final Rectangle boundsRect = new Rectangle();
 
     public SmartEnemy(int x, int y, ID id, Handler handler) {
         super(x, y, id);
         this.handler = handler;
-        for (int i = 0; i < handler.getObjects().size(); i++) {
-            if (handler.getObjects().get(i).getId() == ID.Player) {
-                player = handler.getObjects().get(i);
+        java.util.List<GameObject> objects = handler.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            if (objects.get(i).getId() == ID.Player) {
+                player = objects.get(i);
             }
         }
     }
 
     public Rectangle getBounds() {
-        return new Rectangle((int) x, (int) y, SIZE, SIZE);
+        boundsRect.setBounds((int) x, (int) y, SIZE, SIZE);
+        return boundsRect;
     }
 
     public void tick() {

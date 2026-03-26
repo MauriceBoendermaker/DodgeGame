@@ -20,6 +20,8 @@ public class BossSwarm extends GameObject {
     private Handler handler;
     private Random r = new Random();
     private float pulsePhase = 0;
+    private final Rectangle boundsRect = new Rectangle();
+    private static final Rectangle EMPTY_BOUNDS = new Rectangle(0, 0, 0, 0);
 
     // Entry
     private int entryTimer = 100;
@@ -78,8 +80,9 @@ public class BossSwarm extends GameObject {
     }
 
     public Rectangle getBounds() {
-        if (defeated || entryTimer > 0) return new Rectangle(0, 0, 0, 0);
-        return new Rectangle((int) x, (int) y, SIZE, SIZE);
+        if (defeated || entryTimer > 0) return EMPTY_BOUNDS;
+        boundsRect.setBounds((int) x, (int) y, SIZE, SIZE);
+        return boundsRect;
     }
 
     public void tick() {

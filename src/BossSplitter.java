@@ -21,6 +21,8 @@ public class BossSplitter extends GameObject {
     private Handler handler;
     private Random r = new Random();
     private float pulsePhase;
+    private final Rectangle boundsRect = new Rectangle();
+    private static final Rectangle EMPTY_BOUNDS = new Rectangle(0, 0, 0, 0);
 
     private int generation; // 0 = main, 1 = half, 2 = quarter
     private int size;
@@ -92,8 +94,9 @@ public class BossSplitter extends GameObject {
     public float getHpPercent() { return hp / maxHp; }
 
     public Rectangle getBounds() {
-        if (defeated || entryTimer > 0) return new Rectangle(0, 0, 0, 0);
-        return new Rectangle((int) x, (int) y, size, size);
+        if (defeated || entryTimer > 0) return EMPTY_BOUNDS;
+        boundsRect.setBounds((int) x, (int) y, size, size);
+        return boundsRect;
     }
 
     public void tick() {
