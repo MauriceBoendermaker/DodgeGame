@@ -32,6 +32,12 @@ public class Game extends Canvas implements Runnable {
 
     private int fps = 0;
 
+    // Cached colors for render (avoid per-frame allocation)
+    private static final Color DYING_OVERLAY = new Color(8, 10, 16, 180);
+    private static final Color DMG_RED = new Color(235, 50, 50);
+    private static final Color DMG_RED_CLEAR = new Color(235, 50, 50, 0);
+    private static final Color SLOWMO_WHITE_CLEAR = new Color(255, 255, 255, 0);
+
     // Attempt display
     public static int currentAttempt = 0;
     public static float attemptFade = 0;
@@ -132,8 +138,9 @@ public class Game extends Canvas implements Runnable {
         java.util.List<float[]> bullets = new java.util.ArrayList<>();
         java.util.List<GameObject> toRemove = new java.util.ArrayList<>();
 
-        for (int i = 0; i < handler.getObjects().size(); i++) {
-            GameObject obj = handler.getObjects().get(i);
+        java.util.List<GameObject> objs = handler.getObjects();
+        for (int i = 0; i < objs.size(); i++) {
+            GameObject obj = objs.get(i);
             if (obj instanceof EnemyBossBullet) {
                 float bx = obj.getX() + 8;
                 float by = obj.getY() + 8;
@@ -393,15 +400,19 @@ public class Game extends Canvas implements Runnable {
             long now = System.nanoTime();
             delta += (now - lastTime) / ns;
             lastTime = now;
+            boolean ticked = false;
             while (delta >= 1) {
                 tick();
                 delta--;
+                ticked = true;
             }
 
-            if (running) {
+            if (running && ticked) {
                 render();
+                frames++;
+            } else {
+                try { Thread.sleep(1); } catch (InterruptedException ignored) {}
             }
-            frames++;
             if (System.currentTimeMillis() - timer > 1000) {
                 timer += 1000;
                 fps = frames;
@@ -561,10 +572,11 @@ public class Game extends Canvas implements Runnable {
 
         if (gameState == STATE.Game) {
             GamePalette.update(hud.getLevel());
+            java.util.List<GameObject> objects = handler.getObjects();
 
             // Player always ticks at full speed (responsive controls)
-            for (int i = 0; i < handler.getObjects().size(); i++) {
-                GameObject obj = handler.getObjects().get(i);
+            for (int i = 0; i < objects.size(); i++) {
+                GameObject obj = objects.get(i);
                 if (obj instanceof Player) {
                     obj.tick();
                 }
@@ -577,18 +589,19 @@ public class Game extends Canvas implements Runnable {
                 hud.tick();
                 spawner.tick();
                 // Tick non-player objects
-                for (int i = 0; i < handler.getObjects().size(); i++) {
-                    GameObject obj = handler.getObjects().get(i);
+                for (int i = 0; i < objects.size(); i++) {
+                    GameObject obj = objects.get(i);
                     if (!(obj instanceof Player)) {
                         obj.tick();
                     }
                 }
+                handler.flushRemoves();
             }
 
             // Track player velocity for speed lines
             int enemyCount = 0;
-            for (int i = 0; i < handler.getObjects().size(); i++) {
-                GameObject obj = handler.getObjects().get(i);
+            for (int i = 0; i < objects.size(); i++) {
+                GameObject obj = objects.get(i);
                 if (obj instanceof Player) {
                     playerVelX = obj.getVelX();
                     playerVelY = obj.getVelY();
@@ -630,8 +643,8 @@ public class Game extends Canvas implements Runnable {
                 lastIsHighScore = Profile.submitScore(diff, lastScore);
 
                 lastEnemies = 0;
-                for (int i = 0; i < handler.getObjects().size(); i++) {
-                    GameObject obj = handler.getObjects().get(i);
+                for (int i = 0; i < objects.size(); i++) {
+                    GameObject obj = objects.get(i);
                     ID id = obj.getId();
                     if (id == ID.BasicEnemy || id == ID.FastEnemy || id == ID.SmartEnemy
                             || id == ID.HardEnemy || id == ID.EnemyBoss) {
@@ -646,8 +659,8 @@ public class Game extends Canvas implements Runnable {
                 }
 
                 // Track longest streak from player
-                for (int i = 0; i < handler.getObjects().size(); i++) {
-                    GameObject obj = handler.getObjects().get(i);
+                for (int i = 0; i < objects.size(); i++) {
+                    GameObject obj = objects.get(i);
                     if (obj instanceof Player) {
                         int streak = ((Player) obj).getStreakTicks();
                         if (streak > runLongestStreak) runLongestStreak = streak;
@@ -676,10 +689,11 @@ public class Game extends Canvas implements Runnable {
                         runLongestStreak, diff, hud.getWaveCount());
 
                 // Find player position for death particles
-                for (int i = 0; i < handler.getObjects().size(); i++) {
-                    if (handler.getObjects().get(i).getId() == ID.Player) {
-                        deathPlayerX = handler.getObjects().get(i).getX() + 24;
-                        deathPlayerY = handler.getObjects().get(i).getY() + 24;
+                for (int i = 0; i < objects.size(); i++) {
+                    GameObject obj = objects.get(i);
+                    if (obj.getId() == ID.Player) {
+                        deathPlayerX = obj.getX() + 24;
+                        deathPlayerY = obj.getY() + 24;
                         break;
                     }
                 }
@@ -790,7 +804,7 @@ public class Game extends Canvas implements Runnable {
             handler.render(g);
             hud.render(g);
             // Dim overlay
-            g.setColor(new Color(8, 10, 16, 180));
+            g.setColor(DYING_OVERLAY);
             g.fillRect(0, 0, WIDTH, HEIGHT);
             // Pause menu rendered by Menu
             menu.render(g);
@@ -914,13 +928,14 @@ public class Game extends Canvas implements Runnable {
             if (flashAlpha > 0) {
                 int border = 60;
                 int alpha = (int) (flashAlpha * 255);
-                g.setPaint(new java.awt.GradientPaint(0, 0, new Color(235, 50, 50, alpha), 0, border, new Color(235, 50, 50, 0)));
+                Color dmgAlpha = new Color(235, 50, 50, alpha);
+                g.setPaint(new GradientPaint(0, 0, dmgAlpha, 0, border, DMG_RED_CLEAR));
                 g.fillRect(0, 0, WIDTH, border);
-                g.setPaint(new java.awt.GradientPaint(0, HEIGHT - border, new Color(235, 50, 50, 0), 0, HEIGHT, new Color(235, 50, 50, alpha)));
+                g.setPaint(new GradientPaint(0, HEIGHT - border, DMG_RED_CLEAR, 0, HEIGHT, dmgAlpha));
                 g.fillRect(0, HEIGHT - border, WIDTH, border);
-                g.setPaint(new java.awt.GradientPaint(0, 0, new Color(235, 50, 50, alpha), border, 0, new Color(235, 50, 50, 0)));
+                g.setPaint(new GradientPaint(0, 0, dmgAlpha, border, 0, DMG_RED_CLEAR));
                 g.fillRect(0, 0, border, HEIGHT);
-                g.setPaint(new java.awt.GradientPaint(WIDTH - border, 0, new Color(235, 50, 50, 0), WIDTH, 0, new Color(235, 50, 50, alpha)));
+                g.setPaint(new GradientPaint(WIDTH - border, 0, DMG_RED_CLEAR, WIDTH, 0, dmgAlpha));
                 g.fillRect(WIDTH - border, 0, border, HEIGHT);
             }
 
@@ -1024,13 +1039,14 @@ public class Game extends Canvas implements Runnable {
             // White vignette edges for time-warp feel
             int edgeAlpha = (int) (intensity * 50);
             int edgeSize = 80;
-            g.setPaint(new GradientPaint(0, 0, new Color(255, 255, 255, edgeAlpha), edgeSize, 0, new Color(255, 255, 255, 0)));
+            Color edgeCol = new Color(255, 255, 255, edgeAlpha);
+            g.setPaint(new GradientPaint(0, 0, edgeCol, edgeSize, 0, SLOWMO_WHITE_CLEAR));
             g.fillRect(0, 0, edgeSize, HEIGHT);
-            g.setPaint(new GradientPaint(WIDTH - edgeSize, 0, new Color(255, 255, 255, 0), WIDTH, 0, new Color(255, 255, 255, edgeAlpha)));
+            g.setPaint(new GradientPaint(WIDTH - edgeSize, 0, SLOWMO_WHITE_CLEAR, WIDTH, 0, edgeCol));
             g.fillRect(WIDTH - edgeSize, 0, edgeSize, HEIGHT);
-            g.setPaint(new GradientPaint(0, 0, new Color(255, 255, 255, edgeAlpha), 0, edgeSize, new Color(255, 255, 255, 0)));
+            g.setPaint(new GradientPaint(0, 0, edgeCol, 0, edgeSize, SLOWMO_WHITE_CLEAR));
             g.fillRect(0, 0, WIDTH, edgeSize);
-            g.setPaint(new GradientPaint(0, HEIGHT - edgeSize, new Color(255, 255, 255, 0), 0, HEIGHT, new Color(255, 255, 255, edgeAlpha)));
+            g.setPaint(new GradientPaint(0, HEIGHT - edgeSize, SLOWMO_WHITE_CLEAR, 0, HEIGHT, edgeCol));
             g.fillRect(0, HEIGHT - edgeSize, WIDTH, edgeSize);
             g.setColor(Color.WHITE); // reset paint to solid color mode
         }

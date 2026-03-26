@@ -13,6 +13,7 @@ public class FastEnemy extends GameObject {
     private Handler handler;
     private int trailTick = 0;
     private float rotation = 0;
+    private final Rectangle boundsRect = new Rectangle();
 
     public FastEnemy(int x, int y, ID id, Handler handler) {
         super(x, y, id);
@@ -22,7 +23,8 @@ public class FastEnemy extends GameObject {
     }
 
     public Rectangle getBounds() {
-        return new Rectangle((int) x, (int) y, SIZE, SIZE);
+        boundsRect.setBounds((int) x, (int) y, SIZE, SIZE);
+        return boundsRect;
     }
 
     public void tick() {

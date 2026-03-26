@@ -11,6 +11,7 @@ public class Trail extends GameObject {
     public static final int SHAPE_DIAMOND = 1;
     public static final int SHAPE_CIRCLE = 2;
     public static final int SHAPE_TRIANGLE = 3;
+    private static final AlphaComposite OPAQUE = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f);
 
     private float alpha = 1;
     private float life;
@@ -53,7 +54,7 @@ public class Trail extends GameObject {
         int dh = height - shrink * 2;
 
         if (dw <= 0 || dh <= 0) {
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1));
+            g2.setComposite(OPAQUE);
             return;
         }
 
@@ -80,7 +81,7 @@ public class Trail extends GameObject {
                 break;
         }
 
-        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1));
+        g2.setComposite(OPAQUE);
     }
 
     public Rectangle getBounds() {

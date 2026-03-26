@@ -12,6 +12,7 @@ public class EnemyBossBullet extends GameObject {
 
     private Handler handler;
     private int trailTick = 0;
+    private final Rectangle boundsRect = new Rectangle();
 
     public EnemyBossBullet(int x, int y, ID id, Handler handler, float vx, float vy) {
         super(x, y, id);
@@ -21,7 +22,8 @@ public class EnemyBossBullet extends GameObject {
     }
 
     public Rectangle getBounds() {
-        return new Rectangle((int) x, (int) y, SIZE, SIZE);
+        boundsRect.setBounds((int) x, (int) y, SIZE, SIZE);
+        return boundsRect;
     }
 
     public void tick() {

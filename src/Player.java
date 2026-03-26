@@ -10,6 +10,7 @@ public class Player extends GameObject {
     private static final int SIZE = 48;
     private static final int R = 12;
     private static final Color FILL = new Color(230, 234, 240);
+    private static final Color WHITE = new Color(255, 255, 255);
 
     private static final float ACCEL = 0.45f;
     private static final float DECEL = 0.30f;
@@ -18,6 +19,7 @@ public class Player extends GameObject {
 
     private Handler handler;
     private int trailTick = 0;
+    private final Rectangle boundsRect = new Rectangle();
 
     // Input state
     public boolean moveUp, moveDown, moveLeft, moveRight;
@@ -102,7 +104,8 @@ public class Player extends GameObject {
     public void addSlowmoCharge() { slowmoCharges++; }
 
     public Rectangle getBounds() {
-        return new Rectangle((int) x, (int) y, SIZE, SIZE);
+        boundsRect.setBounds((int) x, (int) y, SIZE, SIZE);
+        return boundsRect;
     }
 
     public void tick() {
@@ -296,8 +299,9 @@ public class Player extends GameObject {
     private void collision() {
         if (iFrames > 0) return;
 
-        for (int i = 0; i < handler.getObjects().size(); i++) {
-            GameObject tempObject = handler.getObjects().get(i);
+        java.util.List<GameObject> objects = handler.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            GameObject tempObject = objects.get(i);
             ID id = tempObject.getId();
             if (id == ID.BasicEnemy || id == ID.FastEnemy
                     || id == ID.SmartEnemy || id == ID.HardEnemy
@@ -459,7 +463,7 @@ public class Player extends GameObject {
             if (dashing) {
                 fill = lerpColor(skinFill, accent, 0.6f);
             } else if (iFrames > 0) {
-                fill = lerpColor(skinFill, new Color(255, 255, 255), (float) Math.abs(Math.sin(iFrames * 0.4)) * 0.5f);
+                fill = lerpColor(skinFill, WHITE, (float) Math.abs(Math.sin(iFrames * 0.4)) * 0.5f);
             } else {
                 fill = lerpColor(skinFill, accent, streakLevel * 0.25f);
             }

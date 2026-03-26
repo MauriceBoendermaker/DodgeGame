@@ -16,6 +16,7 @@ public class HardEnemy extends GameObject {
     private int trailTick = 0;
     private float rotation = 0;
     private float targetRotation = 0;
+    private final Rectangle boundsRect = new Rectangle();
 
     public HardEnemy(int x, int y, ID id, Handler handler) {
         super(x, y, id);
@@ -27,7 +28,8 @@ public class HardEnemy extends GameObject {
     }
 
     public Rectangle getBounds() {
-        return new Rectangle((int) x, (int) y, SIZE, SIZE);
+        boundsRect.setBounds((int) x, (int) y, SIZE, SIZE);
+        return boundsRect;
     }
 
     public void tick() {

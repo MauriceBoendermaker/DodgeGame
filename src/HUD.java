@@ -512,14 +512,18 @@ public class HUD {
     private static final Color ABILITY_COOLDOWN = new Color(50, 60, 75);
     private static final Color SHIELD_COLOR = new Color(140, 220, 255);
     private static final Color SLOWMO_COLOR = new Color(180, 140, 255);
+    private static final Color SLOWMO_ACTIVE = SLOWMO_ACTIVE;
+    private static final Color ABILITY_BORDER_OFF = ABILITY_BORDER_OFF;
+    private static final Color ABILITY_ICON_OFF = ABILITY_ICON_OFF;
     private static final Font FONT_ABILITY = new Font("Arial", Font.BOLD, 10);
     private static final Font FONT_CHARGE = new Font("Arial", Font.BOLD, 12);
 
     private void renderAbilityBar(Graphics2D g, int x, int y) {
         // Find player
         Player player = null;
-        for (int i = 0; i < Game.getHandler().getObjects().size(); i++) {
-            GameObject obj = Game.getHandler().getObjects().get(i);
+        java.util.List<GameObject> objects = Game.getHandler().getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            GameObject obj = objects.get(i);
             if (obj instanceof Player) { player = (Player) obj; break; }
         }
         if (player == null) return;
@@ -546,7 +550,7 @@ public class HUD {
         float slowPct = player.getSlowmoTimerPct();
         float regenPct = player.getSlowmoRegenPct();
         boolean recharging = !slowActive && charges < player.getSlowmoMaxCharges();
-        Color slowCol = slowActive ? new Color(220, 180, 255) : SLOWMO_COLOR;
+        Color slowCol = slowActive ? SLOWMO_ACTIVE : SLOWMO_COLOR;
 
         // Background
         g.setColor(ABILITY_COOLDOWN);
@@ -565,11 +569,11 @@ public class HUD {
         }
 
         // Border
-        g.setColor(charges > 0 || slowActive ? slowCol : new Color(60, 60, 80));
+        g.setColor(charges > 0 || slowActive ? slowCol : ABILITY_BORDER_OFF);
         g.drawRoundRect(ix, y, iconSize, iconSize, 4, 4);
 
         // Hourglass icon
-        Color iconColor = charges > 0 || slowActive ? slowCol : new Color(80, 80, 100);
+        Color iconColor = charges > 0 || slowActive ? slowCol : ABILITY_ICON_OFF;
         g.setColor(iconColor);
         int cx = ix + iconSize / 2;
         int cy = y + iconSize / 2;
@@ -595,11 +599,11 @@ public class HUD {
         }
 
         // Border
-        g.setColor(ready ? readyColor : new Color(60, 60, 80));
+        g.setColor(ready ? readyColor : ABILITY_BORDER_OFF);
         g.drawRoundRect(x, y, size, size, 4, 4);
 
         // Icon
-        Color iconColor = ready ? readyColor : new Color(80, 80, 100);
+        Color iconColor = ready ? readyColor : ABILITY_ICON_OFF;
         g.setColor(iconColor);
         int cx = x + size / 2;
         int cy = y + size / 2;

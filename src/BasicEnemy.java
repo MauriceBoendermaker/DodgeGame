@@ -13,6 +13,7 @@ public class BasicEnemy extends GameObject {
 
     private Handler handler;
     private int trailTick = 0;
+    private final Rectangle boundsRect = new Rectangle();
 
     public BasicEnemy(int x, int y, ID id, Handler handler) {
         super(x, y, id);
@@ -22,7 +23,8 @@ public class BasicEnemy extends GameObject {
     }
 
     public Rectangle getBounds() {
-        return new Rectangle((int) x, (int) y, SIZE, SIZE);
+        boundsRect.setBounds((int) x, (int) y, SIZE, SIZE);
+        return boundsRect;
     }
 
     public void tick() {
