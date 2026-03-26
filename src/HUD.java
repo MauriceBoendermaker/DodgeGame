@@ -512,9 +512,9 @@ public class HUD {
     private static final Color ABILITY_COOLDOWN = new Color(50, 60, 75);
     private static final Color SHIELD_COLOR = new Color(140, 220, 255);
     private static final Color SLOWMO_COLOR = new Color(180, 140, 255);
-    private static final Color SLOWMO_ACTIVE = SLOWMO_ACTIVE;
-    private static final Color ABILITY_BORDER_OFF = ABILITY_BORDER_OFF;
-    private static final Color ABILITY_ICON_OFF = ABILITY_ICON_OFF;
+    private static final Color SLOWMO_ACTIVE = new Color(220, 180, 255);
+    private static final Color ABILITY_BORDER_OFF = new Color(60, 60, 80);
+    private static final Color ABILITY_ICON_OFF = new Color(80, 80, 100);
     private static final Font FONT_ABILITY = new Font("Arial", Font.BOLD, 10);
     private static final Font FONT_CHARGE = new Font("Arial", Font.BOLD, 12);
 
