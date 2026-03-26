@@ -400,18 +400,21 @@ public class Game extends Canvas implements Runnable {
             long now = System.nanoTime();
             delta += (now - lastTime) / ns;
             lastTime = now;
-            boolean ticked = false;
             while (delta >= 1) {
                 tick();
                 delta--;
-                ticked = true;
             }
 
-            if (running && ticked) {
+            if (running) {
                 render();
-                frames++;
-            } else {
-                try { Thread.sleep(1); } catch (InterruptedException ignored) {}
+            }
+            frames++;
+
+            // Sleep for remaining frame time to cap at ~120fps
+            long renderNs = 1000000000L / 120;
+            long sleepNanos = renderNs - (System.nanoTime() - now);
+            if (sleepNanos > 1000000) {
+                try { Thread.sleep(sleepNanos / 1000000); } catch (InterruptedException ignored) {}
             }
             if (System.currentTimeMillis() - timer > 1000) {
                 timer += 1000;
