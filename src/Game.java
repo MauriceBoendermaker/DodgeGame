@@ -43,6 +43,8 @@ public class Game extends Canvas implements Runnable {
     public static float attemptFade = 0;
     private static final Font ATTEMPT_FONT = new Font("Arial", Font.BOLD, 20);
     private static final Font ATTEMPT_NUM_FONT = new Font("Arial", Font.BOLD, 28);
+    private static final Font BOSS_WARN_FONT = new Font("Arial", Font.BOLD, 72);
+    private static final Font BOSS_SUB_FONT = new Font("Arial", Font.BOLD, 22);
 
     // End-of-run stats
     public int lastScore = 0;
@@ -65,6 +67,8 @@ public class Game extends Canvas implements Runnable {
     public float runDamageTaken = 0;
     public int runLongestStreak = 0;
     public int runEncBasic = 0, runEncFast = 0, runEncSmart = 0, runEncHard = 0, runEncBoss = 0;
+    public int runEnemiesKilled = 0;
+    public int lastEnemiesKilled = 0;
 
     public static void addBossDefeated() {
         if (instance != null) instance.runBossesDefeated++;
@@ -72,19 +76,30 @@ public class Game extends Canvas implements Runnable {
     public static void addDamage(float dmg) {
         if (instance != null) instance.runDamageTaken += dmg;
     }
+    public static void addEnemyKilled() {
+        if (instance != null) instance.runEnemiesKilled++;
+        triggerScreenShake(3f);
+    }
+    public static int getRunKills() { return instance != null ? instance.runEnemiesKilled : 0; }
+    public static void addKillBonus(int bonus) { if (hudRef != null) hudRef.addKillBonus(bonus); }
     public void resetRunTracking() {
         runBossesDefeated = 0;
         runDamageTaken = 0;
         runLongestStreak = 0;
         runEncBasic = 0; runEncFast = 0; runEncSmart = 0; runEncHard = 0; runEncBoss = 0;
+        runEnemiesKilled = 0;
         slowmoAccum = 0;
     }
     private static Game instance;
 
     private Random r;
     private static Handler handlerRef;
+    private static HUD hudRef;
     private static Spawn spawnerRef;
     public static boolean dailyMode = false;
+    public static boolean combatMode = false;
+    public static int mouseGameX = 0, mouseGameY = 0;
+    public static boolean mouseShootHeld = false;
 
     public static void seedSpawner(long seed) {
         if (spawnerRef != null) spawnerRef.setSeed(seed);
@@ -316,6 +331,7 @@ public class Game extends Canvas implements Runnable {
         handler = new Handler();
         handlerRef = handler;
         hud = new HUD();
+        hudRef = hud;
         shop = new Shop(handler, hud);
         menu = new Menu(this, handler, hud);
         musicPlayer = new MusicPlayer();
@@ -410,12 +426,13 @@ public class Game extends Canvas implements Runnable {
             }
             frames++;
 
-            // Sleep for remaining frame time to cap at ~120fps
-            long renderNs = 1000000000L / 120;
+            // Cap at ~240fps — sleep bulk, then busy-wait for precision
+            long renderNs = 1000000000L / 240;
             long sleepNanos = renderNs - (System.nanoTime() - now);
-            if (sleepNanos > 1000000) {
-                try { Thread.sleep(sleepNanos / 1000000); } catch (InterruptedException ignored) {}
+            if (sleepNanos > 2000000) {
+                try { Thread.sleep((sleepNanos - 1000000) / 1000000); } catch (InterruptedException ignored) {}
             }
+            while (System.nanoTime() - now < renderNs) { Thread.yield(); }
             if (System.currentTimeMillis() - timer > 1000) {
                 timer += 1000;
                 fps = frames;
@@ -642,7 +659,8 @@ public class Game extends Canvas implements Runnable {
                 lastHealthUps = hud.getHealthUpgrades();
                 lastSpeedUps = hud.getSpeedUpgrades();
                 lastRefills = hud.getRefills();
-                lastDifficulty = diff == 0 ? "Normal" : diff == 1 ? "Hard" : "Insane";
+                lastDifficulty = diff == 0 ? "Normal" : diff == 1 ? "Hard" : diff == 2 ? "Insane" : "Combat";
+                lastEnemiesKilled = runEnemiesKilled;
                 lastIsHighScore = Profile.submitScore(diff, lastScore);
 
                 lastEnemies = 0;
@@ -768,6 +786,7 @@ public class Game extends Canvas implements Runnable {
             menu.tick();
             handler.tick();
         }
+        TrailPool.tick();
     }
 
     private void render() {
@@ -804,6 +823,7 @@ public class Game extends Canvas implements Runnable {
 
         if (gameState == STATE.Paused) {
             // Draw frozen game underneath
+            TrailPool.render(g);
             handler.render(g);
             hud.render(g);
             // Dim overlay
@@ -822,6 +842,7 @@ public class Game extends Canvas implements Runnable {
             }
 
             // Render frozen game world (enemies still visible, player removed)
+            TrailPool.render(g);
             handler.render(g);
 
             if (shakeAmount > 0) g.translate(-dsx, -dsy);
@@ -873,6 +894,7 @@ public class Game extends Canvas implements Runnable {
                 sy = (shakeRng.nextFloat() - 0.5f) * 2 * shakeAmount;
                 g.translate(sx, sy);
             }
+            TrailPool.render(g);
             handler.render(g);
             if (shakeAmount > 0) {
                 g.translate(-sx, -sy);
@@ -1014,6 +1036,7 @@ public class Game extends Canvas implements Runnable {
             menu.render(g);
         } else {
             menu.render(g);
+            TrailPool.render(g);
             handler.render(g);
         }
 
@@ -1094,14 +1117,14 @@ public class Game extends Canvas implements Runnable {
             float pulse = (float) (Math.sin(bossIntroTimer * 0.2) * 0.4 + 0.6);
             int textAlpha = (int) (pulse * 255 * dimProgress);
 
-            g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 72));
+            g.setFont(BOSS_WARN_FONT);
             g.setColor(new Color(235, 60, 60, Math.min(textAlpha, 255)));
             java.awt.FontMetrics fm = g.getFontMetrics();
             String warn = "WARNING";
             g.drawString(warn, (WIDTH - fm.stringWidth(warn)) / 2, HEIGHT / 2 - 10);
 
             // Subtitle
-            g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 22));
+            g.setFont(BOSS_SUB_FONT);
             g.setColor(new Color(235, 60, 60, Math.min((int) (textAlpha * 0.6f), 255)));
             fm = g.getFontMetrics();
             String sub = "BOSS INCOMING";
@@ -1208,7 +1231,7 @@ public class Game extends Canvas implements Runnable {
             g.setColor(GamePalette.accent(Math.min(baseAlpha, 255)));
             for (int x = 20; x < WIDTH; x += gridSpacing) {
                 for (int y = 20; y < HEIGHT; y += gridSpacing) {
-                    g.fillOval(x - beatDotSize / 2, y - beatDotSize / 2, beatDotSize, beatDotSize);
+                    g.fillRect(x - beatDotSize / 2, y - beatDotSize / 2, beatDotSize, beatDotSize);
                 }
             }
         }

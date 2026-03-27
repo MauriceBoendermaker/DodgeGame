@@ -34,7 +34,7 @@ public class MenuParticle extends GameObject {
         if (y <= 0 || y >= Game.HEIGHT - SIZE * 2) velY *= -1;
         if (x <= 0 || x >= Game.WIDTH - SIZE) velX *= -1;
         if (++trailTick % 3 == 0)
-            handler.addObject(new Trail(x, y, ID.Trail, col, SIZE, SIZE, 0.04f, handler));
+            TrailPool.add(x, y, col, SIZE, SIZE, 0.04f);
     }
 
     public void render(Graphics g) {

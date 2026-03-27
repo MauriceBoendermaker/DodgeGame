@@ -11,6 +11,7 @@ public class Player extends GameObject {
     private static final int R = 12;
     private static final Color FILL = new Color(230, 234, 240);
     private static final Color WHITE = new Color(255, 255, 255);
+    private static final Color TRAIL_BASE = new Color(200, 210, 220);
 
     private static final float ACCEL = 0.45f;
     private static final float DECEL = 0.30f;
@@ -69,6 +70,29 @@ public class Player extends GameObject {
     private static final int SLOWMO_DURATION = 150; // ticks at full speed (~2.5s)
     private static final int SLOWMO_REGEN_TICKS = 600; // ticks to regen one charge (~10s)
 
+    // ===== COMBAT: SHOOTING =====
+    public boolean shootInput = false;
+    private int ammo = 5;
+    private int maxAmmo = 5;
+    private int ammoRegenTimer = 0;
+    private int shootCooldown = 0;
+    private float facingX = 1, facingY = 0;
+    private static final int AMMO_REGEN_TICKS = 90; // 1.5 seconds per ammo
+    private static final int SHOOT_COOLDOWN = 8;
+    private static final float PROJECTILE_SPEED = 12f;
+    private static final float PROJECTILE_DAMAGE = 30f;
+    private static final float DASH_STRIKE_DAMAGE = 40f;
+
+    // ===== COMBAT: PARRY =====
+    public boolean parryInput = false;
+    private boolean parrying = false;
+    private int parryTimer = 0;
+    private int parryCooldown = 0;
+    private float parryFlash = 0;
+    private static final int PARRY_WINDOW = 15;   // ~0.25s
+    private static final int PARRY_COOLDOWN = 60;  // ~1s
+    private static final float PARRY_RADIUS = 80f;
+
     public Player(int x, int y, ID id, Handler handler) {
         super(x, y, id);
         this.handler = handler;
@@ -94,6 +118,14 @@ public class Player extends GameObject {
     public boolean isSlowmoActive() { return slowmoTimer > 0; }
     public float getSlowmoTimerPct() { return slowmoTimer / (float) SLOWMO_DURATION; }
     public float getSlowmoRegenPct() { return slowmoRegenTimer / (float) SLOWMO_REGEN_TICKS; }
+
+    // Combat getters for HUD
+    public int getAmmo() { return ammo; }
+    public int getMaxAmmo() { return maxAmmo; }
+    public float getShootCooldownPct() { return shootCooldown / (float) SHOOT_COOLDOWN; }
+    public float getParryCooldownPct() { return parryCooldown / (float) PARRY_COOLDOWN; }
+    public boolean isParrying() { return parrying; }
+    public float getParryFlash() { return parryFlash; }
 
     public void addShieldCharge() {
         shieldActive = true;
@@ -155,6 +187,30 @@ public class Player extends GameObject {
             if (!anyAlive) shieldParticles = null;
         }
 
+        // === COMBAT COOLDOWNS ===
+        if (Game.combatMode) {
+            if (shootCooldown > 0) shootCooldown--;
+            if (parryCooldown > 0) parryCooldown--;
+            if (parryTimer > 0) {
+                parryTimer--;
+                if (parryTimer <= 0) parrying = false;
+            }
+            if (parryFlash > 0.01f) parryFlash *= 0.88f; else parryFlash = 0;
+
+            // Ammo regen — faster at higher streaks
+            if (ammo < maxAmmo) {
+                ammoRegenTimer++;
+                int regenSpeed = AMMO_REGEN_TICKS / Math.max(1, getMultiplier());
+                if (ammoRegenTimer >= regenSpeed) {
+                    ammo++;
+                    ammoRegenTimer = 0;
+                }
+            }
+
+            // Parry check (active window)
+            if (parrying) checkParry();
+        }
+
         // === DASH ===
         if (dashInput && !dashing && dashCooldown <= 0) {
             dashInput = false;
@@ -172,7 +228,12 @@ public class Player extends GameObject {
 
             // Afterimage trail — intense during dash
             Color dashCol = GamePalette.accent();
-            handler.addObject(new Trail(x, y, ID.Trail, dashCol, SIZE, SIZE, 0.06f, handler, PlayerSkins.getSelectedTrailShape()));
+            TrailPool.add(x, y, dashCol, SIZE, SIZE, 0.06f, PlayerSkins.getSelectedTrailShape());
+
+            // Dash-strike: damage enemies while dashing (combat mode)
+            if (Game.combatMode) {
+                checkDashStrike();
+            }
 
             if (dashTimer <= 0) {
                 dashing = false;
@@ -202,6 +263,22 @@ public class Player extends GameObject {
             slowmoInput = false;
         }
 
+        // === COMBAT: SHOOT (mouse hold or F key) ===
+        if (Game.combatMode && (Game.mouseShootHeld || shootInput)) {
+            shootInput = false;
+            shoot();
+        } else {
+            shootInput = false;
+        }
+
+        // === COMBAT: PARRY ===
+        if (Game.combatMode && parryInput && !parrying && parryCooldown <= 0) {
+            parryInput = false;
+            activateParry();
+        } else {
+            parryInput = false;
+        }
+
         // Normal movement
         float speed = handler.spd;
 
@@ -214,6 +291,13 @@ public class Player extends GameObject {
         if (targetVX != 0 && targetVY != 0) {
             targetVX *= 0.707f;
             targetVY *= 0.707f;
+        }
+
+        // Update facing direction for shooting
+        if (targetVX != 0 || targetVY != 0) {
+            float len = (float) Math.sqrt(targetVX * targetVX + targetVY * targetVY);
+            facingX = targetVX / len;
+            facingY = targetVY / len;
         }
 
         float lerpX = targetVX != 0 ? ACCEL : DECEL;
@@ -242,11 +326,10 @@ public class Player extends GameObject {
         if (Settings.getPlayerTrail()) {
             int trailRate = streakLevel > 0.5f ? 2 : 3;
             float trailLife = 0.045f - streakLevel * 0.02f;
-            Color trailCol = lerpColor(new Color(200, 210, 220),
-                    GamePalette.accent(), streakLevel * 0.6f);
+            Color trailCol = lerpColor(TRAIL_BASE, GamePalette.accent(), streakLevel * 0.6f);
 
             if (++trailTick % trailRate == 0) {
-                handler.addObject(new Trail(x, y, ID.Trail, trailCol, SIZE, SIZE, Math.max(trailLife, 0.015f), handler, PlayerSkins.getSelectedTrailShape()));
+                TrailPool.add(x, y, trailCol, SIZE, SIZE, Math.max(trailLife, 0.015f), PlayerSkins.getSelectedTrailShape());
             }
         }
 
@@ -285,6 +368,80 @@ public class Player extends GameObject {
         Game.triggerScreenShake(3f);
     }
 
+    // === COMBAT: SHOOTING ===
+    private void shoot() {
+        if (ammo <= 0 || shootCooldown > 0) return;
+        ammo--;
+        shootCooldown = SHOOT_COOLDOWN;
+        ammoRegenTimer = 0;
+
+        // Aim at mouse cursor
+        float cx = x + SIZE / 2;
+        float cy = y + SIZE / 2;
+        float dx = Game.mouseGameX - cx;
+        float dy = Game.mouseGameY - cy;
+        float len = (float) Math.sqrt(dx * dx + dy * dy);
+        if (len < 1f) { dx = facingX; dy = facingY; len = 1f; }
+        dx /= len;
+        dy /= len;
+
+        float bx = cx - 5;
+        float by = cy - 5;
+        handler.addObject(new PlayerProjectile(bx, by, ID.PlayerProjectile, handler,
+                dx * PROJECTILE_SPEED, dy * PROJECTILE_SPEED, PROJECTILE_DAMAGE));
+        Game.triggerScreenShake(1.5f);
+    }
+
+    // === COMBAT: PARRY ===
+    private void activateParry() {
+        parrying = true;
+        parryTimer = PARRY_WINDOW;
+        parryCooldown = PARRY_COOLDOWN;
+    }
+
+    private void checkParry() {
+        float cx = x + SIZE / 2;
+        float cy = y + SIZE / 2;
+
+        java.util.List<GameObject> objects = handler.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            GameObject obj = objects.get(i);
+            if (!(obj instanceof EnemyBossBullet)) continue;
+            EnemyBossBullet bullet = (EnemyBossBullet) obj;
+            if (bullet.isParried()) continue;
+
+            float bx = obj.getX() + 8;
+            float by = obj.getY() + 8;
+            float dist = (float) Math.sqrt((bx - cx) * (bx - cx) + (by - cy) * (by - cy));
+            if (dist < PARRY_RADIUS) {
+                bullet.parry();
+                parryFlash = 1f;
+                parrying = false;
+                parryTimer = 0;
+                Game.triggerScreenShake(6f);
+                streakTicks += 300; // Big streak boost for successful parry
+                break;
+            }
+        }
+    }
+
+    // === COMBAT: DASH-STRIKE ===
+    private void checkDashStrike() {
+        java.util.List<GameObject> objects = handler.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            GameObject obj = objects.get(i);
+            ID oid = obj.getId();
+            if (oid == ID.BasicEnemy || oid == ID.FastEnemy
+                    || oid == ID.SmartEnemy || oid == ID.HardEnemy
+                    || oid == ID.EnemyBoss) {
+                if (obj instanceof EnemyBossBullet) continue;
+                if (getBounds().intersects(obj.getBounds())) {
+                    obj.takeDamage(DASH_STRIKE_DAMAGE);
+                }
+            }
+        }
+    }
+
     private float getDamage(ID id) {
         switch (id) {
             case FastEnemy:    return 8;
@@ -306,6 +463,9 @@ public class Player extends GameObject {
             if (id == ID.BasicEnemy || id == ID.FastEnemy
                     || id == ID.SmartEnemy || id == ID.HardEnemy
                     || id == ID.EnemyBoss) {
+                // Don't collide with parried boss bullets
+                if (tempObject instanceof EnemyBossBullet && ((EnemyBossBullet) tempObject).isParried()) continue;
+
                 if (getBounds().intersects(tempObject.getBounds())) {
                     // Shield absorbs the hit
                     if (shieldActive) {
@@ -373,6 +533,24 @@ public class Player extends GameObject {
                     g2.fillRect((int) p[0] - sz / 2, (int) p[1] - sz / 2, sz, sz);
                 }
             }
+        }
+
+        // Parry flash — expanding teal ring on successful parry
+        if (parryFlash > 0.05f) {
+            int parryR = (int) ((1f - parryFlash) * 100) + SIZE / 2;
+            int parryA = (int) (parryFlash * 200);
+            g2.setColor(new Color(78, 205, 196, Math.min(parryA, 255)));
+            g2.drawOval(cx - parryR, cy - parryR, parryR * 2, parryR * 2);
+        }
+
+        // Parry active window — pulsing circle
+        if (parrying && parryTimer > 0) {
+            float pulse = (float) Math.sin(parryTimer * 0.8f) * 0.3f + 0.7f;
+            int pRadius = (int) (PARRY_RADIUS * pulse);
+            g2.setColor(new Color(78, 205, 196, 30));
+            g2.fillOval(cx - pRadius, cy - pRadius, pRadius * 2, pRadius * 2);
+            g2.setColor(new Color(78, 205, 196, 80));
+            g2.drawOval(cx - pRadius, cy - pRadius, pRadius * 2, pRadius * 2);
         }
 
         // Hit pop — expanding white ring on streak break

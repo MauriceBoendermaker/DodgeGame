@@ -14,12 +14,36 @@ public class BasicEnemy extends GameObject {
     private Handler handler;
     private int trailTick = 0;
     private final Rectangle boundsRect = new Rectangle();
+    private float hp = -1; // -1 = no HP (dodge mode)
 
     public BasicEnemy(int x, int y, ID id, Handler handler) {
         super(x, y, id);
         this.handler = handler;
         velX = 5;
         velY = 5;
+    }
+
+    public void setCombatHp(float hp) { this.hp = hp; }
+
+    @Override
+    public boolean takeDamage(float dmg) {
+        if (hp < 0) return false;
+        hp -= dmg;
+        if (hp <= 0) { die(); return true; }
+        return true;
+    }
+
+    private void die() {
+        for (int i = 0; i < 6; i++) {
+            float angle = (float) (Math.random() * Math.PI * 2);
+            TrailPool.add(
+                    x + SIZE / 2 + (float) Math.cos(angle) * 8,
+                    y + SIZE / 2 + (float) Math.sin(angle) * 8,
+                    FILL, SIZE / 2, SIZE / 2, 0.05f);
+        }
+        Game.addEnemyKilled();
+        Game.addKillBonus(50);
+        handler.removeObject(this);
     }
 
     public Rectangle getBounds() {
@@ -39,7 +63,7 @@ public class BasicEnemy extends GameObject {
             velX *= -1;
         }
         if (++trailTick % 3 == 0)
-            handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.02f, handler));
+            TrailPool.add(x, y, TRAIL_COLOR, SIZE, SIZE, 0.02f);
     }
 
     public void render(Graphics g) {

@@ -84,6 +84,14 @@ public class BossLaser extends GameObject {
         return defeated && deathTimer > 60;
     }
 
+    @Override
+    public boolean takeDamage(float dmg) {
+        if (defeated) return false;
+        hp -= dmg;
+        if (hp < 0) hp = 0;
+        return true;
+    }
+
     public float getHpPercent() { return hp / maxHp; }
 
     public int getPhase() {
@@ -131,6 +139,7 @@ public class BossLaser extends GameObject {
 
         // HP drains over time
         float drainRate = 0.7f + (1f - hp / maxHp) * 0.35f;
+        if (Game.combatMode) drainRate *= 0.35f;
         hp -= drainRate;
 
         if (hp <= 0) {

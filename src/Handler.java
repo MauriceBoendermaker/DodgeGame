@@ -1,11 +1,12 @@
 import java.awt.Graphics;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 
 public class Handler {
 
     private ArrayList<GameObject> objects = new ArrayList<>();
-    private ArrayList<GameObject> toRemove = new ArrayList<>();
+    private HashSet<GameObject> toRemove = new HashSet<>();
 
     public int spd = 6;
 
@@ -23,8 +24,9 @@ public class Handler {
     }
 
     public void clearEnemys() {
-        objects.removeIf(obj -> obj.getId() != ID.Player);
+        objects.removeIf(obj -> obj.getId() != ID.Player && obj.getId() != ID.PlayerProjectile);
         toRemove.clear();
+        TrailPool.clear();
     }
 
     public void addObject(GameObject object) {
@@ -37,7 +39,7 @@ public class Handler {
 
     public void flushRemoves() {
         if (!toRemove.isEmpty()) {
-            objects.removeAll(toRemove);
+            objects.removeIf(toRemove::contains);
             toRemove.clear();
         }
     }

@@ -7,5 +7,6 @@ public enum ID {
     EnemyBoss,
     MenuParticle,
     Trail,
-    SpawnTelegraph
+    SpawnTelegraph,
+    PlayerProjectile
 }

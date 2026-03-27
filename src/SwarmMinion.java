@@ -59,7 +59,7 @@ public class SwarmMinion extends GameObject {
         }
 
         if (++trailTick % 5 == 0) {
-            handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.03f, handler, Trail.SHAPE_DIAMOND));
+            TrailPool.add(x, y, TRAIL_COLOR, SIZE, SIZE, 0.03f, TrailPool.SHAPE_DIAMOND);
         }
 
         // Shoot
