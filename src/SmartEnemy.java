@@ -15,6 +15,7 @@ public class SmartEnemy extends GameObject {
     private int trailTick = 0;
     private float pulsePhase = 0;
     private final Rectangle boundsRect = new Rectangle();
+    private float hp = -1;
 
     public SmartEnemy(int x, int y, ID id, Handler handler) {
         super(x, y, id);
@@ -25,6 +26,29 @@ public class SmartEnemy extends GameObject {
                 player = objects.get(i);
             }
         }
+    }
+
+    public void setCombatHp(float hp) { this.hp = hp; }
+
+    @Override
+    public boolean takeDamage(float dmg) {
+        if (hp < 0) return false;
+        hp -= dmg;
+        if (hp <= 0) { die(); return true; }
+        return true;
+    }
+
+    private void die() {
+        for (int i = 0; i < 6; i++) {
+            float angle = (float) (Math.random() * Math.PI * 2);
+            handler.addObject(new Trail(
+                    x + SIZE / 2 + (float) Math.cos(angle) * 8,
+                    y + SIZE / 2 + (float) Math.sin(angle) * 8,
+                    ID.Trail, FILL, SIZE / 2, SIZE / 2, 0.05f, handler, Trail.SHAPE_CIRCLE));
+        }
+        Game.addEnemyKilled();
+        Game.addKillBonus(125);
+        handler.removeObject(this);
     }
 
     public Rectangle getBounds() {

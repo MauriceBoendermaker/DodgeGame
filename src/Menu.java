@@ -48,6 +48,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
     // Legacy aliases — used by Select/Help sub-screens (3-button layouts)
     private static final int INFO_Y = PLAY_Y + SP;
     private static final int HELP_Y = INFO_Y + SP;
+    private static final int COMBAT_Y = HELP_Y + SP;
 
     // Pause menu layout
     private static final int PAUSE_W = 260;
@@ -155,6 +156,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
                 btnTargets[0] = hit(mouseX, mouseY, bx, PLAY_Y, BW, BH);
                 btnTargets[1] = hit(mouseX, mouseY, bx, INFO_Y, BW, BH);
                 btnTargets[2] = hit(mouseX, mouseY, bx, HELP_Y, BW, BH);
+                btnTargets[3] = hit(mouseX, mouseY, bx, COMBAT_Y, BW, BH);
                 backTarget = hitBack();
                 break;
             case Help:
@@ -216,6 +218,8 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
     public void mouseMoved(MouseEvent e) {
         mouseX = Game.toGameX(e.getX());
         mouseY = Game.toGameY(e.getY());
+        Game.mouseGameX = mouseX;
+        Game.mouseGameY = mouseY;
     }
 
     public void mouseWheelMoved(MouseWheelEvent e) {
@@ -236,6 +240,8 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
     public void mouseDragged(MouseEvent e) {
         mouseX = Game.toGameX(e.getX());
         mouseY = Game.toGameY(e.getY());
+        Game.mouseGameX = mouseX;
+        Game.mouseGameY = mouseY;
         if (Game.gameState == Game.STATE.Settings) {
             if (settingsDrag == SettingsDrag.MUSIC_VOL) {
                 Settings.setMusicVolume(settingsSliderRatio(mouseX));
@@ -247,11 +253,18 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
 
     public void mouseReleased(MouseEvent e) {
         settingsDrag = SettingsDrag.NONE;
+        if (e.getButton() == MouseEvent.BUTTON1) Game.mouseShootHeld = false;
     }
 
     public void mousePressed(MouseEvent e) {
         int mx = Game.toGameX(e.getX());
         int my = Game.toGameY(e.getY());
+
+        // Combat mode: left click to shoot (hold for auto-fire)
+        if (e.getButton() == MouseEvent.BUTTON1 && Game.gameState == Game.STATE.Game && Game.combatMode) {
+            Game.mouseShootHeld = true;
+            return;
+        }
 
         if (Game.gameState == Game.STATE.Paused) {
             int px = pauseX();
@@ -313,9 +326,10 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
 
         if (Game.gameState == Game.STATE.Select) {
             int bx = btnX();
-            if (hit(mx, my, bx, PLAY_Y, BW, BH)) { pendingDifficulty = 0; Perks.clearLoadout(); Game.gameState = Game.STATE.Loadout; resetHover(); return; }
-            if (hit(mx, my, bx, INFO_Y, BW, BH)) { pendingDifficulty = 1; Perks.clearLoadout(); Game.gameState = Game.STATE.Loadout; resetHover(); return; }
-            if (hit(mx, my, bx, HELP_Y, BW, BH)) { pendingDifficulty = 2; Perks.clearLoadout(); Game.gameState = Game.STATE.Loadout; resetHover(); return; }
+            if (hit(mx, my, bx, PLAY_Y, BW, BH)) { pendingDifficulty = 0; Game.combatMode = false; Perks.clearLoadout(); Game.gameState = Game.STATE.Loadout; resetHover(); return; }
+            if (hit(mx, my, bx, INFO_Y, BW, BH)) { pendingDifficulty = 1; Game.combatMode = false; Perks.clearLoadout(); Game.gameState = Game.STATE.Loadout; resetHover(); return; }
+            if (hit(mx, my, bx, HELP_Y, BW, BH)) { pendingDifficulty = 2; Game.combatMode = false; Perks.clearLoadout(); Game.gameState = Game.STATE.Loadout; resetHover(); return; }
+            if (hit(mx, my, bx, COMBAT_Y, BW, BH)) { pendingDifficulty = 3; Game.combatMode = true; Perks.clearLoadout(); Game.gameState = Game.STATE.Loadout; resetHover(); return; }
             if (hitBack()) { Game.gameState = Game.STATE.Menu; resetHover(); return; }
             return;
         }
@@ -434,9 +448,10 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         handler.spd = 6 + Perks.getStartingSpeedBonus() + CoinShop.getPermSpeedBonus();
         game.shop.reset();
         Game.setTimeScale(1f);
-        GamePalette.setDifficulty(difficulty);
+        // Combat mode uses Hard-level palette but its own diff
+        GamePalette.setDifficulty(Game.combatMode ? 1 : difficulty);
         GamePalette.reset();
-        Profile.startRun(difficulty);
+        Profile.startRun(Game.combatMode ? 1 : difficulty);
         Game.currentAttempt = Profile.getCurrentAttempt();
         game.resetRunTracking();
         Game.attemptFade = 1f;
@@ -503,6 +518,8 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         HUD.HEALTH = 100;
         Game.setTimeScale(1f);
         Game.dailyMode = false;
+        Game.combatMode = false;
+        Game.mouseShootHeld = false;
         resetHover();
     }
 
@@ -672,7 +689,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
 
     private void renderSelect(Graphics2D g) {
         PageRenderer.drawBackground(g);
-        PageRenderer.drawTitle(g, "Select Difficulty");
+        PageRenderer.drawTitle(g, "Select Mode");
         PageRenderer.drawBackButton(g, backH);
 
         g.setFont(PageRenderer.SUBTITLE_FONT);
@@ -685,6 +702,7 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         PageRenderer.drawSecondaryButton(g, bx, PLAY_Y, BW, BH, "Normal", btn[0]);
         PageRenderer.drawWarningButton(g, bx, INFO_Y, BW, BH, "Hard", btn[1]);
         PageRenderer.drawDangerButton(g, bx, HELP_Y, BW, BH, "Insane", btn[2]);
+        PageRenderer.drawPrimaryButton(g, bx, COMBAT_Y, BW, BH, "Combat", btn[3]);
 
         g.setFont(PageRenderer.SMALL_FONT);
         int labelX = bx + BW + 20;
@@ -694,6 +712,8 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         g.drawString("Unpredictable enemies", labelX, INFO_Y + 30);
         g.setColor(PageRenderer.lerp(new Color(235, 87, 87, 120), new Color(255, 120, 120), btn[2]));
         g.drawString("Only for the brave", labelX, HELP_Y + 30);
+        g.setColor(PageRenderer.lerp(PageRenderer.ACCENT, new Color(120, 240, 230), btn[3]));
+        g.drawString("Shoot, parry & dash-strike", labelX, COMBAT_Y + 30);
     }
 
     // ---------- Help ----------
@@ -1943,6 +1963,11 @@ public class Menu extends MouseAdapter implements MouseWheelListener {
         GameObject firstEnemy;
         if (pendingDifficulty == 0) {
             firstEnemy = new BasicEnemy(Game.WIDTH - 50, Game.HEIGHT - 50, ID.BasicEnemy, handler);
+        } else if (pendingDifficulty == 3) {
+            // Combat mode — first enemy is a basic with HP
+            BasicEnemy be = new BasicEnemy(Game.WIDTH - 50, Game.HEIGHT - 50, ID.BasicEnemy, handler);
+            be.setCombatHp(30);
+            firstEnemy = be;
         } else {
             firstEnemy = new HardEnemy(Game.WIDTH - 100, Game.HEIGHT - 100, ID.BasicEnemy, handler);
         }

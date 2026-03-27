@@ -84,6 +84,14 @@ public class BossSplitter extends GameObject {
         return defeated && deathTimer > 30;
     }
 
+    @Override
+    public boolean takeDamage(float dmg) {
+        if (defeated) return false;
+        hp -= dmg;
+        if (hp < 0) hp = 0;
+        return true;
+    }
+
     /** Check if this specific fragment is dead (used by Spawn to detect all fragments gone) */
     public boolean isFragmentDead() {
         return defeated && deathTimer > 30;
@@ -136,6 +144,7 @@ public class BossSplitter extends GameObject {
         float drainRate = 0.6f + (1f - hp / maxHp) * 0.3f;
         if (generation == 1) drainRate *= 1.3f;
         if (generation == 2) drainRate *= 1.8f;
+        if (Game.combatMode) drainRate *= 0.35f;
         hp -= drainRate;
 
         if (hp <= 0) {

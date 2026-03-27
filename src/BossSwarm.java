@@ -70,6 +70,14 @@ public class BossSwarm extends GameObject {
         return defeated && deathTimer > 60;
     }
 
+    @Override
+    public boolean takeDamage(float dmg) {
+        if (defeated) return false;
+        hp -= dmg;
+        if (hp < 0) hp = 0;
+        return true;
+    }
+
     public float getHpPercent() { return hp / maxHp; }
 
     public int getPhase() {
@@ -121,6 +129,7 @@ public class BossSwarm extends GameObject {
 
         // HP drains faster than other bosses
         float drainRate = 1.0f + (1f - hp / maxHp) * 0.5f;
+        if (Game.combatMode) drainRate *= 0.35f;
         hp -= drainRate;
 
         if (hp <= 0) {

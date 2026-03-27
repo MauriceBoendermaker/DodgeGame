@@ -69,6 +69,14 @@ public class EnemyBoss extends GameObject {
         return defeated && deathTimer > 60;
     }
 
+    @Override
+    public boolean takeDamage(float dmg) {
+        if (defeated) return false;
+        hp -= dmg;
+        if (hp < 0) hp = 0;
+        return true;
+    }
+
     public float getHpPercent() {
         return hp / maxHp;
     }
@@ -110,6 +118,7 @@ public class EnemyBoss extends GameObject {
 
         // HP drains over time — survive to defeat the boss
         float drainRate = 0.8f + (1f - hp / maxHp) * 0.4f; // drains faster as HP lowers
+        if (Game.combatMode) drainRate *= 0.35f; // player must actively deal damage
         hp -= drainRate;
 
         if (hp <= 0) {

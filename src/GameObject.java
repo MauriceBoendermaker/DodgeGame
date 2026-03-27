@@ -58,4 +58,7 @@ public abstract class GameObject {
     public float getVelY() {
         return velY;
     }
+
+    /** Combat mode: take damage from player. Returns true if damage was accepted. */
+    public boolean takeDamage(float dmg) { return false; }
 }

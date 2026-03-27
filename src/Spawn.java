@@ -58,6 +58,8 @@ public class Spawn {
                 int bossNum = level / 10;
                 float bossHp = 1200 + (bossNum - 1) * 200;
                 triggerBossSpawn(bossHp);
+            } else if (game.diff == 3) {
+                spawnCombatDifficulty();
             } else if (game.diff == 0) {
                 spawnNormalDifficulty();
             } else if (game.diff == 1) {
@@ -128,8 +130,13 @@ public class Spawn {
         bossActive = false;
         Game.addBossDefeated();
         hud.triggerWaveAnnounce();
-        spawnTelegraph(new BasicEnemy(rx(), ry(), ID.BasicEnemy, handler), C_BASIC);
-        spawnTelegraph(new FastEnemy(rx(), ry(), ID.FastEnemy, handler), C_FAST);
+        if (Game.combatMode) {
+            spawnCombatTelegraph(new BasicEnemy(rx(), ry(), ID.BasicEnemy, handler), C_BASIC);
+            spawnCombatTelegraph(new FastEnemy(rx(), ry(), ID.FastEnemy, handler), C_FAST);
+        } else {
+            spawnTelegraph(new BasicEnemy(rx(), ry(), ID.BasicEnemy, handler), C_BASIC);
+            spawnTelegraph(new FastEnemy(rx(), ry(), ID.FastEnemy, handler), C_FAST);
+        }
     }
 
     private void triggerBossSpawn() {
@@ -262,6 +269,128 @@ public class Spawn {
             Game.setEnemyExplosions(particles.toArray(new float[0][]));
         }
         handler.clearEnemys();
+    }
+
+    // ==================== Combat mode ====================
+
+    private static final int SCRIPT_END_COMBAT = 20;
+
+    // Combat HP values per enemy type
+    private static final float HP_BASIC = 30;
+    private static final float HP_FAST = 20;
+    private static final float HP_HARD = 50;
+    private static final float HP_SMART = 40;
+
+    private void setCombatHp(GameObject enemy) {
+        if (enemy instanceof BasicEnemy) ((BasicEnemy) enemy).setCombatHp(HP_BASIC);
+        else if (enemy instanceof FastEnemy) ((FastEnemy) enemy).setCombatHp(HP_FAST);
+        else if (enemy instanceof HardEnemy) ((HardEnemy) enemy).setCombatHp(HP_HARD);
+        else if (enemy instanceof SmartEnemy) ((SmartEnemy) enemy).setCombatHp(HP_SMART);
+    }
+
+    private void spawnCombatTelegraph(GameObject enemy, Color color) {
+        setCombatHp(enemy);
+        spawnTelegraph(enemy, color);
+    }
+
+    private void spawnCombatScaled(GameObject enemy, Color color, float speedMult) {
+        setCombatHp(enemy);
+        spawnScaled(enemy, color, speedMult);
+    }
+
+    private void spawnCombatDifficulty() {
+        int level = hud.getLevel();
+        if (level > SCRIPT_END_COMBAT) {
+            spawnCombatEndless(level);
+            return;
+        }
+        // Scripted combat levels — more enemies, faster pacing
+        switch (level) {
+            case 2:
+            case 3:
+                spawnCombatTelegraph(new BasicEnemy(rx(), ry(), ID.BasicEnemy, handler), C_BASIC);
+                break;
+            case 4:
+                spawnCombatTelegraph(new FastEnemy(rx(), ry(), ID.FastEnemy, handler), C_FAST);
+                break;
+            case 5:
+                spawnCombatTelegraph(new BasicEnemy(rx(), ry(), ID.BasicEnemy, handler), C_BASIC);
+                spawnCombatTelegraph(new FastEnemy(rx(), ry(), ID.FastEnemy, handler), C_FAST);
+                break;
+            case 6:
+                spawnCombatTelegraph(new HardEnemy(rx(), ry(), ID.HardEnemy, handler), C_HARD);
+                break;
+            case 7:
+                spawnCombatTelegraph(new SmartEnemy(rx(), ry(), ID.SmartEnemy, handler), C_SMART);
+                break;
+            case 8:
+            case 9:
+                spawnCombatTelegraph(new BasicEnemy(rx(), ry(), ID.BasicEnemy, handler), C_BASIC);
+                spawnCombatTelegraph(new HardEnemy(rx(), ry(), ID.HardEnemy, handler), C_HARD);
+                break;
+            case 11: case 12: case 13:
+                spawnCombatTelegraph(new FastEnemy(rx(), ry(), ID.FastEnemy, handler), C_FAST);
+                spawnCombatTelegraph(new BasicEnemy(rx(), ry(), ID.BasicEnemy, handler), C_BASIC);
+                break;
+            case 14:
+                spawnCombatTelegraph(new SmartEnemy(rx(), ry(), ID.SmartEnemy, handler), C_SMART);
+                spawnCombatTelegraph(new HardEnemy(rx(), ry(), ID.HardEnemy, handler), C_HARD);
+                break;
+            case 15:
+                explodeClearEnemys();
+                spawnCombatTelegraph(new FastEnemy(rx(), ry(), ID.FastEnemy, handler), C_FAST);
+                spawnCombatTelegraph(new FastEnemy(rx(), ry(), ID.FastEnemy, handler), C_FAST);
+                break;
+            case 16: case 17: case 18: case 19:
+                spawnCombatTelegraph(new BasicEnemy(rx(), ry(), ID.BasicEnemy, handler), C_BASIC);
+                if (level % 2 == 0) spawnCombatTelegraph(new HardEnemy(rx(), ry(), ID.HardEnemy, handler), C_HARD);
+                break;
+        }
+    }
+
+    private void spawnCombatEndless(int level) {
+        int wave = level - SCRIPT_END_COMBAT;
+        float speedMult = 1.0f + (float) Math.log(1 + wave * 0.1) * 0.6f;
+
+        // Purge every 12 waves in combat
+        if (wave % 12 == 0) {
+            explodeClearEnemys();
+            int packSize = 3 + (int) (wave * 0.08f);
+            packSize = Math.min(packSize, 5);
+            for (int i = 0; i < packSize; i++) {
+                spawnCombatWeightedEnemy(wave, speedMult);
+            }
+            return;
+        }
+
+        // Combat spawns more enemies — 2 base, sometimes 3
+        int count = 2;
+        if (wave >= 8 && r.nextFloat() < Math.min(0.5f, wave * 0.03f)) count = 3;
+
+        for (int i = 0; i < count; i++) {
+            spawnCombatWeightedEnemy(wave, speedMult);
+        }
+    }
+
+    private void spawnCombatWeightedEnemy(int wave, float speedMult) {
+        float t = wave * 0.09f;
+        float wBasic = Math.max(10, 35 - t * 2f);
+        float wFast  = 30 + Math.min(5, t * 0.8f);
+        float wHard  = Math.min(30, 15 + t * 1.5f);
+        float wSmart = Math.min(25, 10 + t * 1.2f);
+
+        float total = wBasic + wFast + wHard + wSmart;
+        float roll = r.nextFloat() * total;
+
+        if (roll < wBasic) {
+            spawnCombatScaled(new BasicEnemy(rx(), ry(), ID.BasicEnemy, handler), C_BASIC, speedMult);
+        } else if (roll < wBasic + wFast) {
+            spawnCombatScaled(new FastEnemy(rx(), ry(), ID.FastEnemy, handler), C_FAST, speedMult);
+        } else if (roll < wBasic + wFast + wHard) {
+            spawnCombatScaled(new HardEnemy(rx(), ry(), ID.HardEnemy, handler), C_HARD, speedMult);
+        } else {
+            spawnCombatTelegraph(new SmartEnemy(rx(), ry(), ID.SmartEnemy, handler), C_SMART);
+        }
     }
 
     // ==================== Scripted levels ====================

@@ -23,7 +23,7 @@ public class Handler {
     }
 
     public void clearEnemys() {
-        objects.removeIf(obj -> obj.getId() != ID.Player);
+        objects.removeIf(obj -> obj.getId() != ID.Player && obj.getId() != ID.PlayerProjectile);
         toRemove.clear();
     }
 

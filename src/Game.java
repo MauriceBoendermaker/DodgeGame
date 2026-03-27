@@ -65,6 +65,8 @@ public class Game extends Canvas implements Runnable {
     public float runDamageTaken = 0;
     public int runLongestStreak = 0;
     public int runEncBasic = 0, runEncFast = 0, runEncSmart = 0, runEncHard = 0, runEncBoss = 0;
+    public int runEnemiesKilled = 0;
+    public int lastEnemiesKilled = 0;
 
     public static void addBossDefeated() {
         if (instance != null) instance.runBossesDefeated++;
@@ -72,19 +74,30 @@ public class Game extends Canvas implements Runnable {
     public static void addDamage(float dmg) {
         if (instance != null) instance.runDamageTaken += dmg;
     }
+    public static void addEnemyKilled() {
+        if (instance != null) instance.runEnemiesKilled++;
+        triggerScreenShake(3f);
+    }
+    public static int getRunKills() { return instance != null ? instance.runEnemiesKilled : 0; }
+    public static void addKillBonus(int bonus) { if (hudRef != null) hudRef.addKillBonus(bonus); }
     public void resetRunTracking() {
         runBossesDefeated = 0;
         runDamageTaken = 0;
         runLongestStreak = 0;
         runEncBasic = 0; runEncFast = 0; runEncSmart = 0; runEncHard = 0; runEncBoss = 0;
+        runEnemiesKilled = 0;
         slowmoAccum = 0;
     }
     private static Game instance;
 
     private Random r;
     private static Handler handlerRef;
+    private static HUD hudRef;
     private static Spawn spawnerRef;
     public static boolean dailyMode = false;
+    public static boolean combatMode = false;
+    public static int mouseGameX = 0, mouseGameY = 0;
+    public static boolean mouseShootHeld = false;
 
     public static void seedSpawner(long seed) {
         if (spawnerRef != null) spawnerRef.setSeed(seed);
@@ -316,6 +329,7 @@ public class Game extends Canvas implements Runnable {
         handler = new Handler();
         handlerRef = handler;
         hud = new HUD();
+        hudRef = hud;
         shop = new Shop(handler, hud);
         menu = new Menu(this, handler, hud);
         musicPlayer = new MusicPlayer();
@@ -642,7 +656,8 @@ public class Game extends Canvas implements Runnable {
                 lastHealthUps = hud.getHealthUpgrades();
                 lastSpeedUps = hud.getSpeedUpgrades();
                 lastRefills = hud.getRefills();
-                lastDifficulty = diff == 0 ? "Normal" : diff == 1 ? "Hard" : "Insane";
+                lastDifficulty = diff == 0 ? "Normal" : diff == 1 ? "Hard" : diff == 2 ? "Insane" : "Combat";
+                lastEnemiesKilled = runEnemiesKilled;
                 lastIsHighScore = Profile.submitScore(diff, lastScore);
 
                 lastEnemies = 0;

@@ -22,6 +22,7 @@ public class HUD {
     private int healthUpgrades = 0;
     private int speedUpgrades = 0;
     private int refills = 0;
+    private int kills = 0;
 
     public static final int MAX_TIER = 10;
 
@@ -239,7 +240,13 @@ public class HUD {
         String waveStr = "W" + waveCount + " LVL " + getLevelInWave();
         g2.drawString(waveStr, barX, barY + 34);
         int waveWidth = g2.getFontMetrics().stringWidth(waveStr);
-        g2.drawString("PTS " + points, barX + waveWidth + 10, barY + 34);
+        String ptsStr = "PTS " + points;
+        g2.drawString(ptsStr, barX + waveWidth + 10, barY + 34);
+        if (Game.combatMode) {
+            int ptsWidth = g2.getFontMetrics().stringWidth(ptsStr);
+            g2.setColor(GamePalette.accent());
+            g2.drawString("KILLS " + Game.getRunKills(), barX + waveWidth + 10 + ptsWidth + 10, barY + 34);
+        }
 
         // Ability indicators below stats
         renderAbilityBar(g2, barX, barY + 46);
@@ -475,6 +482,7 @@ public class HUD {
     public void setLevel(int level) { this.level = level; }
     public int getPoints() { return points; }
     public void setPoints(int points) { this.points = points; }
+    public void addKillBonus(int bonus) { score += bonus; points += bonus; }
 
     // Stats tracking
     public int getTicksSurvived() { return ticksSurvived; }
@@ -499,6 +507,7 @@ public class HUD {
         healthUpgrades = 0;
         speedUpgrades = 0;
         refills = 0;
+        kills = 0;
         levelUpBanner = 0;
         scorePulse = 0;
         lastMilestone = 0;
@@ -508,6 +517,9 @@ public class HUD {
         isWaveAnnounce = false;
     }
 
+    public int getKills() { return kills; }
+    public void addKill() { kills++; }
+
     private static final Color ABILITY_READY = new Color(78, 205, 196);
     private static final Color ABILITY_COOLDOWN = new Color(50, 60, 75);
     private static final Color SHIELD_COLOR = new Color(140, 220, 255);
@@ -515,6 +527,8 @@ public class HUD {
     private static final Color SLOWMO_ACTIVE = new Color(220, 180, 255);
     private static final Color ABILITY_BORDER_OFF = new Color(60, 60, 80);
     private static final Color ABILITY_ICON_OFF = new Color(80, 80, 100);
+    private static final Color AMMO_COLOR = new Color(255, 210, 80);
+    private static final Color PARRY_COLOR = new Color(78, 205, 196);
     private static final Font FONT_ABILITY = new Font("Arial", Font.BOLD, 10);
     private static final Font FONT_CHARGE = new Font("Arial", Font.BOLD, 12);
 
@@ -583,6 +597,38 @@ public class HUD {
         g.drawLine(cx - 5, cy + 6, cx + 5, cy + 6);
         g.drawLine(cx - 5, cy + 6, cx, cy);
         g.drawLine(cx + 5, cy + 6, cx, cy);
+
+        // === COMBAT MODE: Ammo + Parry indicators ===
+        if (Game.combatMode) {
+            ix += iconSize + gap;
+
+            // AMMO — draw as small dots
+            int ammo = player.getAmmo();
+            int maxAmmo = player.getMaxAmmo();
+            g.setColor(ABILITY_COOLDOWN);
+            g.fillRoundRect(ix, y, iconSize, iconSize, 4, 4);
+            g.setColor(ammo > 0 ? AMMO_COLOR : ABILITY_BORDER_OFF);
+            g.drawRoundRect(ix, y, iconSize, iconSize, 4, 4);
+            // Ammo dots
+            int dotSize = 3;
+            int dotGap = 2;
+            int totalDotW = maxAmmo * dotSize + (maxAmmo - 1) * dotGap;
+            int dotX = ix + (iconSize - totalDotW) / 2;
+            int dotY = y + iconSize / 2 - dotSize / 2;
+            for (int i = 0; i < maxAmmo; i++) {
+                g.setColor(i < ammo ? AMMO_COLOR : new Color(60, 60, 80));
+                g.fillOval(dotX + i * (dotSize + dotGap), dotY, dotSize, dotSize);
+            }
+
+            ix += iconSize + gap;
+
+            // PARRY
+            float parryPct = player.getParryCooldownPct();
+            boolean parryReady = parryPct <= 0;
+            boolean parryActive = player.isParrying();
+            Color parryCol = parryActive ? new Color(120, 240, 230) : PARRY_COLOR;
+            drawAbilityIcon(g, ix, y, iconSize, "PRY", parryReady, parryPct, parryCol);
+        }
     }
 
     private void drawAbilityIcon(Graphics2D g, int x, int y, int size, String label,
