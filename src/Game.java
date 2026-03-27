@@ -43,6 +43,8 @@ public class Game extends Canvas implements Runnable {
     public static float attemptFade = 0;
     private static final Font ATTEMPT_FONT = new Font("Arial", Font.BOLD, 20);
     private static final Font ATTEMPT_NUM_FONT = new Font("Arial", Font.BOLD, 28);
+    private static final Font BOSS_WARN_FONT = new Font("Arial", Font.BOLD, 72);
+    private static final Font BOSS_SUB_FONT = new Font("Arial", Font.BOLD, 22);
 
     // End-of-run stats
     public int lastScore = 0;
@@ -424,12 +426,13 @@ public class Game extends Canvas implements Runnable {
             }
             frames++;
 
-            // Sleep for remaining frame time to cap at ~120fps
-            long renderNs = 1000000000L / 120;
+            // Cap at ~240fps — sleep bulk, then busy-wait for precision
+            long renderNs = 1000000000L / 240;
             long sleepNanos = renderNs - (System.nanoTime() - now);
-            if (sleepNanos > 1000000) {
-                try { Thread.sleep(sleepNanos / 1000000); } catch (InterruptedException ignored) {}
+            if (sleepNanos > 2000000) {
+                try { Thread.sleep((sleepNanos - 1000000) / 1000000); } catch (InterruptedException ignored) {}
             }
+            while (System.nanoTime() - now < renderNs) { Thread.yield(); }
             if (System.currentTimeMillis() - timer > 1000) {
                 timer += 1000;
                 fps = frames;
@@ -783,6 +786,7 @@ public class Game extends Canvas implements Runnable {
             menu.tick();
             handler.tick();
         }
+        TrailPool.tick();
     }
 
     private void render() {
@@ -819,6 +823,7 @@ public class Game extends Canvas implements Runnable {
 
         if (gameState == STATE.Paused) {
             // Draw frozen game underneath
+            TrailPool.render(g);
             handler.render(g);
             hud.render(g);
             // Dim overlay
@@ -837,6 +842,7 @@ public class Game extends Canvas implements Runnable {
             }
 
             // Render frozen game world (enemies still visible, player removed)
+            TrailPool.render(g);
             handler.render(g);
 
             if (shakeAmount > 0) g.translate(-dsx, -dsy);
@@ -888,6 +894,7 @@ public class Game extends Canvas implements Runnable {
                 sy = (shakeRng.nextFloat() - 0.5f) * 2 * shakeAmount;
                 g.translate(sx, sy);
             }
+            TrailPool.render(g);
             handler.render(g);
             if (shakeAmount > 0) {
                 g.translate(-sx, -sy);
@@ -1029,6 +1036,7 @@ public class Game extends Canvas implements Runnable {
             menu.render(g);
         } else {
             menu.render(g);
+            TrailPool.render(g);
             handler.render(g);
         }
 
@@ -1109,14 +1117,14 @@ public class Game extends Canvas implements Runnable {
             float pulse = (float) (Math.sin(bossIntroTimer * 0.2) * 0.4 + 0.6);
             int textAlpha = (int) (pulse * 255 * dimProgress);
 
-            g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 72));
+            g.setFont(BOSS_WARN_FONT);
             g.setColor(new Color(235, 60, 60, Math.min(textAlpha, 255)));
             java.awt.FontMetrics fm = g.getFontMetrics();
             String warn = "WARNING";
             g.drawString(warn, (WIDTH - fm.stringWidth(warn)) / 2, HEIGHT / 2 - 10);
 
             // Subtitle
-            g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 22));
+            g.setFont(BOSS_SUB_FONT);
             g.setColor(new Color(235, 60, 60, Math.min((int) (textAlpha * 0.6f), 255)));
             fm = g.getFontMetrics();
             String sub = "BOSS INCOMING";
@@ -1223,7 +1231,7 @@ public class Game extends Canvas implements Runnable {
             g.setColor(GamePalette.accent(Math.min(baseAlpha, 255)));
             for (int x = 20; x < WIDTH; x += gridSpacing) {
                 for (int y = 20; y < HEIGHT; y += gridSpacing) {
-                    g.fillOval(x - beatDotSize / 2, y - beatDotSize / 2, beatDotSize, beatDotSize);
+                    g.fillRect(x - beatDotSize / 2, y - beatDotSize / 2, beatDotSize, beatDotSize);
                 }
             }
         }

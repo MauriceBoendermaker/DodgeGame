@@ -41,10 +41,10 @@ public class HardEnemy extends GameObject {
     private void die() {
         for (int i = 0; i < 6; i++) {
             float angle = (float) (Math.random() * Math.PI * 2);
-            handler.addObject(new Trail(
+            TrailPool.add(
                     x + SIZE / 2 + (float) Math.cos(angle) * 8,
                     y + SIZE / 2 + (float) Math.sin(angle) * 8,
-                    ID.Trail, FILL, SIZE / 2, SIZE / 2, 0.05f, handler, Trail.SHAPE_TRIANGLE));
+                    FILL, SIZE / 2, SIZE / 2, 0.05f, TrailPool.SHAPE_TRIANGLE);
         }
         Game.addEnemyKilled();
         Game.addKillBonus(100);
@@ -79,7 +79,7 @@ public class HardEnemy extends GameObject {
             targetRotation = (float) Math.atan2(velY, velX);
         }
         if (++trailTick % 3 == 0)
-            handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.02f, handler, Trail.SHAPE_TRIANGLE));
+            TrailPool.add(x, y, TRAIL_COLOR, SIZE, SIZE, 0.02f, TrailPool.SHAPE_TRIANGLE);
     }
 
     public void render(Graphics g) {

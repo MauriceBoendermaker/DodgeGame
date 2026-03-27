@@ -11,6 +11,7 @@ public class Player extends GameObject {
     private static final int R = 12;
     private static final Color FILL = new Color(230, 234, 240);
     private static final Color WHITE = new Color(255, 255, 255);
+    private static final Color TRAIL_BASE = new Color(200, 210, 220);
 
     private static final float ACCEL = 0.45f;
     private static final float DECEL = 0.30f;
@@ -227,7 +228,7 @@ public class Player extends GameObject {
 
             // Afterimage trail — intense during dash
             Color dashCol = GamePalette.accent();
-            handler.addObject(new Trail(x, y, ID.Trail, dashCol, SIZE, SIZE, 0.06f, handler, PlayerSkins.getSelectedTrailShape()));
+            TrailPool.add(x, y, dashCol, SIZE, SIZE, 0.06f, PlayerSkins.getSelectedTrailShape());
 
             // Dash-strike: damage enemies while dashing (combat mode)
             if (Game.combatMode) {
@@ -325,11 +326,10 @@ public class Player extends GameObject {
         if (Settings.getPlayerTrail()) {
             int trailRate = streakLevel > 0.5f ? 2 : 3;
             float trailLife = 0.045f - streakLevel * 0.02f;
-            Color trailCol = lerpColor(new Color(200, 210, 220),
-                    GamePalette.accent(), streakLevel * 0.6f);
+            Color trailCol = lerpColor(TRAIL_BASE, GamePalette.accent(), streakLevel * 0.6f);
 
             if (++trailTick % trailRate == 0) {
-                handler.addObject(new Trail(x, y, ID.Trail, trailCol, SIZE, SIZE, Math.max(trailLife, 0.015f), handler, PlayerSkins.getSelectedTrailShape()));
+                TrailPool.add(x, y, trailCol, SIZE, SIZE, Math.max(trailLife, 0.015f), PlayerSkins.getSelectedTrailShape());
             }
         }
 

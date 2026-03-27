@@ -50,7 +50,7 @@ public class EnemyBossBullet extends GameObject {
 
         Color tc = parried ? PARRY_FILL : TRAIL_COLOR;
         if (++trailTick % 3 == 0)
-            handler.addObject(new Trail(x, y, ID.Trail, tc, SIZE, SIZE, 0.03f, handler, Trail.SHAPE_CIRCLE));
+            TrailPool.add(x, y, tc, SIZE, SIZE, 0.03f, TrailPool.SHAPE_CIRCLE);
 
         // Parried bullets damage bosses on contact
         if (parried) {
@@ -71,10 +71,10 @@ public class EnemyBossBullet extends GameObject {
                 Color accent = GamePalette.accent();
                 for (int j = 0; j < 6; j++) {
                     float angle = (float) (Math.random() * Math.PI * 2);
-                    handler.addObject(new Trail(
+                    TrailPool.add(
                             x + (float) Math.cos(angle) * 12,
                             y + (float) Math.sin(angle) * 12,
-                            ID.Trail, accent, 8, 8, 0.06f, handler, Trail.SHAPE_CIRCLE));
+                            accent, 8, 8, 0.06f, TrailPool.SHAPE_CIRCLE);
                 }
                 handler.removeObject(this);
                 return;

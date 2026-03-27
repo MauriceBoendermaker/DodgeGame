@@ -36,10 +36,8 @@ public class PlayerProjectile extends GameObject {
         }
 
         // Trail
-        Color accent = GamePalette.accent();
-        Color trailCol = new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 180);
         if (++trailTick % 2 == 0) {
-            handler.addObject(new Trail(x, y, ID.Trail, trailCol, SIZE, SIZE, 0.04f, handler, Trail.SHAPE_CIRCLE));
+            TrailPool.add(x, y, GamePalette.accent(), SIZE, SIZE, 0.04f, TrailPool.SHAPE_CIRCLE);
         }
 
         // Collision with enemies
@@ -76,11 +74,10 @@ public class PlayerProjectile extends GameObject {
         float cy = target.getY() + 16;
         for (int i = 0; i < 4; i++) {
             float angle = (float) (Math.random() * Math.PI * 2);
-            float speed = 2f + (float) Math.random() * 3f;
-            handler.addObject(new Trail(
+            TrailPool.add(
                     cx + (float) Math.cos(angle) * 8,
                     cy + (float) Math.sin(angle) * 8,
-                    ID.Trail, accent, 6, 6, 0.06f, handler, Trail.SHAPE_CIRCLE));
+                    accent, 6, 6, 0.06f, TrailPool.SHAPE_CIRCLE);
         }
     }
 

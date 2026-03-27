@@ -41,10 +41,10 @@ public class SmartEnemy extends GameObject {
     private void die() {
         for (int i = 0; i < 6; i++) {
             float angle = (float) (Math.random() * Math.PI * 2);
-            handler.addObject(new Trail(
+            TrailPool.add(
                     x + SIZE / 2 + (float) Math.cos(angle) * 8,
                     y + SIZE / 2 + (float) Math.sin(angle) * 8,
-                    ID.Trail, FILL, SIZE / 2, SIZE / 2, 0.05f, handler, Trail.SHAPE_CIRCLE));
+                    FILL, SIZE / 2, SIZE / 2, 0.05f, TrailPool.SHAPE_CIRCLE);
         }
         Game.addEnemyKilled();
         Game.addKillBonus(125);
@@ -71,7 +71,7 @@ public class SmartEnemy extends GameObject {
         pulsePhase += 0.08f + closeness * 0.12f;
 
         if (++trailTick % 4 == 0)
-            handler.addObject(new Trail(x, y, ID.Trail, TRAIL_COLOR, SIZE, SIZE, 0.06f, handler, Trail.SHAPE_CIRCLE));
+            TrailPool.add(x, y, TRAIL_COLOR, SIZE, SIZE, 0.06f, TrailPool.SHAPE_CIRCLE);
     }
 
     public void render(Graphics g) {
