@@ -162,7 +162,7 @@ Compile and run the `Game` class as the main entry point:
 
 ```
 javac -cp "libs/jars/*" -d out src/*.java
-java -cp "out;libs/jars/*" Game
+java -Dsun.java2d.opengl=true -Dsun.java2d.translaccel=true -Dsun.java2d.ddscale=true -cp "out;libs/jars/*" Game
 ```
 
 ## Version History
