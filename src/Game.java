@@ -430,15 +430,18 @@ public class Game extends Canvas implements Runnable {
             }
             frames++;
 
-            // Cap render at ~60fps to match the 60Hz simulation — sleep, no busy-wait spin.
-            // The sim is decoupled via the delta catch-up loop above, so this changes no game
-            // speed; it only stops drawing redundant duplicate frames and frees the pinned core.
-            long renderNs = 1000000000L / 60;
+            // Frame limiter: sleep the bulk, then busy-wait for precision.
+            // NOTE: pure Thread.sleep is NOT viable here — Windows' ~15.6ms scheduler tick
+            // quantizes a sub-16ms sleep to whole ticks (locking FPS to ~64/32/21). The short
+            // yield-spin fills the sub-tick remainder so the frame rate is not quantized. On a
+            // machine that can't reach the 240 cap the spin never runs (elapsed already exceeds
+            // renderNs), so it renders at native speed without pinning a core.
+            long renderNs = 1000000000L / 240;
             long sleepNanos = renderNs - (System.nanoTime() - now);
-            if (sleepNanos > 0) {
-                try { Thread.sleep(sleepNanos / 1000000, (int) (sleepNanos % 1000000)); }
-                catch (InterruptedException ignored) {}
+            if (sleepNanos > 2000000) {
+                try { Thread.sleep((sleepNanos - 1000000) / 1000000); } catch (InterruptedException ignored) {}
             }
+            while (System.nanoTime() - now < renderNs) { Thread.yield(); }
             if (System.currentTimeMillis() - timer > 1000) {
                 timer += 1000;
                 fps = frames;
