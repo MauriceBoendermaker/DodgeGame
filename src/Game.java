@@ -195,10 +195,6 @@ public class Game extends Canvas implements Runnable {
     private float geoPhase = 0;
     private java.awt.image.BufferedImage geoCache;
     private int geoCacheFrame = 0;
-    // Grid-dot layer cache (P2-B) — rebuilt only when spacing, dot size, or accent RGB changes;
-    // the per-frame beat alpha pulse is applied via AlphaComposite at blit time.
-    private java.awt.image.BufferedImage gridDotCache;
-    private int gridDotSpacing = -1, gridDotSize = -1, gridDotR = -1, gridDotG = -1, gridDotB = -1;
 
     // Screen transitions
     private STATE lastState = STATE.Menu;
@@ -1231,53 +1227,18 @@ public class Game extends Canvas implements Runnable {
             g.fillRect(WIDTH - 3, 0, 3, HEIGHT);
         }
 
-        // Grid dots — expand on beat, denser spacing on harder difficulties.
-        // Cached into a display-compatible layer (P2-B): the ~600-1000 dot fills only re-run when
-        // spacing/size/accent change; steady frames just blit the cached layer with the beat alpha.
+        // Grid dots — expand on beat, denser spacing on harder difficulties
         if (Settings.getGridDots()) {
             int gridSpacing = density > 1.5f ? 30 : density > 1.1f ? 35 : 40;
             int baseDotSize = 2;
             int beatDotSize = baseDotSize + (int) (beat * 3 * density);
             int baseAlpha = (int) ((22 + beat * 35) * Math.min(density, 1.4f));
-            Color dotColor = GamePalette.accent();
-
-            if (gridDotCache == null || gridDotCache.getWidth() != WIDTH
-                    || gridSpacing != gridDotSpacing || beatDotSize != gridDotSize
-                    || dotColor.getRed() != gridDotR || dotColor.getGreen() != gridDotG
-                    || dotColor.getBlue() != gridDotB) {
-                if (gridDotCache == null || gridDotCache.getWidth() != WIDTH) {
-                    gridDotCache = g.getDeviceConfiguration().createCompatibleImage(
-                            WIDTH, HEIGHT, java.awt.Transparency.TRANSLUCENT);
+            g.setColor(GamePalette.accent(Math.min(baseAlpha, 255)));
+            for (int x = 20; x < WIDTH; x += gridSpacing) {
+                for (int y = 20; y < HEIGHT; y += gridSpacing) {
+                    g.fillRect(x - beatDotSize / 2, y - beatDotSize / 2, beatDotSize, beatDotSize);
                 }
-                Graphics2D gc = gridDotCache.createGraphics();
-                gc.setComposite(java.awt.AlphaComposite.Clear);
-                gc.fillRect(0, 0, WIDTH, HEIGHT);
-                gc.setComposite(java.awt.AlphaComposite.SrcOver);
-                gc.setColor(dotColor);
-                for (int x = 20; x < WIDTH; x += gridSpacing) {
-                    for (int y = 20; y < HEIGHT; y += gridSpacing) {
-                        gc.fillRect(x - beatDotSize / 2, y - beatDotSize / 2, beatDotSize, beatDotSize);
-                    }
-                }
-                gc.dispose();
-                gridDotSpacing = gridSpacing;
-                gridDotSize = beatDotSize;
-                gridDotR = dotColor.getRed();
-                gridDotG = dotColor.getGreen();
-                gridDotB = dotColor.getBlue();
             }
-
-            // Blit sharp (nearest-neighbor — dots are tiny axis-aligned squares) with the beat alpha.
-            Object oldInterp = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
-            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
-                    RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-            java.awt.Composite oldComp = g.getComposite();
-            g.setComposite(java.awt.AlphaComposite.getInstance(
-                    java.awt.AlphaComposite.SRC_OVER, Math.min(baseAlpha, 255) / 255f));
-            g.drawImage(gridDotCache, 0, 0, null);
-            g.setComposite(oldComp);
-            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
-                    oldInterp != null ? oldInterp : RenderingHints.VALUE_INTERPOLATION_BILINEAR);
         }
 
         // Edge pulse — vignette throbs on beat, stronger on harder difficulties
