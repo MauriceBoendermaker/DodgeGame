@@ -249,10 +249,10 @@ public class BossSwarm extends GameObject {
             }
         }
 
-        renderBossBar(g2);
+        renderBossBar(g2, minionCount);
     }
 
-    private void renderBossBar(Graphics2D g) {
+    private void renderBossBar(Graphics2D g, int minionCount) {
         int barW = 400;
         int barH = 10;
         int barX = (Game.WIDTH - barW) / 2;
@@ -279,6 +279,6 @@ public class BossSwarm extends GameObject {
 
         g.setFont(FONT_PHASE);
         g.setColor(fill);
-        g.drawString(countMinions() + " minions", barX + barW + 10, barY + 9);
+        g.drawString(minionCount + " minions", barX + barW + 10, barY + 9);
     }
 }

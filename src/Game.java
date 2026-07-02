@@ -195,6 +195,10 @@ public class Game extends Canvas implements Runnable {
     private float geoPhase = 0;
     private java.awt.image.BufferedImage geoCache;
     private int geoCacheFrame = 0;
+    // Grid-dot layer cache (P2-B) — rebuilt only when spacing, dot size, or accent RGB changes;
+    // the per-frame beat alpha pulse is applied via AlphaComposite at blit time.
+    private java.awt.image.BufferedImage gridDotCache;
+    private int gridDotSpacing = -1, gridDotSize = -1, gridDotR = -1, gridDotG = -1, gridDotB = -1;
 
     // Screen transitions
     private STATE lastState = STATE.Menu;
@@ -426,13 +430,15 @@ public class Game extends Canvas implements Runnable {
             }
             frames++;
 
-            // Cap at ~240fps — sleep bulk, then busy-wait for precision
-            long renderNs = 1000000000L / 240;
+            // Cap render at ~60fps to match the 60Hz simulation — sleep, no busy-wait spin.
+            // The sim is decoupled via the delta catch-up loop above, so this changes no game
+            // speed; it only stops drawing redundant duplicate frames and frees the pinned core.
+            long renderNs = 1000000000L / 60;
             long sleepNanos = renderNs - (System.nanoTime() - now);
-            if (sleepNanos > 2000000) {
-                try { Thread.sleep((sleepNanos - 1000000) / 1000000); } catch (InterruptedException ignored) {}
+            if (sleepNanos > 0) {
+                try { Thread.sleep(sleepNanos / 1000000, (int) (sleepNanos % 1000000)); }
+                catch (InterruptedException ignored) {}
             }
-            while (System.nanoTime() - now < renderNs) { Thread.yield(); }
             if (System.currentTimeMillis() - timer > 1000) {
                 timer += 1000;
                 fps = frames;
@@ -815,10 +821,11 @@ public class Game extends Canvas implements Runnable {
         }
 
         if (gameState == STATE.Game || gameState == STATE.Shop || gameState == STATE.Paused || gameState == STATE.Dying) {
+            float beat = AudioPlayer.getBeatPulse();
             PageRenderer.drawGameBackground(g);
-            renderBeatVisuals(g);
+            renderBeatVisuals(g, beat);
             renderGeoLayers(g);
-            renderNeonWalls(g);
+            renderNeonWalls(g, beat);
         }
 
         if (gameState == STATE.Paused) {
@@ -1202,8 +1209,7 @@ public class Game extends Canvas implements Runnable {
         }
     }
 
-    private void renderBeatVisuals(Graphics2D g) {
-        float beat = AudioPlayer.getBeatPulse();
+    private void renderBeatVisuals(Graphics2D g, float beat) {
         float density = GamePalette.getParticleDensity() * Settings.getParticleDensityMultiplier();
         float distortion = GamePalette.getDistortion();
 
@@ -1222,18 +1228,53 @@ public class Game extends Canvas implements Runnable {
             g.fillRect(WIDTH - 3, 0, 3, HEIGHT);
         }
 
-        // Grid dots — expand on beat, denser spacing on harder difficulties
+        // Grid dots — expand on beat, denser spacing on harder difficulties.
+        // Cached into a display-compatible layer (P2-B): the ~600-1000 dot fills only re-run when
+        // spacing/size/accent change; steady frames just blit the cached layer with the beat alpha.
         if (Settings.getGridDots()) {
             int gridSpacing = density > 1.5f ? 30 : density > 1.1f ? 35 : 40;
             int baseDotSize = 2;
             int beatDotSize = baseDotSize + (int) (beat * 3 * density);
             int baseAlpha = (int) ((22 + beat * 35) * Math.min(density, 1.4f));
-            g.setColor(GamePalette.accent(Math.min(baseAlpha, 255)));
-            for (int x = 20; x < WIDTH; x += gridSpacing) {
-                for (int y = 20; y < HEIGHT; y += gridSpacing) {
-                    g.fillRect(x - beatDotSize / 2, y - beatDotSize / 2, beatDotSize, beatDotSize);
+            Color dotColor = GamePalette.accent();
+
+            if (gridDotCache == null || gridDotCache.getWidth() != WIDTH
+                    || gridSpacing != gridDotSpacing || beatDotSize != gridDotSize
+                    || dotColor.getRed() != gridDotR || dotColor.getGreen() != gridDotG
+                    || dotColor.getBlue() != gridDotB) {
+                if (gridDotCache == null || gridDotCache.getWidth() != WIDTH) {
+                    gridDotCache = g.getDeviceConfiguration().createCompatibleImage(
+                            WIDTH, HEIGHT, java.awt.Transparency.TRANSLUCENT);
                 }
+                Graphics2D gc = gridDotCache.createGraphics();
+                gc.setComposite(java.awt.AlphaComposite.Clear);
+                gc.fillRect(0, 0, WIDTH, HEIGHT);
+                gc.setComposite(java.awt.AlphaComposite.SrcOver);
+                gc.setColor(dotColor);
+                for (int x = 20; x < WIDTH; x += gridSpacing) {
+                    for (int y = 20; y < HEIGHT; y += gridSpacing) {
+                        gc.fillRect(x - beatDotSize / 2, y - beatDotSize / 2, beatDotSize, beatDotSize);
+                    }
+                }
+                gc.dispose();
+                gridDotSpacing = gridSpacing;
+                gridDotSize = beatDotSize;
+                gridDotR = dotColor.getRed();
+                gridDotG = dotColor.getGreen();
+                gridDotB = dotColor.getBlue();
             }
+
+            // Blit sharp (nearest-neighbor — dots are tiny axis-aligned squares) with the beat alpha.
+            Object oldInterp = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                    RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+            java.awt.Composite oldComp = g.getComposite();
+            g.setComposite(java.awt.AlphaComposite.getInstance(
+                    java.awt.AlphaComposite.SRC_OVER, Math.min(baseAlpha, 255) / 255f));
+            g.drawImage(gridDotCache, 0, 0, null);
+            g.setComposite(oldComp);
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                    oldInterp != null ? oldInterp : RenderingHints.VALUE_INTERPOLATION_BILINEAR);
         }
 
         // Edge pulse — vignette throbs on beat, stronger on harder difficulties
@@ -1253,7 +1294,8 @@ public class Game extends Canvas implements Runnable {
         if (geoCache == null || geoCache.getWidth() != WIDTH || ++geoCacheFrame >= 4) {
             geoCacheFrame = 0;
             if (geoCache == null || geoCache.getWidth() != WIDTH) {
-                geoCache = new java.awt.image.BufferedImage(WIDTH, HEIGHT, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+                geoCache = g.getDeviceConfiguration().createCompatibleImage(
+                        WIDTH, HEIGHT, java.awt.Transparency.TRANSLUCENT);
             }
             Graphics2D g2 = geoCache.createGraphics();
             g2.setComposite(java.awt.AlphaComposite.Clear);
@@ -1328,8 +1370,7 @@ public class Game extends Canvas implements Runnable {
         g.drawPolygon(xp, yp, 6);
     }
 
-    private void renderNeonWalls(Graphics2D g) {
-        float beat = AudioPlayer.getBeatPulse();
+    private void renderNeonWalls(Graphics2D g, float beat) {
         float basePulse = (float) (Math.sin(wallPulsePhase) * 0.3 + 0.7);
         int baseAlpha = (int) ((basePulse + beat * 0.6f) * 40);
         baseAlpha = Math.min(baseAlpha, 80);

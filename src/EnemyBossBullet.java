@@ -49,7 +49,11 @@ public class EnemyBossBullet extends GameObject {
         }
 
         Color tc = parried ? PARRY_FILL : TRAIL_COLOR;
-        if (++trailTick % 3 == 0)
+        // Load-aware throttle (P1-A): identical under normal load, but once the shared trail pool
+        // nears saturation (bullet-hell boss frames) we skip emission to cap the worst case.
+        // Trails are purely cosmetic, so this never affects gameplay. trailTick still advances
+        // every tick, so the emission cadence is unchanged when trails resume.
+        if (++trailTick % 3 == 0 && TrailPool.liveCount() < 360)
             TrailPool.add(x, y, tc, SIZE, SIZE, 0.03f, TrailPool.SHAPE_CIRCLE);
 
         // Parried bullets damage bosses on contact

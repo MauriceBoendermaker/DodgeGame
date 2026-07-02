@@ -26,6 +26,22 @@ public class TrailPool {
     }
     private static final AlphaComposite OPAQUE = ALPHA_CACHE[255];
 
+    // Memoize opaque trail colors by packed RGB. render() supplies alpha via setComposite,
+    // so trails only need a small set of opaque RGBs — this avoids a `new Color` per live
+    // trail per frame (byte-identical output). Cache OPAQUE colors only; never alpha-carrying
+    // ones, or the composite would double-blend.
+    private static final java.util.HashMap<Integer, Color> COLOR_CACHE = new java.util.HashMap<>();
+
+    private static Color opaque(int r, int g, int b) {
+        int key = (r << 16) | (g << 8) | b;
+        Color c = COLOR_CACHE.get(key);
+        if (c == null) {
+            c = new Color(r, g, b);
+            COLOR_CACHE.put(key, c);
+        }
+        return c;
+    }
+
     // Shape constants (match Trail.java)
     public static final int SHAPE_ROUND_RECT = 0;
     public static final int SHAPE_DIAMOND    = 1;
@@ -82,6 +98,15 @@ public class TrailPool {
         }
     }
 
+    /** Number of currently-alive trails — used for load-aware emission throttling (P1-A). */
+    public static int liveCount() {
+        int n = 0;
+        for (int i = 0; i < MAX_TRAILS; i++) {
+            if (pool[i][ALPHA] > 0) n++;
+        }
+        return n;
+    }
+
     public static void render(Graphics2D g) {
         for (int i = 0; i < MAX_TRAILS; i++) {
             float[] t = pool[i];
@@ -89,7 +114,7 @@ public class TrailPool {
 
             int alphaIdx = Math.min(255, (int) (t[ALPHA] * 255));
             g.setComposite(ALPHA_CACHE[alphaIdx]);
-            g.setColor(new Color((int) t[R], (int) t[G], (int) t[B]));
+            g.setColor(opaque((int) t[R], (int) t[G], (int) t[B]));
 
             int shrink = (int) ((1f - t[ALPHA]) * 4);
             int dx = (int) t[X] + shrink;

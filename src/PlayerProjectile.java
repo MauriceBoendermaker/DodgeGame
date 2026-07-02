@@ -7,6 +7,8 @@ public class PlayerProjectile extends GameObject {
 
     private static final int SIZE = 10;
 
+    private static final Color CORE = new Color(230, 234, 240);
+
     private Handler handler;
     private float damage;
     private int trailTick = 0;
@@ -90,7 +92,7 @@ public class PlayerProjectile extends GameObject {
         g2.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 50));
         g2.fillOval(ix - 3, iy - 3, SIZE + 6, SIZE + 6);
         // Core
-        g2.setColor(new Color(230, 234, 240));
+        g2.setColor(CORE);
         g2.fillOval(ix, iy, SIZE, SIZE);
         // Inner accent
         g2.setColor(accent);

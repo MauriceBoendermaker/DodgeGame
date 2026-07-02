@@ -3,6 +3,7 @@ import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.GradientPaint;
 import java.awt.Graphics2D;
+import java.awt.GraphicsConfiguration;
 import java.awt.RadialGradientPaint;
 import java.awt.RenderingHints;
 import java.awt.geom.Point2D;
@@ -58,20 +59,22 @@ public class PageRenderer {
 
     public static void drawBackground(Graphics2D g) {
         if (bgCache == null) {
-            bgCache = createBackground();
+            bgCache = createBackground(g.getDeviceConfiguration());
         }
         g.drawImage(bgCache, 0, 0, null);
     }
 
     public static void drawGameBackground(Graphics2D g) {
         if (gameBgCache == null) {
-            gameBgCache = createGameBackground();
+            gameBgCache = createGameBackground(g.getDeviceConfiguration());
         }
         g.drawImage(gameBgCache, 0, 0, null);
     }
 
-    private static BufferedImage createGameBackground() {
-        BufferedImage img = new BufferedImage(Game.WIDTH, Game.HEIGHT, BufferedImage.TYPE_INT_ARGB);
+    private static BufferedImage createGameBackground(GraphicsConfiguration gc) {
+        // Display-compatible OPAQUE image (P1-B) — the base fill covers every pixel, so no alpha
+        // is needed and this format blits without a per-frame format conversion.
+        BufferedImage img = gc.createCompatibleImage(Game.WIDTH, Game.HEIGHT);
         Graphics2D g = img.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
@@ -102,8 +105,9 @@ public class PageRenderer {
         return img;
     }
 
-    private static BufferedImage createBackground() {
-        BufferedImage img = new BufferedImage(Game.WIDTH, Game.HEIGHT, BufferedImage.TYPE_INT_ARGB);
+    private static BufferedImage createBackground(GraphicsConfiguration gc) {
+        // Display-compatible OPAQUE image (P1-B) — fully covered by the base gradient.
+        BufferedImage img = gc.createCompatibleImage(Game.WIDTH, Game.HEIGHT);
         Graphics2D g = img.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 

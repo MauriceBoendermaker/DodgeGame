@@ -574,14 +574,15 @@ public class Player extends GameObject {
             float auraIntensity = (streakLevel - 0.3f) / 0.7f;
             int count = 3 + (int) (auraIntensity * 5);
             int auraAlpha = (int) (auraIntensity * 80);
+            Color auraColor = new Color(accent.getRed(), accent.getGreen(), accent.getBlue(),
+                    Math.min(auraAlpha, 255));
             for (int i = 0; i < count; i++) {
                 float a = auraPhase + i * (float) (Math.PI * 2 / count);
                 float dist = 30 + (float) Math.sin(auraPhase * 1.5f + i) * 8;
                 int px = cx + (int) (Math.cos(a) * dist);
                 int py = cy + (int) (Math.sin(a) * dist);
                 int dotSize = 2 + (int) (auraIntensity * 3);
-                g2.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(),
-                        Math.min(auraAlpha, 255)));
+                g2.setColor(auraColor);
                 g2.fillOval(px - dotSize / 2, py - dotSize / 2, dotSize, dotSize);
             }
         }

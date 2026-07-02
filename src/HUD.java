@@ -50,6 +50,10 @@ public class HUD {
     private static final Color TIER_SPEED = new Color(100, 180, 220);
     private static final Color TIER_REFILL = new Color(245, 195, 68);
     private static final Color TIER_BG = new Color(30, 38, 52);
+    // Top readability gradient — geometry is fixed, so build the paint once
+    private static final GradientPaint TOP_GRADIENT = new GradientPaint(
+            0, 0, new Color(10, 12, 18, 160), 0, 90, new Color(10, 12, 18, 0));
+    private static final Font FONT_TOAST_ICON = new Font("Arial", Font.BOLD, 18);
 
     // Level-up announcement
     private float levelUpBanner = 0;
@@ -59,6 +63,11 @@ public class HUD {
     private boolean isWaveAnnounce = false;
     private int waveCount = 1;
     private int lastBossLevel = 0; // tracks last level a boss was beaten
+    // Watermark cache (P2-D) — the 600pt glyph is rasterized once per level/accent change,
+    // then blitted each frame with the current alpha instead of re-rendering the glyph.
+    private java.awt.image.BufferedImage watermarkCache;
+    private String watermarkCacheStr = null;
+    private int watermarkCacheR = -1, watermarkCacheG = -1, watermarkCacheB = -1;
     private static final Font FONT_ANNOUNCE = new Font("Arial", Font.BOLD, 64);
     private static final Font FONT_ANNOUNCE_SUB = new Font("Arial", Font.BOLD, 20);
 
@@ -149,7 +158,7 @@ public class HUD {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         // Subtle top gradient overlay for readability
-        g2.setPaint(new GradientPaint(0, 0, new Color(10, 12, 18, 160), 0, 90, new Color(10, 12, 18, 0)));
+        g2.setPaint(TOP_GRADIENT);
         g2.fillRect(0, 0, Game.WIDTH, 90);
 
         // Health bar
@@ -296,14 +305,42 @@ public class HUD {
         fm = g2.getFontMetrics();
         g2.drawString(scoreLabel, (Game.WIDTH - fm.stringWidth(scoreLabel)) / 2, 18);
 
-        // Large level watermark in background — flashes on level-up
-        g2.setFont(FONT_LEVEL_BG);
+        // Large level watermark in background — flashes on level-up. Cached (P2-D): the 600pt
+        // glyph is only rasterized when the level string or accent color changes; each frame just
+        // blits the cached glyph modulated by the current watermark alpha.
         int watermarkAlpha = 20 + (int) (levelUpBanner * 60);
-        g2.setColor(GamePalette.accent(Math.min(watermarkAlpha, 255)));
         int displayLevel = getLevelInWave();
         String levelStr = displayLevel <= 9 ? "0" + displayLevel : "" + displayLevel;
-        fm = g2.getFontMetrics();
-        g2.drawString(levelStr, (Game.WIDTH - fm.stringWidth(levelStr)) / 2, Game.HEIGHT - 80);
+        Color wmAccent = GamePalette.accent();
+        if (watermarkCache == null || watermarkCache.getWidth() != Game.WIDTH
+                || !levelStr.equals(watermarkCacheStr)
+                || wmAccent.getRed() != watermarkCacheR || wmAccent.getGreen() != watermarkCacheG
+                || wmAccent.getBlue() != watermarkCacheB) {
+            if (watermarkCache == null || watermarkCache.getWidth() != Game.WIDTH) {
+                watermarkCache = g2.getDeviceConfiguration().createCompatibleImage(
+                        Game.WIDTH, Game.HEIGHT, java.awt.Transparency.TRANSLUCENT);
+            }
+            Graphics2D wg = watermarkCache.createGraphics();
+            wg.setComposite(java.awt.AlphaComposite.Clear);
+            wg.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
+            wg.setComposite(java.awt.AlphaComposite.SrcOver);
+            wg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            wg.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            wg.setFont(FONT_LEVEL_BG);
+            wg.setColor(wmAccent);
+            FontMetrics wfm = wg.getFontMetrics();
+            wg.drawString(levelStr, (Game.WIDTH - wfm.stringWidth(levelStr)) / 2, Game.HEIGHT - 80);
+            wg.dispose();
+            watermarkCacheStr = levelStr;
+            watermarkCacheR = wmAccent.getRed();
+            watermarkCacheG = wmAccent.getGreen();
+            watermarkCacheB = wmAccent.getBlue();
+        }
+        java.awt.Composite oldWmComp = g2.getComposite();
+        g2.setComposite(java.awt.AlphaComposite.getInstance(
+                java.awt.AlphaComposite.SRC_OVER, Math.min(watermarkAlpha, 255) / 255f));
+        g2.drawImage(watermarkCache, 0, 0, null);
+        g2.setComposite(oldWmComp);
 
         // Wave announcement — slam in, hold, fade out (only for wave changes)
         if (isWaveAnnounce && announceTimer > 0 && announceText.length() > 0) {
@@ -409,7 +446,7 @@ public class HUD {
         g.drawRoundRect(toastX, toastY, toastW, toastH, 8, 8);
 
         // Trophy icon
-        g.setFont(new Font("Arial", Font.BOLD, 18));
+        g.setFont(FONT_TOAST_ICON);
         g.setColor(new Color(255, 210, 80, alpha));
         g.drawString("\u2605", toastX + 14, toastY + 31);
 

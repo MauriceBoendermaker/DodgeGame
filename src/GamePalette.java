@@ -94,16 +94,27 @@ public class GamePalette {
         bgB += (bgTargetB - bgB) * LERP_SPEED;
     }
 
+    // Cached accent — recomputed only when the underlying RGB or colorblind mode changes.
+    // accent() is called many times per frame but currentR/G/B only lerp once per tick, so
+    // this returns the same immutable Color instead of allocating (+ HSB math) on every call.
+    private static Color cachedAccent;
+    private static int cachedR = -1, cachedG = -1, cachedB = -1;
+    private static boolean cachedColorblind;
+
     public static Color accent() {
-        Color c = new Color(clamp(currentR), clamp(currentG), clamp(currentB));
-        return Settings.getColorblindMode() ? toColorblind(c) : c;
+        int r = clamp(currentR), g = clamp(currentG), b = clamp(currentB);
+        boolean cb = Settings.getColorblindMode();
+        if (cachedAccent == null || r != cachedR || g != cachedG || b != cachedB || cb != cachedColorblind) {
+            Color base = new Color(r, g, b);
+            cachedAccent = cb ? toColorblind(base) : base;
+            cachedR = r; cachedG = g; cachedB = b; cachedColorblind = cb;
+        }
+        return cachedAccent;
     }
 
     public static Color accent(int alpha) {
-        Color c = new Color(clamp(currentR), clamp(currentG), clamp(currentB), Math.max(0, Math.min(255, alpha)));
-        if (!Settings.getColorblindMode()) return c;
-        Color cb = toColorblind(c);
-        return new Color(cb.getRed(), cb.getGreen(), cb.getBlue(), c.getAlpha());
+        Color base = accent();
+        return new Color(base.getRed(), base.getGreen(), base.getBlue(), Math.max(0, Math.min(255, alpha)));
     }
 
     /** Remap a color toward a deuteranopia-friendly palette (blue/orange/yellow) */
